@@ -11,6 +11,7 @@
         </div>
         
         <form action="{{ url_for('import_data') }}" method="POST" enctype="multipart/form-data" class="px-6 py-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="space-y-6">
                 <div>
                     <label for="file" class="block text-sm font-medium text-gray-700">Select File</label>

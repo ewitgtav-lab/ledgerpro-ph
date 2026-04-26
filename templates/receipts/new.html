@@ -11,6 +11,7 @@
         </div>
         
         <form action="{{ url_for('new_receipt') }}" method="POST" class="px-6 py-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="space-y-6">
                 <div>
                     <label for="customer_name" class="block text-sm font-medium text-gray-700">Customer Name</label>

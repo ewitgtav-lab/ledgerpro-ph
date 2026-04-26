@@ -20,14 +20,14 @@
             <span class="text-sm text-gray-600">Receipts: {{ receipt_count }} / 15</span>
             <div class="flex-1 h-4 bg-gray-200 rounded-full overflow-hidden">
                 {% if receipt_count == 0 %}
-                <div class="h-full bg-gray-300 rounded-full" style="width: 0%"></div>
+                <div class="h-full bg-gray-300 rounded-full w-0"></div>
                 {% elif receipt_count >= 15 %}
-                <div class="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full transition-all duration-300" style="width: 100%"></div>
+                <div class="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full transition-all duration-300 w-full"></div>
                 {% else %}
-                <div class="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-300" style="width: {{ usage_percentage }}%"></div>
+                <div class="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-300" data-width="{{ usage_percentage | default(0) }}"></div>
                 {% endif %}
             </div>
-            <span class="text-sm text-gray-600">{{ "%.0f"|format(usage_percentage) }}%</span>
+            <span class="text-sm text-gray-600">{{ "%.0f"|format(usage_percentage | default(0)) }}%</span>
         </div>
         {% if pending_request %}
         <p class="mt-2 text-sm text-yellow-600">
@@ -54,7 +54,7 @@
                 <div class="ml-5 w-0 flex-1">
                     <dl>
                         <dt class="text-sm font-medium text-gray-500 truncate">Total Sales</dt>
-                        <dd class="text-lg font-medium text-gray-900">₱{{ "%.2f"|format(total_sales) }}</dd>
+                        <dd class="text-lg font-medium text-gray-900">₱{{ total_sales | currency }}</dd>
                     </dl>
                 </div>
             </div>
@@ -70,7 +70,7 @@
                 <div class="ml-5 w-0 flex-1">
                     <dl>
                         <dt class="text-sm font-medium text-gray-500 truncate">Total Expenses</dt>
-                        <dd class="text-lg font-medium text-gray-900">₱{{ "%.2f"|format(total_expenses) }}</dd>
+                        <dd class="text-lg font-medium text-gray-900">₱{{ total_expenses | currency }}</dd>
                     </dl>
                 </div>
             </div>
@@ -87,7 +87,7 @@
                     <dl>
                         <dt class="text-sm font-medium text-gray-500 truncate">Net Profit</dt>
                         <dd class="text-lg font-medium text-gray-900 {% if net_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                            {% if net_profit >= 0 %}+{% endif %}₱{{ "%.2f"|format(net_profit) }}
+                            {% if net_profit >= 0 %}+{% endif %}₱{{ net_profit | currency }}
                         </dd>
                     </dl>
                 </div>
@@ -105,11 +105,11 @@
                 </svg>
                 New Receipt
             </a>
-            <a href="{{ url_for('new_transaction') }}" class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <a href="{{ url_for('import_data') }}" class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                 </svg>
-                Add Transaction
+                Import Data
             </a>
             <a href="{{ url_for('receipts_list') }}" class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,4 +126,16 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const progressBar = document.querySelector('[data-width]');
+    if (progressBar) {
+        const width = progressBar.getAttribute('data-width');
+        progressBar.style.width = width + '%';
+    }
+});
+</script>
 {% endblock %}

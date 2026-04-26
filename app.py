@@ -1,8 +1,10 @@
 import os
+import uuid
 from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, flash, request, send_file, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -18,6 +20,7 @@ load_dotenv()
 
 db = SQLAlchemy()
 login_manager = LoginManager()
+csrf = CSRFProtect()
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -77,6 +80,7 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
+    csrf.init_app(app)
     login_manager.login_view = 'login'
     
     @login_manager.user_loader
@@ -91,6 +95,11 @@ def create_app():
     def from_json(value):
         import json
         return json.loads(value)
+    
+    @app.template_filter('currency')
+    def currency_format(value):
+        """Format currency with ₱ symbol and proper formatting"""
+        return f"₱{value:,.2f}"
     
     def allowed_file(filename):
         ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
@@ -166,7 +175,7 @@ def create_app():
         # Check for pending subscription request
         pending_request = SubscriptionRequest.query.filter_by(user_id=current_user.id, status='Pending').first()
         
-        # Calculate analytics
+        # Calculate real-time analytics (fresh calculation each time dashboard loads)
         sales = Transaction.query.filter_by(user_id=current_user.id, type='sale').all()
         expenses = Transaction.query.filter_by(user_id=current_user.id, type='expense').all()
         
@@ -191,7 +200,7 @@ def create_app():
     @app.route('/receipts/new', methods=['GET', 'POST'])
     @login_required
     def new_receipt():
-        # Check usage limit for free users
+        # Check if user has reached receipt limit (count database entries)
         if not current_user.is_pro:
             receipt_count = Receipt.query.filter_by(user_id=current_user.id).count()
             if receipt_count >= 15:
@@ -246,49 +255,118 @@ def create_app():
     def receipt_pdf(id):
         receipt = Receipt.query.filter_by(id=id, user_id=current_user.id).first_or_404()
         
-        # Create PDF
+        # Create Modern Corporate PDF
         buffer = io.BytesIO()
         p = canvas.Canvas(buffer, pagesize=letter)
         width, height = letter
         
-        # Header
-        p.setFont("Helvetica-Bold", 20)
-        p.drawString(50, height - 50, current_user.shop_name)
-        
+        # Modern Corporate Header with Blue Accent
+        p.setFillColor(colors.HexColor('#1e40af'))
+        p.rect(30, height - 60, width - 60, 50, fill=True, stroke=False)
+        p.setFillColor(colors.white)
+        p.setFont("Helvetica-Bold", 24)
+        p.drawCentredText("OFFICIAL RECEIPT", width/2, height - 45)
+        p.setFont("Helvetica-Bold", 16)
+        p.drawCentredText(current_user.shop_name, width/2, height - 65)
         p.setFont("Helvetica", 12)
-        p.drawString(50, height - 80, f"Receipt #: {receipt.receipt_number}")
-        p.drawString(50, height - 100, f"Date: {receipt.created_at.strftime('%Y-%m-%d %H:%M')}")
-        p.drawString(50, height - 120, f"Customer: {receipt.customer_name}")
+        p.drawCentredText(f"Receipt #: {receipt.receipt_number}", width/2, height - 85)
+        p.drawCentredText(f"Date: {receipt.created_at.strftime('%B %d, %Y')}", width/2, height - 105)
         
-        # Line
-        p.line(50, height - 140, width - 50, height - 140)
+        # Customer Info Box
+        p.setFillColor(colors.HexColor('#f3f4f6'))
+        p.rect(40, height - 140, width - 80, 60, fill=True, stroke=False)
+        p.setFillColor(colors.black)
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(50, height - 120, "BILL TO:")
+        p.setFont("Helvetica", 14)
+        p.drawString(50, height - 140, receipt.customer_name)
         
-        # Items
-        y_position = height - 160
-        p.setFont("Helvetica-Bold", 14)
-        p.drawString(50, y_position, "Items:")
-        y_position -= 25
+        # Professional Items Table
+        y_position = height - 210
+        p.setFillColor(colors.HexColor('#e5e7eb'))
+        p.rect(40, y_position, width - 80, 120, fill=True, stroke=False)
         
-        p.setFont("Helvetica", 11)
+        # Table Headers
+        p.setFillColor(colors.HexColor('#6b7280'))
+        p.rect(40, y_position, width - 80, 25, fill=True, stroke=False)
+        p.setFillColor(colors.white)
+        p.setFont("Helvetica-Bold", 11)
+        p.drawString(45, y_position + 15, "DESCRIPTION")
+        p.drawCentredText("QTY", 150, y_position + 15)
+        p.drawCentredText("PRICE", 280, y_position + 15)
+        p.drawCentredText("TOTAL", 350, y_position + 15)
+        
+        # Table Line
+        p.setStrokeColor(colors.HexColor('#d1d5db'))
+        p.line(40, y_position + 25, width - 40, y_position + 25)
+        
+        # Table Items with Alternating Colors
+        y_position += 35
+        p.setFont("Helvetica", 10)
         import json
         try:
             items = json.loads(receipt.items)
             for item in items:
-                p.drawString(70, y_position, f"{item.get('name', 'N/A')} - ${item.get('price', 0):.2f} x {item.get('quantity', 1)}")
-                y_position -= 20
-                if y_position < 100:
+                # Alternate row colors
+                if items.index(item) % 2 == 0:
+                    p.setFillColor(colors.white)
+                else:
+                    p.setFillColor(colors.HexColor('#f9fafb'))
+                
+                p.rect(40, y_position, width - 80, 20, fill=True, stroke=False)
+                p.setFillColor(colors.black)
+                
+                item_name = item.get('name', 'N/A')
+                quantity = item.get('quantity', 1)
+                price = item.get('price', 0)
+                total = price * quantity
+                
+                # Truncate long names
+                display_name = item_name if len(item_name) <= 25 else item_name[:22] + "..."
+                
+                p.drawString(45, y_position + 12, display_name)
+                p.drawCentredText(str(quantity), 150, y_position + 12)
+                p.drawCentredText(f"₱{price:,.2f}", 280, y_position + 12)
+                p.drawCentredText(f"₱{total:,.2f}", 350, y_position + 12)
+                
+                y_position += 20
+                if y_position < height - 100:
                     break
         except:
-            p.drawString(70, y_position, receipt.items)
+            p.drawString(50, y_position, "Error loading items")
         
-        # Total
-        y_position = height - 350
-        p.line(50, y_position, width - 50, y_position)
-        y_position -= 20
-        p.setFont("Helvetica-Bold", 16)
-        p.drawString(width - 200, y_position, f"Total: ${receipt.total_amount:.2f}")
+        # Summary Box
+        y_position = height - 90
+        p.setFillColor(colors.HexColor('#fef3c7'))
+        p.rect(40, y_position, width - 80, 70, fill=True, stroke=False)
+        p.setFillColor(colors.black)
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(50, y_position + 45, "SUMMARY")
+        p.setFont("Helvetica", 12)
+        p.drawString(50, y_position + 25, "Subtotal:")
+        p.drawString(50, y_position + 10, "Tax (0%):")
+        p.drawString(50, y_position - 5, "TOTAL:")
+        p.setFont("Helvetica-Bold", 18)
+        p.drawCentredText(f"₱{receipt.total_amount:,.2f}", width/2, y_position - 25)
         
+        # Professional Footer
+        p.setFillColor(colors.HexColor('#1e40af'))
+        p.rect(30, 20, width - 60, 40, fill=True, stroke=False)
+        p.setFillColor(colors.white)
+        p.setFont("Helvetica", 10)
+        p.drawCentredText("Thank you for your business!", width/2, 35)
+        p.drawCentredText(current_user.email, width/2, 20)
+        p.setFont("Helvetica", 9)
+        p.drawCentredText(f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", width/2, 10)
+        
+        # Page Number
+        p.setFillColor(colors.black)
+        p.setFont("Helvetica", 8)
+        p.drawString(width - 50, 30, "Page 1 of 1")
+        
+        p.showPage()
         p.save()
+        
         buffer.seek(0)
         
         return send_file(buffer, as_attachment=True, download_name=f'receipt_{receipt.receipt_number}.pdf', mimetype='application/pdf')
@@ -373,47 +451,6 @@ def create_app():
         total_expenses = sum(transaction.amount for transaction in expenses)
         return render_template('ledger/expenses.html', transactions=expenses, title='Expense Journal', total_expenses=total_expenses)
     
-    @app.route('/transactions/new', methods=['GET', 'POST'])
-    @login_required
-    def new_transaction():
-        if request.method == 'POST':
-            description = request.form.get('description')
-            amount = float(request.form.get('amount'))
-            transaction_type = request.form.get('type')
-            category = request.form.get('category')
-            date_str = request.form.get('date')
-            
-            # Parse date
-            if date_str:
-                date = datetime.strptime(date_str, '%Y-%m-%d')
-            else:
-                date = datetime.utcnow()
-            
-            transaction = Transaction(
-                user_id=current_user.id,
-                description=description,
-                amount=amount,
-                type=transaction_type,
-                category=category,
-                date=date
-            )
-            db.session.add(transaction)
-            db.session.commit()
-            
-            flash('Transaction added successfully!')
-            return redirect(url_for('sales_journal') if transaction_type == 'sale' else 'expenses_journal')
-        
-        return render_template('transactions/new.html')
-    
-    @app.route('/transactions/<int:id>/delete', methods=['POST'])
-    @login_required
-    def delete_transaction(id):
-        transaction = Transaction.query.filter_by(id=id, user_id=current_user.id).first_or_404()
-        db.session.delete(transaction)
-        db.session.commit()
-        flash('Transaction deleted successfully!')
-        return redirect(url_for('sales_journal') if transaction.type == 'sale' else 'expenses_journal')
-    
     @app.route('/import', methods=['GET', 'POST'])
     @login_required
     def import_data():
@@ -434,26 +471,18 @@ def create_app():
                     else:
                         df = pd.read_excel(file)
                     
-                    # Expected columns: description, amount, type, category, date
-                    required_columns = ['description', 'amount', 'type']
-                    if not all(col in df.columns for col in required_columns):
-                        flash('File must contain columns: description, amount, type')
-                        return redirect(request.url)
-                    
-                    # Check if user is free and has reached limit
-                    if not current_user.is_pro:
-                        current_receipt_count = Receipt.query.filter_by(user_id=current_user.id).count()
-                        if current_receipt_count >= 15:
-                            flash('You have reached your free plan limit. Upgrade to Pro to import more data.')
-                            return redirect(request.url)
+                    # Get column mappings
+                    description_col = request.form.get('description_col', 'description')
+                    amount_col = request.form.get('amount_col', 'amount')
+                    type_col = request.form.get('type_col', 'type')
                     
                     imported_count = 0
                     for _, row in df.iterrows():
                         transaction = Transaction(
                             user_id=current_user.id,
-                            description=str(row['description']),
-                            amount=float(row['amount']),
-                            type=str(row['type']).lower(),
+                            description=str(row[description_col]),
+                            amount=float(row[amount_col]),
+                            type=str(row[type_col]).lower(),
                             category=str(row.get('category', 'imported')),
                             date=pd.to_datetime(row.get('date', datetime.utcnow()))
                         )
@@ -468,7 +497,7 @@ def create_app():
                     flash(f'Error importing file: {str(e)}')
                     return redirect(request.url)
             else:
-                flash('Please upload a CSV or Excel file')
+                flash('Invalid file type. Please upload a CSV or Excel file.')
                 return redirect(request.url)
         
         return render_template('import.html')
@@ -511,9 +540,9 @@ def create_app():
         pending_requests = SubscriptionRequest.query.filter_by(status='Pending').order_by(SubscriptionRequest.created_at.desc()).all()
         return render_template('admin/verify.html', requests=pending_requests)
     
-    @app.route('/admin/approve/<int:request_id>')
+    @app.route('/admin/approve/<int:request_id>', methods=['POST', 'GET'])
     def approve_request(request_id):
-        admin_password = request.args.get('password')
+        admin_password = request.args.get('password') if request.method == 'GET' else request.form.get('password')
         if admin_password != 'admin123':
             flash('Unauthorized access')
             return redirect(url_for('dashboard'))
@@ -529,9 +558,9 @@ def create_app():
         flash(f'User {user.email} has been upgraded to Pro!')
         return redirect(url_for('admin_verify', password='admin123'))
     
-    @app.route('/admin/reject/<int:request_id>')
+    @app.route('/admin/reject/<int:request_id>', methods=['POST', 'GET'])
     def reject_request(request_id):
-        admin_password = request.args.get('password')
+        admin_password = request.args.get('password') if request.method == 'GET' else request.form.get('password')
         if admin_password != 'admin123':
             flash('Unauthorized access')
             return redirect(url_for('dashboard'))
@@ -546,6 +575,18 @@ def create_app():
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
         return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    
+    @app.after_request
+    def after_request(response):
+        # Add caching headers for static assets
+        if request.endpoint and request.endpoint.startswith('static'):
+            response.cache_control.max_age = 31536000  # 1 year
+            response.cache_control.public = True
+        return response
+    
+    @app.errorhandler(500)
+    def internal_server_error(error):
+        return render_template('errors/500.html', error=str(error)), 500
     
     return app
 

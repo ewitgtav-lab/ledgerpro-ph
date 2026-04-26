@@ -18,6 +18,7 @@
                 </p>
             </div>
             <form class="mt-8 space-y-6" action="{{ url_for('admin_verify') }}" method="GET">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="remember" value="true">
                 <div class="rounded-md shadow-sm -space-y-px">
                     <div>
