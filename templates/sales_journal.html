@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Sales Journal · LedgerPro PH{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+    <div>
+      <div class="h4 mb-1">Sales Journal (Bulk Entry)</div>
+      <div class="text-muted">Add multiple orders fast. Calculations update as you type.</div>
+    </div>
+    <div class="no-print d-flex gap-2">
+      <button class="btn btn-outline-secondary" id="addRowBtn">
+        <i class="fa-solid fa-plus me-2"></i> Add Row
+      </button>
+      <button class="btn btn-primary" id="bulkSyncBtn">
+        <span class="sync-label"><i class="fa-solid fa-cloud-arrow-up me-2"></i> Bulk Sync</span>
+        <span class="sync-spinner d-none">
+          <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          Syncing…
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <div class="app-card p-2 p-md-3">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0 table-stickyhead" id="bulkTable">
+        <thead>
+          <tr class="small text-muted">
+            <th class="nowrap">Date</th>
+            <th class="nowrap">Platform</th>
+            <th class="nowrap">Order ID</th>
+            <th class="nowrap text-end">Gross Amount</th>
+            <th class="nowrap text-end">Platform Fees (Est.)</th>
+            <th class="nowrap text-end">WHT 1%</th>
+            <th class="nowrap text-end">BIR 8% (Est.)</th>
+            <th class="nowrap text-end">Net (Est.)</th>
+            <th class="nowrap no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="bulkTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-12 col-xl-6">
+      <div class="app-card p-3">
+        <div class="fw-semibold mb-1">Notes</div>
+        <div class="text-muted small">
+          Fees and taxes here are calculated using configurable estimates.
+          For official filing, always reconcile against platform statements and BIR guidance.
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6">
+      <div class="app-card p-3">
+        <div class="fw-semibold mb-2">Quick Totals (Current Table)</div>
+        <div class="d-flex flex-wrap gap-3 small">
+          <div><span class="text-muted">Gross:</span> <span class="fw-semibold" id="tGross">₱ 0.00</span></div>
+          <div><span class="text-muted">Fees:</span> <span class="fw-semibold" id="tFees">₱ 0.00</span></div>
+          <div><span class="text-muted">8% Tax:</span> <span class="fw-semibold" id="tBir8">₱ 0.00</span></div>
+          <div><span class="text-muted">Net:</span> <span class="fw-semibold" id="tNet">₱ 0.00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    window.APP_PLATFORMS = {{ platforms|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='js/bulk_sales.js') }}"></script>
+{% endblock %}
+

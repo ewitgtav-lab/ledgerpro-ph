@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · LedgerPro PH{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+    <div>
+      <div class="h4 mb-1">Dashboard</div>
+      <div class="text-muted">High-level totals from your synced sales entries.</div>
+    </div>
+    <div class="no-print">
+      <a class="btn btn-primary" href="{{ url_for('sales_journal') }}">
+        <i class="fa-solid fa-plus me-2"></i> Add Sales (Bulk)
+      </a>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="app-card p-3 stat-card h-100">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="stat-label small mb-1">Total Gross Sales</div>
+            <div class="stat-value h3 mb-0">₱ {{ "%.2f"|format(total_gross) }}</div>
+          </div>
+          <div class="stat-icon"><i class="fa-solid fa-peso-sign"></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="app-card p-3 stat-card h-100">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="stat-label small mb-1">Total Platform Fees (Est.)</div>
+            <div class="stat-value h3 mb-0">₱ {{ "%.2f"|format(total_fees) }}</div>
+          </div>
+          <div class="stat-icon"><i class="fa-solid fa-tags"></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="app-card p-3 stat-card h-100">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="stat-label small mb-1">Estimated 8% Tax</div>
+            <div class="stat-value h3 mb-0">₱ {{ "%.2f"|format(est_8pct) }}</div>
+          </div>
+          <div class="stat-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="app-card p-3 stat-card h-100">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="stat-label small mb-1">Net Profit (Est.)</div>
+            <div class="stat-value h3 mb-0">₱ {{ "%.2f"|format(net_profit) }}</div>
+          </div>
+          <div class="stat-icon"><i class="fa-solid fa-chart-simple"></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-12 col-xl-8">
+      <div class="app-card p-3">
+        <div class="fw-semibold mb-1">Bulk Entry Workflow</div>
+        <div class="text-muted small">
+          Use the Sales Journal to add 10+ transactions in one go, then sync safely to your Google Sheet via Apps Script.
+          Taxes and estimated platform fees compute live per row.
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-4">
+      <div class="app-card p-3">
+        <div class="fw-semibold mb-2">Supported Platforms</div>
+        <div class="d-flex flex-wrap gap-2">
+          <span class="badge text-bg-light border"><i class="fa-brands fa-shopify me-1"></i> Shopee</span>
+          <span class="badge text-bg-light border"><i class="fa-solid fa-store me-1"></i> Lazada</span>
+          <span class="badge text-bg-light border"><i class="fa-brands fa-tiktok me-1"></i> TikTok Shop</span>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

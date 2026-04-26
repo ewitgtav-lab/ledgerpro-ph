@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Reports · LedgerPro PH{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+    <div>
+      <div class="h4 mb-1">Reports</div>
+      <div class="text-muted">Monthly financial summary (sales vs expenses) with estimated taxes.</div>
+    </div>
+    <div class="no-print">
+      <button class="btn btn-outline-secondary" onclick="window.print()">
+        <i class="fa-solid fa-print me-2"></i> Print Report
+      </button>
+    </div>
+  </div>
+
+  <div class="app-card p-2 p-md-3 print-bw">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr class="small text-muted">
+            <th class="nowrap">Month</th>
+            <th class="nowrap text-end">Total Gross Sales</th>
+            <th class="nowrap text-end">Total Expenses</th>
+            <th class="nowrap text-end">Net Taxable Income</th>
+            <th class="nowrap text-end">8% Tax Due (Est.)</th>
+            <th class="nowrap text-end">WHT 1% Credit</th>
+            <th class="nowrap text-end">Final Tax Payable</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if rows and rows|length > 0 %}
+            {% for r in rows %}
+              <tr>
+                <td class="nowrap fw-semibold">{{ r.month }}</td>
+                <td class="text-end nowrap">₱ {{ "%.2f"|format(r.gross_sales) }}</td>
+                <td class="text-end nowrap">₱ {{ "%.2f"|format(r.expenses) }}</td>
+                <td class="text-end nowrap">₱ {{ "%.2f"|format(r.net_taxable_income) }}</td>
+                <td class="text-end nowrap">₱ {{ "%.2f"|format(r.bir_8pct_due) }}</td>
+                <td class="text-end nowrap">₱ {{ "%.2f"|format(r.wht_credit) }}</td>
+                <td class="text-end nowrap fw-semibold">₱ {{ "%.2f"|format(r.final_tax_payable) }}</td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">
+                No data yet. Add entries in Sales Journal and Expense Journal.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
+

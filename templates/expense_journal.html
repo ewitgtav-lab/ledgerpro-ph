@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Expense Journal · LedgerPro PH{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+    <div>
+      <div class="h4 mb-1">Expense Journal (Bulk Entry)</div>
+      <div class="text-muted">Track seller costs fast. Sync to your sheet with one click.</div>
+    </div>
+    <div class="no-print d-flex gap-2">
+      <button class="btn btn-outline-secondary" id="addExpenseRowBtn">
+        <i class="fa-solid fa-plus me-2"></i> Add Row
+      </button>
+      <button class="btn btn-primary" id="syncExpensesBtn">
+        <span class="sync-label"><i class="fa-solid fa-cloud-arrow-up me-2"></i> Sync Expenses</span>
+        <span class="sync-spinner d-none">
+          <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          Syncing…
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <div class="app-card p-2 p-md-3">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0 table-stickyhead" id="expenseTable">
+        <thead>
+          <tr class="small text-muted">
+            <th class="nowrap">Date</th>
+            <th class="nowrap">Category</th>
+            <th>Description</th>
+            <th class="nowrap text-end">Amount</th>
+            <th class="nowrap no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="expenseTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-12 col-xl-6">
+      <div class="app-card p-3">
+        <div class="fw-semibold mb-2">Quick Totals (Current Table)</div>
+        <div class="d-flex flex-wrap gap-3 small">
+          <div><span class="text-muted">Total Expenses:</span> <span class="fw-semibold" id="tExp">₱ 0.00</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6">
+      <div class="app-card p-3">
+        <div class="fw-semibold mb-1">Tip</div>
+        <div class="text-muted small">Use categories consistently so your monthly reports stay clean.</div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    window.APP_EXPENSE_CATEGORIES = {{ categories|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='js/bulk_expenses.js') }}"></script>
+{% endblock %}
+
