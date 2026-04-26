@@ -177,7 +177,7 @@ def create_app():
             customer_name = request.form.get('customer_name')
             items = request.form.get('items')  # JSON string from frontend
             raw_total = request.form.get('total_amount')
-total_amount = float(raw_total) if raw_total and raw_total.strip() else 0.0
+            total_amount = float(raw_total) if raw_total and raw_total.strip() else 0.0
             
             # Generate receipt number
             receipt_count = Receipt.query.filter_by(user_id=current_user.id).count()
