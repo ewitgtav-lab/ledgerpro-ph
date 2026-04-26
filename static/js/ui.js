@@ -7,24 +7,29 @@ function showToast({ title = "Done", message = "", variant = "success" }){
   const area = document.getElementById("toastArea");
   if(!area) return;
 
+  const colors = {
+    success: "bg-green-600",
+    danger: "bg-red-600",
+    warning: "bg-amber-500",
+    info: "bg-blue-600"
+  };
+  const colorClass = colors[variant] || colors.success;
+
   const el = document.createElement("div");
-  el.className = `toast align-items-center text-bg-${variant} border-0`;
-  el.role = "status";
-  el.ariaLive = "polite";
-  el.ariaAtomic = "true";
+  el.className = `${colorClass} text-white px-4 py-3 rounded-lg shadow-lg flex items-center justify-between gap-4 min-w-[280px] animate-fade-in-down`;
+  el.setAttribute("role", "status");
+  el.setAttribute("aria-live", "polite");
   el.innerHTML = `
-    <div class="d-flex">
-      <div class="toast-body">
-        <div class="fw-semibold">${title}</div>
-        <div class="small opacity-75">${message}</div>
-      </div>
-      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    <div>
+      <div class="font-semibold">${title}</div>
+      <div class="text-sm opacity-90">${message}</div>
     </div>
+    <button type="button" class="text-white hover:text-gray-200 transition" onclick="this.parentElement.remove()" aria-label="Close">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
   `;
   area.appendChild(el);
-  const t = new bootstrap.Toast(el, { delay: 3500 });
-  el.addEventListener("hidden.bs.toast", () => el.remove());
-  t.show();
+  setTimeout(() => el.remove(), 3500);
 }
 
 window.LedgerUI = { money, showToast };

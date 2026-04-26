@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Import - LedgerPro PH{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">Bulk Import Receipts</h1>
+    <p class="text-gray-600 mt-1">Import multiple receipts from CSV or Excel files (Pro feature)</p>
+  </div>
+
+  <!-- Pro Feature Banner -->
+  <div class="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+        <i class="fa-solid fa-crown text-green-600 text-xl"></i>
+      </div>
+      <div>
+        <h3 class="font-semibold text-green-900">Pro Feature</h3>
+        <p class="text-green-700">Bulk import is available for Pro users only</p>
+      </div>
+    </div>
+    <div class="bg-white rounded-lg p-4">
+      <p class="text-sm text-gray-600 mb-3">With bulk import, you can:</p>
+      <ul class="space-y-2 text-sm text-gray-700">
+        <li class="flex items-center gap-2">
+          <i class="fa-solid fa-check text-green-500"></i>
+          <span>Import hundreds of receipts at once</span>
+        </li>
+        <li class="flex items-center gap-2">
+          <i class="fa-solid fa-check text-green-500"></i>
+          <span>Support for CSV and Excel files</span>
+        </li>
+        <li class="flex items-center gap-2">
+          <i class="fa-solid fa-check text-green-500"></i>
+          <span>Automatic validation and error reporting</span>
+        </li>
+        <li class="flex items-center gap-2">
+          <i class="fa-solid fa-check text-green-500"></i>
+          <span>Save hours of manual data entry</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Import Form -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-6">Import File</h2>
+    
+    <form method="POST" enctype="multipart/form-data" class="space-y-6">
+      <!-- File Upload -->
+      <div>
+        <label for="file" class="block text-sm font-medium text-gray-700 mb-2">
+          Select File (CSV or Excel)
+        </label>
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-400 transition">
+          <div class="mb-4">
+            <i class="fa-solid fa-cloud-upload-alt text-4xl text-gray-400"></i>
+          </div>
+          <div class="mb-4">
+            <label for="file" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium cursor-pointer transition">
+              Choose File
+            </label>
+            <input
+              type="file"
+              id="file"
+              name="file"
+              accept=".csv,.xlsx,.xls"
+              class="hidden"
+              required
+            >
+          </div>
+          <p class="text-sm text-gray-600">
+            or drag and drop your file here
+          </p>
+          <p class="text-xs text-gray-500 mt-2">
+            Supported formats: CSV, Excel (.xlsx, .xls) • Max file size: 16MB
+          </p>
+        </div>
+        <div id="fileInfo" class="mt-2 hidden">
+          <p class="text-sm text-gray-600">
+            Selected: <span id="fileName" class="font-medium"></span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="flex gap-4">
+        <button
+          type="submit"
+          class="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition"
+        >
+          <i class="fa-solid fa-upload mr-2"></i>
+          Import Receipts
+        </button>
+        <a
+          href="{{ url_for('dashboard') }}"
+          class="px-6 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition"
+        >
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Template Download -->
+  <div class="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Download Template</h2>
+    <p class="text-gray-600 mb-4">
+      Use our template to ensure your data is formatted correctly for import.
+    </p>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <a href="#" class="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+          <i class="fa-solid fa-file-csv text-green-600"></i>
+        </div>
+        <div>
+          <h4 class="font-medium text-gray-900">CSV Template</h4>
+          <p class="text-sm text-gray-600">Download CSV template</p>
+        </div>
+        <i class="fa-solid fa-download text-gray-400 ml-auto"></i>
+      </a>
+      
+      <a href="#" class="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+          <i class="fa-solid fa-file-excel text-blue-600"></i>
+        </div>
+        <div>
+          <h4 class="font-medium text-gray-900">Excel Template</h4>
+          <p class="text-sm text-gray-600">Download Excel template</p>
+        </div>
+        <i class="fa-solid fa-download text-gray-400 ml-auto"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- Field Requirements -->
+  <div class="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Required Fields</h2>
+    
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Field Name</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Required</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Format</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Example</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">customer_name</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Yes</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Text</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Juan Dela Cruz</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">receipt_number</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Yes</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Text</td>
+            <td class="px-4 py-3 text-sm text-gray-600">R-2024-001</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">receipt_date</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Yes</td>
+            <td class="px-4 py-3 text-sm text-gray-600">YYYY-MM-DD</td>
+            <td class="px-4 py-3 text-sm text-gray-600">2024-01-15</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">subtotal</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Yes</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Number</td>
+            <td class="px-4 py-3 text-sm text-gray-600">1000.00</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">tax_rate</td>
+            <td class="px-4 py-3 text-sm text-gray-600">No</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Number (0-1)</td>
+            <td class="px-4 py-3 text-sm text-gray-600">0.12</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">discount_amount</td>
+            <td class="px-4 py-3 text-sm text-gray-600">No</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Number</td>
+            <td class="px-4 py-3 text-sm text-gray-600">50.00</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">payment_method</td>
+            <td class="px-4 py-3 text-sm text-gray-600">No</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Text</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Cash</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">customer_address</td>
+            <td class="px-4 py-3 text-sm text-gray-600">No</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Text</td>
+            <td class="px-4 py-3 text-sm text-gray-600">Manila, Philippines</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">customer_tin</td>
+            <td class="px-4 py-3 text-sm text-gray-600">No</td>
+            <td class="px-4 py-3 text-sm text-gray-600">12-digit number</td>
+            <td class="px-4 py-3 text-sm text-gray-600">123456789012</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Import History -->
+  <div class="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Recent Imports</h2>
+    
+    <div class="text-center py-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+        <i class="fa-solid fa-history text-gray-400 text-2xl"></i>
+      </div>
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">No imports yet</h3>
+      <p class="text-gray-600">Your import history will appear here once you start importing receipts</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // File upload handling
+  const fileInput = document.getElementById('file');
+  const fileInfo = document.getElementById('fileInfo');
+  const fileName = document.getElementById('fileName');
+
+  fileInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+      fileName.textContent = file.name;
+      fileInfo.classList.remove('hidden');
+    } else {
+      fileInfo.classList.add('hidden');
+    }
+  });
+
+  // Drag and drop
+  const dropZone = document.querySelector('.border-dashed');
+
+  dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    this.classList.add('border-primary-400', 'bg-primary-50');
+  });
+
+  dropZone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    this.classList.remove('border-primary-400', 'bg-primary-50');
+  });
+
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    this.classList.remove('border-primary-400', 'bg-primary-50');
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type === 'text/csv' || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        fileInput.files = files;
+        fileName.textContent = file.name;
+        fileInfo.classList.remove('hidden');
+      } else {
+        alert('Please upload a CSV or Excel file');
+      }
+    }
+  });
+</script>
+{% endblock %}
