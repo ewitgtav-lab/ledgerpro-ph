@@ -1,236 +1,131 @@
 {% extends "base.html" %}
 
-{% block title %}Upgrade to Pro - LedgerPro PH{% endblock %}
+{% block title %}Upgrade to Pro - LedgerPro{% endblock %}
 
-{% block content %}
-<div class="max-w-4xl mx-auto">
-  <!-- Header -->
-  <div class="text-center mb-12">
-    <div class="inline-flex items-center justify-center w-20 h-20 bg-yellow-100 rounded-full mb-4">
-      <i class="fa-solid fa-crown text-3xl text-yellow-600"></i>
-    </div>
-    <h1 class="text-4xl font-bold text-gray-900 mb-4">Upgrade to LedgerPro PH Pro</h1>
-    <p class="text-xl text-gray-600 max-w-2xl mx-auto">
-      Unlock unlimited receipts, professional branding, and powerful features to grow your business
-    </p>
-  </div>
-
-  <!-- Trial Status -->
-  {% if current_user.is_authenticated and not current_user.is_paid %}
-  <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
-    <div class="flex items-center gap-3">
-      <i class="fa-solid fa-exclamation-triangle text-yellow-600 text-xl"></i>
-      <div>
-        <h3 class="font-semibold text-yellow-800">Your Trial Status</h3>
-        <p class="text-yellow-700">
-          {% if current_user.is_trial_expired() %}
-            Your 3-day trial has expired. Upgrade to continue using LedgerPro PH.
-          {% else %}
-            You have used {{ current_user.get_receipt_count() }} of 5 free receipts. 
-            {% set days_left = 3 - (current_user.created_at.replace(tzinfo=None) - now().replace(tzinfo=None)).days %}
-            {% if days_left > 0 %}
-              {{ days_left }} day(s) left in your trial.
-            {% else %}
-              Your trial expires today.
-            {% endif %}
-          {% endif %}
-        </p>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Pricing Cards -->
-  <div class="grid md:grid-cols-2 gap-8 mb-12">
-    <!-- Free Plan -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-      <div class="text-center mb-6">
-        <h3 class="text-2xl font-bold text-gray-900 mb-2">Free Trial</h3>
-        <p class="text-gray-600">Perfect for getting started</p>
-      </div>
-      
-      <div class="text-center mb-6">
-        <span class="text-4xl font-bold text-gray-900">₱0</span>
-        <span class="text-gray-600">/month</span>
-      </div>
-
-      <ul class="space-y-3 mb-8">
-        <li class="flex items-start gap-3">
-          <i class="fa-solid fa-check text-green-500 mt-1"></i>
-          <span class="text-gray-700">Up to 5 receipts</span>
-        </li>
-        <li class="flex items-start gap-3">
-          <i class="fa-solid fa-check text-green-500 mt-1"></i>
-          <span class="text-gray-700">3-day trial period</span>
-        </li>
-        <li class="flex items-start gap-3">
-          <i class="fa-solid fa-check text-green-500 mt-1"></i>
-          <span class="text-gray-700">Basic receipt generation</span>
-        </li>
-        <li class="flex items-start gap-3">
-          <i class="fa-solid fa-times text-gray-300 mt-1"></i>
-          <span class="text-gray-400">No logo branding</span>
-        </li>
-        <li class="flex items-start gap-3">
-          <i class="fa-solid fa-times text-gray-300 mt-1"></i>
-          <span class="text-gray-400">No bulk import</span>
-        </li>
-      </ul>
+{% block auth_content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Upgrade to LedgerPro Pro</h1>
+        <p class="mt-2 text-lg text-gray-600">Unlock unlimited receipts and advanced features</p>
     </div>
 
-    <!-- Pro Plan -->
-    <div class="bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl shadow-lg p-8 text-white relative overflow-hidden">
-      <div class="absolute top-4 right-4 bg-yellow-400 text-primary-900 text-xs px-3 py-1 rounded-full font-semibold">
-        MOST POPULAR
-      </div>
-      
-      <div class="text-center mb-6">
-        <h3 class="text-2xl font-bold mb-2">Pro Plan</h3>
-        <p class="text-primary-100">For serious business owners</p>
-      </div>
-      
-      <div class="text-center mb-6">
-        <span class="text-4xl font-bold">₱299</span>
-        <span class="text-primary-100">/month</span>
-      </div>
-
-      <ul class="space-y-3 mb-8">
-        <li class="flex items-start gap-3">
-          <i class="fa-solid fa-check text-yellow-300 mt-1"></i>
-          <span>Unlimited receipts</span>
-        </li>
-        <li class="flex items-start gap-3">
-          <i class="fa-solid fa-check text-yellow-300 mt-1"></i>
-          <span>Custom logo on PDFs</span>
-        </li>
-        <li class="flex items-start gap-3">
-          <i class="fa-solid fa-check text-yellow-300 mt-1"></i>
-          <span>Bulk CSV/Excel import</span>
-        </li>
-        <li class="flex items-start gap-3">
-          <i class="fa-solid fa-check text-yellow-300 mt-1"></i>
-          <span>Priority customer support</span>
-        </li>
-        <li class="flex items-start gap-3">
-          <i class="fa-solid fa-check text-yellow-300 mt-1"></i>
-          <span>Advanced reporting features</span>
-        </li>
-      </ul>
-
-      <div class="text-center">
-        <div class="bg-yellow-400 text-primary-900 px-6 py-3 rounded-lg font-semibold inline-block">
-          <i class="fa-solid fa-crown mr-2"></i> Best Value
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Payment Instructions -->
-  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">
-      <i class="fa-solid fa-mobile-alt mr-2 text-primary-600"></i>
-      Pay via GCash
-    </h2>
-
-    <div class="grid md:grid-cols-2 gap-8">
-      <!-- Step by Step -->
-      <div>
-        <h3 class="font-semibold text-gray-900 mb-4">How to Pay:</h3>
-        <ol class="space-y-3">
-          <li class="flex gap-3">
-            <span class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center font-semibold">1</span>
-            <span class="text-gray-700">Open your GCash app</span>
-          </li>
-          <li class="flex gap-3">
-            <span class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center font-semibold">2</span>
-            <span class="text-gray-700">Select "Send Money"</span>
-          </li>
-          <li class="flex gap-3">
-            <span class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center font-semibold">3</span>
-            <span class="text-gray-700">Enter GCash number: <strong>09123456789</strong></span>
-          </li>
-          <li class="flex gap-3">
-            <span class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center font-semibold">4</span>
-            <span class="text-gray-700">Enter amount: <strong>₱299.00</strong></span>
-          </li>
-          <li class="flex gap-3">
-            <span class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center font-semibold">5</span>
-            <span class="text-gray-700">Add reference: <strong>{{ current_user.username if current_user.is_authenticated else 'YOUR_USERNAME' }}</strong></span>
-          </li>
-          <li class="flex gap-3">
-            <span class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center font-semibold">6</span>
-            <span class="text-gray-700">Send and wait for confirmation (within 24 hours)</span>
-          </li>
-        </ol>
-      </div>
-
-      <!-- QR Code and Details -->
-      <div class="text-center">
-        <div class="bg-gray-100 rounded-lg p-6 mb-4">
-          <div class="w-48 h-48 bg-white rounded-lg mx-auto mb-4 flex items-center justify-center border-2 border-gray-300">
-            <i class="fa-solid fa-qrcode text-6xl text-gray-400"></i>
-          </div>
-          <p class="text-sm text-gray-600">Scan this QR code with GCash</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Free Plan -->
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div class="px-6 py-8 bg-gray-50 border-b border-gray-200">
+                <h2 class="text-2xl font-bold text-gray-900">Free</h2>
+                <p class="mt-2 text-gray-600">Perfect for small shops</p>
+                <p class="mt-4">
+                    <span class="text-4xl font-bold text-gray-900">$0</span>
+                    <span class="text-gray-500">/month</span>
+                </p>
+            </div>
+            <div class="px-6 py-6">
+                <ul class="space-y-4">
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700">15 receipts per month</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700">Basic receipt management</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700">PDF generation</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700">Basic financial ledger</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700">Data export</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="px-6 py-6 bg-gray-50 border-t border-gray-200">
+                <button class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" disabled>
+                    Current Plan
+                </button>
+            </div>
         </div>
 
-        <div class="bg-primary-50 rounded-lg p-4">
-          <h4 class="font-semibold text-primary-900 mb-2">Payment Details:</h4>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-600">GCash Number:</span>
-              <span class="font-mono font-semibold">09123456789</span>
+        <!-- Pro Plan -->
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden relative">
+            <div class="absolute top-0 right-0 bg-indigo-600 text-white px-3 py-1 rounded-bl-lg text-sm font-medium">
+                POPULAR
             </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600">Account Name:</span>
-              <span class="font-semibold">LedgerPro PH</span>
+            <div class="px-6 py-8 bg-indigo-50 border-b border-indigo-200">
+                <h2 class="text-2xl font-bold text-gray-900">Pro</h2>
+                <p class="mt-2 text-gray-600">For growing businesses</p>
+                <p class="mt-4">
+                    <span class="text-4xl font-bold text-gray-900">$19</span>
+                    <span class="text-gray-500">/month</span>
+                </p>
             </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600">Amount:</span>
-              <span class="font-semibold text-primary-600">₱299.00</span>
+            <div class="px-6 py-6">
+                <ul class="space-y-4">
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700 font-medium">Unlimited receipts</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700">Advanced receipt management</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700">Professional PDF templates</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700">Advanced financial analytics</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700">Bulk data import</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-gray-700">Priority support</span>
+                    </li>
+                </ul>
             </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600">Reference:</span>
-              <span class="font-mono font-semibold">{{ current_user.username if current_user.is_authenticated else 'YOUR_USERNAME' }}</span>
+            <div class="px-6 py-6 bg-gray-50 border-t border-gray-200">
+                <button class="w-full px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Upgrade to Pro
+                </button>
             </div>
-          </div>
         </div>
-      </div>
     </div>
 
-    <!-- Important Notes -->
-    <div class="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-      <div class="flex gap-3">
-        <i class="fa-solid fa-info-circle text-yellow-600 mt-1"></i>
-        <div class="text-sm text-yellow-800">
-          <p class="font-semibold mb-2">Important Notes:</p>
-          <ul class="space-y-1">
-            <li>• Please use your username as the reference number for faster processing</li>
-            <li>• Account activation usually takes 2-24 hours after payment confirmation</li>
-            <li>• Keep your GCash receipt as proof of payment</li>
-            <li>• For payment issues, email: support@ledgerpro.ph</li>
-          </ul>
-        </div>
-      </div>
+    <div class="mt-12 text-center">
+        <a href="{{ url_for('dashboard') }}" class="text-indigo-600 hover:text-indigo-500 text-sm font-medium">
+            ← Back to Dashboard
+        </a>
     </div>
-  </div>
-
-  <!-- FAQ Section -->
-  <div class="mt-12">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">Frequently Asked Questions</h2>
-    <div class="space-y-4">
-      <div class="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 class="font-semibold text-gray-900 mb-2">What happens after I pay?</h3>
-        <p class="text-gray-600">We'll verify your payment and upgrade your account within 24 hours. You'll receive an email confirmation when your Pro account is activated.</p>
-      </div>
-      <div class="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 class="font-semibold text-gray-900 mb-2">Can I cancel anytime?</h3>
-        <p class="text-gray-600">Yes, you can cancel your subscription anytime. No long-term contracts or cancellation fees.</p>
-      </div>
-      <div class="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 class="font-semibold text-gray-900 mb-2">Is my data safe?</h3>
-        <p class="text-gray-600">Absolutely! All your data is securely stored and backed up. We use industry-standard encryption to protect your information.</p>
-      </div>
-    </div>
-  </div>
 </div>
 {% endblock %}
