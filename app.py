@@ -76,6 +76,11 @@ def create_app():
     def inject_now():
         return {'now': datetime.utcnow}
     
+    @app.template_filter('from_json')
+    def from_json(value):
+        import json
+        return json.loads(value)
+    
     # Create tables
     with app.app_context():
         db.create_all()

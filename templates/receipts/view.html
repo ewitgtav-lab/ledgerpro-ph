@@ -37,8 +37,7 @@
         <div class="px-8 py-6 border-b border-gray-200">
             <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">Items</h3>
             <div class="space-y-3">
-                {% import json %}
-                {% set items = json.loads(receipt.items) %}
+                {% set items = receipt.items | from_json %}
                 {% for item in items %}
                 <div class="flex justify-between items-center py-2">
                     <div class="flex-1">
