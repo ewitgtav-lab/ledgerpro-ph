@@ -4,6 +4,7 @@ from flask import Flask, render_template, redirect, url_for, flash, request, sen
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -11,6 +12,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 import pandas as pd
 import io
+import json
 
 load_dotenv()
 
@@ -50,6 +52,15 @@ class Transaction(db.Model):
     date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
+class SubscriptionRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    screenshot_path = db.Column(db.String(255), nullable=False)
+    status = db.Column(db.String(20), default='Pending')  # Pending, Approved, Rejected
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    user = db.relationship('User', backref='subscription_requests')
+
 def create_app():
     app = Flask(__name__)
     
@@ -80,6 +91,11 @@ def create_app():
     def from_json(value):
         import json
         return json.loads(value)
+    
+    def allowed_file(filename):
+        ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
+        return '.' in filename and \
+               filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     
     # Create tables
     with app.app_context():
@@ -147,6 +163,9 @@ def create_app():
         receipt_count = Receipt.query.filter_by(user_id=current_user.id).count()
         usage_percentage = min((receipt_count / 15) * 100, 100) if not current_user.is_pro else 0
         
+        # Check for pending subscription request
+        pending_request = SubscriptionRequest.query.filter_by(user_id=current_user.id, status='Pending').first()
+        
         # Calculate analytics
         sales = Transaction.query.filter_by(user_id=current_user.id, type='sale').all()
         expenses = Transaction.query.filter_by(user_id=current_user.id, type='expense').all()
@@ -160,7 +179,8 @@ def create_app():
                              usage_percentage=usage_percentage,
                              total_sales=total_sales,
                              total_expenses=total_expenses,
-                             net_profit=net_profit)
+                             net_profit=net_profit,
+                             pending_request=pending_request)
     
     @app.route('/receipts')
     @login_required
@@ -282,9 +302,56 @@ def create_app():
         flash('Receipt deleted successfully!')
         return redirect(url_for('receipts_list'))
     
-    @app.route('/subscribe')
+    @app.route('/subscribe', methods=['GET', 'POST'])
     @login_required
     def subscribe():
+        if current_user.is_pro:
+            flash('You are already a Pro user!')
+            return redirect(url_for('dashboard'))
+        
+        # Check if user already has a pending request
+        existing_request = SubscriptionRequest.query.filter_by(user_id=current_user.id, status='Pending').first()
+        if existing_request:
+            flash('You already have a pending subscription request. Please wait for verification.')
+            return redirect(url_for('dashboard'))
+        
+        if request.method == 'POST':
+            if 'screenshot' not in request.files:
+                flash('Please select a payment screenshot')
+                return redirect(request.url)
+            
+            file = request.files['screenshot']
+            if file.filename == '':
+                flash('Please select a payment screenshot')
+                return redirect(request.url)
+            
+            if file and allowed_file(file.filename):
+                # Generate unique filename
+                filename = secure_filename(file.filename)
+                unique_filename = f"{uuid.uuid4()}_{filename}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                
+                # Ensure upload directory exists
+                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+                
+                # Save file
+                file.save(filepath)
+                
+                # Create subscription request
+                subscription = SubscriptionRequest(
+                    user_id=current_user.id,
+                    screenshot_path=unique_filename,
+                    status='Pending'
+                )
+                db.session.add(subscription)
+                db.session.commit()
+                
+                flash('Payment submitted! Please wait 12-24 hours for manual verification.')
+                return redirect(url_for('dashboard'))
+            else:
+                flash('Invalid file type. Please upload an image file.')
+                return redirect(request.url)
+        
         return render_template('subscribe.html')
     
     @app.route('/ledger')
@@ -423,6 +490,53 @@ def create_app():
         
         output.seek(0)
         return send_file(output, as_attachment=True, download_name='transactions.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    
+    # Admin routes
+    @app.route('/admin/verify')
+    def admin_verify():
+        # Simple password protection - in production, use proper admin authentication
+        admin_password = request.args.get('password')
+        if admin_password != 'admin123':  # Change this in production
+            return render_template('admin/login.html')
+        
+        pending_requests = SubscriptionRequest.query.filter_by(status='Pending').order_by(SubscriptionRequest.created_at.desc()).all()
+        return render_template('admin/verify.html', requests=pending_requests)
+    
+    @app.route('/admin/approve/<int:request_id>')
+    def approve_request(request_id):
+        admin_password = request.args.get('password')
+        if admin_password != 'admin123':
+            flash('Unauthorized access')
+            return redirect(url_for('dashboard'))
+        
+        subscription = SubscriptionRequest.query.get_or_404(request_id)
+        subscription.status = 'Approved'
+        
+        # Upgrade user to Pro
+        user = subscription.user
+        user.is_pro = True
+        
+        db.session.commit()
+        flash(f'User {user.email} has been upgraded to Pro!')
+        return redirect(url_for('admin_verify', password='admin123'))
+    
+    @app.route('/admin/reject/<int:request_id>')
+    def reject_request(request_id):
+        admin_password = request.args.get('password')
+        if admin_password != 'admin123':
+            flash('Unauthorized access')
+            return redirect(url_for('dashboard'))
+        
+        subscription = SubscriptionRequest.query.get_or_404(request_id)
+        subscription.status = 'Rejected'
+        
+        db.session.commit()
+        flash(f'Subscription request for {subscription.user.email} has been rejected.')
+        return redirect(url_for('admin_verify', password='admin123'))
+    
+    @app.route('/uploads/<filename>')
+    def uploaded_file(filename):
+        return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename))
     
     return app
 

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Verification - LedgerPro Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <div class="bg-white shadow">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-6">
+                    <div class="flex items-center">
+                        <h1 class="text-2xl font-bold text-gray-900">Subscription Verification</h1>
+                        <span class="ml-3 px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">ADMIN</span>
+                    </div>
+                    <a href="{{ url_for('dashboard') }}" class="text-gray-500 hover:text-gray-700">Back to App</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+            <div class="bg-indigo-50 border-l-4 border-indigo-400 p-4 mb-4">
+                <div class="flex">
+                    <div class="ml-3">
+                        {% for message in messages %}
+                        <p class="text-sm text-indigo-700">{{ message }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {% if requests %}
+            <div class="bg-white shadow overflow-hidden sm:rounded-md">
+                <div class="px-4 py-5 sm:px-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">
+                        Pending Subscription Requests
+                    </h3>
+                    <p class="mt-1 max-w-2xl text-sm text-gray-500">
+                        Review and approve subscription upgrade requests from users.
+                    </p>
+                </div>
+                <div class="border-t border-gray-200">
+                    <dl>
+                        {% for request in requests %}
+                        <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                            <dt class="text-sm font-medium text-gray-500">
+                                User
+                            </dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <div class="flex items-center space-x-3">
+                                    <div>
+                                        <p class="font-medium">{{ request.user.email }}</p>
+                                        <p class="text-sm text-gray-500">{{ request.user.shop_name }}</p>
+                                    </div>
+                                    <span class="px-2 py-1 text-xs font-semibold text-yellow-800 bg-yellow-100 rounded-full">
+                                        {{ request.status }}
+                                    </span>
+                                </div>
+                            </dd>
+                            <dt class="text-sm font-medium text-gray-500">
+                                Submitted
+                            </dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                {{ request.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+                            </dd>
+                            <dt class="text-sm font-medium text-gray-500">
+                                Payment Screenshot
+                            </dt>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <div class="flex items-center space-x-4">
+                                    <a href="{{ url_for('uploaded_file', filename=request.screenshot_path) }}" 
+                                       target="_blank" 
+                                       class="text-indigo-600 hover:text-indigo-900 text-sm font-medium">
+                                        View Screenshot
+                                    </a>
+                                    <div class="flex space-x-2">
+                                        <a href="{{ url_for('approve_request', request_id=request.id, password='admin123') }}" 
+                                           class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                            Approve
+                                        </a>
+                                        <a href="{{ url_for('reject_request', request_id=request.id, password='admin123') }}" 
+                                           class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                            Reject
+                                        </a>
+                                    </div>
+                                </div>
+                            </dd>
+                        </div>
+                        {% endfor %}
+                    </dl>
+                </div>
+            </div>
+            {% else %}
+            <div class="bg-white shadow rounded-lg p-8 text-center">
+                <div class="mx-auto h-12 w-12 text-gray-400">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No pending requests</h3>
+                <p class="mt-1 text-sm text-gray-500">All subscription requests have been processed.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
