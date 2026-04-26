@@ -19,7 +19,13 @@
         <div class="flex items-center space-x-4">
             <span class="text-sm text-gray-600">Receipts: {{ receipt_count }} / 15</span>
             <div class="flex-1 h-4 bg-gray-200 rounded-full overflow-hidden">
+                {% if receipt_count == 0 %}
+                <div class="h-full bg-gray-300 rounded-full" style="width: 0%"></div>
+                {% elif receipt_count >= 15 %}
+                <div class="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full transition-all duration-300" style="width: 100%"></div>
+                {% else %}
                 <div class="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-300" style="width: {{ usage_percentage }}%"></div>
+                {% endif %}
             </div>
             <span class="text-sm text-gray-600">{{ "%.0f"|format(usage_percentage) }}%</span>
         </div>
@@ -48,7 +54,7 @@
                 <div class="ml-5 w-0 flex-1">
                     <dl>
                         <dt class="text-sm font-medium text-gray-500 truncate">Total Sales</dt>
-                        <dd class="text-lg font-medium text-gray-900">${{ "%.2f"|format(total_sales) }}</dd>
+                        <dd class="text-lg font-medium text-gray-900">₱{{ "%.2f"|format(total_sales) }}</dd>
                     </dl>
                 </div>
             </div>
@@ -64,7 +70,7 @@
                 <div class="ml-5 w-0 flex-1">
                     <dl>
                         <dt class="text-sm font-medium text-gray-500 truncate">Total Expenses</dt>
-                        <dd class="text-lg font-medium text-gray-900">${{ "%.2f"|format(total_expenses) }}</dd>
+                        <dd class="text-lg font-medium text-gray-900">₱{{ "%.2f"|format(total_expenses) }}</dd>
                     </dl>
                 </div>
             </div>
@@ -81,7 +87,7 @@
                     <dl>
                         <dt class="text-sm font-medium text-gray-500 truncate">Net Profit</dt>
                         <dd class="text-lg font-medium text-gray-900 {% if net_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                            {% if net_profit >= 0 %}+{% endif %}${{ "%.2f"|format(net_profit) }}
+                            {% if net_profit >= 0 %}+{% endif %}₱{{ "%.2f"|format(net_profit) }}
                         </dd>
                     </dl>
                 </div>

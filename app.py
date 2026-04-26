@@ -363,13 +363,15 @@ def create_app():
     @login_required
     def sales_journal():
         sales = Transaction.query.filter_by(user_id=current_user.id, type='sale').order_by(Transaction.date.desc()).all()
-        return render_template('ledger/sales.html', transactions=sales, title='Sales Journal')
+        total_sales = sum(transaction.amount for transaction in sales)
+        return render_template('ledger/sales.html', transactions=sales, title='Sales Journal', total_sales=total_sales)
     
     @app.route('/ledger/expenses')
     @login_required
     def expenses_journal():
         expenses = Transaction.query.filter_by(user_id=current_user.id, type='expense').order_by(Transaction.date.desc()).all()
-        return render_template('ledger/expenses.html', transactions=expenses, title='Expense Journal')
+        total_expenses = sum(transaction.amount for transaction in expenses)
+        return render_template('ledger/expenses.html', transactions=expenses, title='Expense Journal', total_expenses=total_expenses)
     
     @app.route('/transactions/new', methods=['GET', 'POST'])
     @login_required
@@ -437,6 +439,13 @@ def create_app():
                     if not all(col in df.columns for col in required_columns):
                         flash('File must contain columns: description, amount, type')
                         return redirect(request.url)
+                    
+                    # Check if user is free and has reached limit
+                    if not current_user.is_pro:
+                        current_receipt_count = Receipt.query.filter_by(user_id=current_user.id).count()
+                        if current_receipt_count >= 15:
+                            flash('You have reached your free plan limit. Upgrade to Pro to import more data.')
+                            return redirect(request.url)
                     
                     imported_count = 0
                     for _, row in df.iterrows():

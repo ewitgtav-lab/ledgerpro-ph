@@ -31,7 +31,7 @@
                 <div class="ml-5 w-0 flex-1">
                     <dl>
                         <dt class="text-sm font-medium text-gray-500 truncate">Total Sales</dt>
-                        <dd class="text-lg font-medium text-gray-900">${{ "%.2f"|format(transactions | sum(attribute='amount')) }}</dd>
+                        <dd class="text-lg font-medium text-gray-900">₱{{ "%.2f"|format(total_sales) }}</dd>
                     </dl>
                 </div>
             </div>
