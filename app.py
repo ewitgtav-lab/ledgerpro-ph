@@ -150,9 +150,7 @@ def create_app():
         return '.' in filename and \
                filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     
-    # Create tables
-    with app.app_context():
-        db.create_all()
+    # Tables will be created on-demand via /admin/force-fix-db route
     
     # Routes
     @app.route('/')
@@ -759,16 +757,17 @@ def create_app():
         flash(f'Subscription request for {subscription.user.email} has been rejected.')
         return redirect(url_for('admin_verify'))
     
-    @app.route('/admin/fix-db')
-    def fix_db():
+    @app.route('/admin/force-fix-db')
+    def force_fix_db():
+        from sqlalchemy import text
         try:
-            from sqlalchemy import text
-            # This manually adds the missing column to the existing table
+            # This bypasses SQLAlchemy models and talks directly to PostgreSQL
             db.session.execute(text('ALTER TABLE subscription_request ADD COLUMN IF NOT EXISTS screenshot_filename VARCHAR(255)'))
             db.session.commit()
-            return "Column added successfully! Dashboard should work now."
+            return "Success! The column has been forced into the database."
         except Exception as e:
-            return f"Error: {str(e)}"
+            db.session.rollback()
+            return f"Failed: {str(e)}"
 
     @app.route('/admin/logout')
     def admin_logout():
@@ -792,7 +791,6 @@ def create_app():
     def internal_server_error(error):
         return render_template('errors/500.html', error=str(error)), 500
     
-    db.create_all()
     return app
 
 app = create_app()
