@@ -1,7 +1,8 @@
 import os
 import uuid
 from datetime import datetime
-from flask import Flask, render_template, redirect, url_for, flash, request, send_file, jsonify
+from flask import Flask, render_template, redirect, url_for, flash, request, send_file, jsonify, session
+from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_wtf.csrf import CSRFProtect
@@ -97,8 +98,9 @@ class Transaction(db.Model):
 class SubscriptionRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    screenshot_path = db.Column(db.String(255), nullable=False)
+    screenshot_filename = db.Column(db.String(255), nullable=False)  # Renamed from screenshot_path
     status = db.Column(db.String(20), default='Pending')  # Pending, Approved, Rejected
+    amount_paid = db.Column(db.Float, nullable=False, default=19.00)  # Amount paid by user
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
     user = db.relationship('User', backref='subscription_requests')
@@ -579,8 +581,9 @@ def create_app():
                 # Create subscription request
                 subscription = SubscriptionRequest(
                     user_id=current_user.id,
-                    screenshot_path=unique_filename,
-                    status='Pending'
+                    screenshot_filename=unique_filename,
+                    status='Pending',
+                    amount_paid=19.00
                 )
                 db.session.add(subscription)
                 db.session.commit()
@@ -691,23 +694,38 @@ def create_app():
         return send_file(output, as_attachment=True, download_name='transactions.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     
     # Admin routes
-    @app.route('/admin/verify')
-    def admin_verify():
-        # Simple password protection - in production, use proper admin authentication
-        admin_password = request.args.get('password')
-        if admin_password != 'admin123':  # Change this in production
-            return render_template('admin/login.html')
+    @app.route('/admin/login', methods=['GET', 'POST'])
+    def admin_login():
+        if request.method == 'POST':
+            admin_password = request.form.get('password')
+            expected_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+            
+            if admin_password == expected_password:
+                session['is_admin'] = True
+                flash('Admin login successful!')
+                return redirect(url_for('admin_verify'))
+            else:
+                flash('Invalid admin password')
         
+        return render_template('admin/login.html')
+    
+    def admin_required(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not session.get('is_admin'):
+                return redirect(url_for('admin_login'))
+            return f(*args, **kwargs)
+        return decorated_function
+    
+    @app.route('/admin/verify')
+    @admin_required
+    def admin_verify():
         pending_requests = SubscriptionRequest.query.filter_by(status='Pending').order_by(SubscriptionRequest.created_at.desc()).all()
         return render_template('admin/verify.html', requests=pending_requests)
     
-    @app.route('/admin/approve/<int:request_id>', methods=['POST', 'GET'])
+    @app.route('/admin/approve/<int:request_id>', methods=['POST'])
+    @admin_required
     def approve_request(request_id):
-        admin_password = request.args.get('password') if request.method == 'GET' else request.form.get('password')
-        if admin_password != 'admin123':
-            flash('Unauthorized access')
-            return redirect(url_for('dashboard'))
-        
         subscription = SubscriptionRequest.query.get_or_404(request_id)
         subscription.status = 'Approved'
         
@@ -715,23 +733,33 @@ def create_app():
         user = subscription.user
         user.is_pro = True
         
+        # Optionally delete screenshot to save space
+        try:
+            screenshot_path = os.path.join(app.config['UPLOAD_FOLDER'], subscription.screenshot_filename)
+            if os.path.exists(screenshot_path):
+                os.remove(screenshot_path)
+        except Exception as e:
+            print(f"Error deleting screenshot: {e}")
+        
         db.session.commit()
         flash(f'User {user.email} has been upgraded to Pro!')
-        return redirect(url_for('admin_verify', password='admin123'))
+        return redirect(url_for('admin_verify'))
     
-    @app.route('/admin/reject/<int:request_id>', methods=['POST', 'GET'])
+    @app.route('/admin/reject/<int:request_id>', methods=['POST'])
+    @admin_required
     def reject_request(request_id):
-        admin_password = request.args.get('password') if request.method == 'GET' else request.form.get('password')
-        if admin_password != 'admin123':
-            flash('Unauthorized access')
-            return redirect(url_for('dashboard'))
-        
         subscription = SubscriptionRequest.query.get_or_404(request_id)
         subscription.status = 'Rejected'
         
         db.session.commit()
         flash(f'Subscription request for {subscription.user.email} has been rejected.')
-        return redirect(url_for('admin_verify', password='admin123'))
+        return redirect(url_for('admin_verify'))
+    
+    @app.route('/admin/logout')
+    def admin_logout():
+        session.pop('is_admin', None)
+        flash('Admin logged out successfully!')
+        return redirect(url_for('dashboard'))
     
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
