@@ -738,8 +738,8 @@ def get_ledger_entries(account_type, start_date, end_date):
     """Get general ledger entries"""
     # Placeholder implementation
     return [
-        {'date': '2026-04-27', 'account_code': '401001', 'account_name': 'Sales Revenue', 'debit': 0, 'credit': 2500.00, 'balance': 2500.00},
-        {'date': '2026-04-27', 'account_code': '101001', 'account_name': 'Cash on Hand', 'debit': 2500.00, 'credit': 0, 'balance': 2500.00}
+        {'date': '2026-04-27', 'account_code': '401001', 'account_name': 'Sales Revenue', 'debit_amount': 0, 'credit_amount': 2500.00, 'balance': 2500.00},
+        {'date': '2026-04-27', 'account_code': '101001', 'account_name': 'Cash on Hand', 'debit_amount': 2500.00, 'credit_amount': 0, 'balance': 2500.00}
     ]
 
 if __name__ == "__main__":
