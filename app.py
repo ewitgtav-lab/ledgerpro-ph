@@ -321,10 +321,16 @@ def create_app():
         pesos = int(total_amount)
         centavos = int(round((total_amount - pesos) * 100))
         
+        # Debug logging
+        import sys
+        print(f"DEBUG: total_amount={total_amount}, pesos={pesos}, centavos={centavos}", file=sys.stderr)
+        
         if centavos > 0:
             amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos and {num2words(centavos, lang='en').title()} Centavos"
         else:
             amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos"
+        
+        print(f"DEBUG: amount_in_words='{amount_in_words}'", file=sys.stderr)
         
         return render_template('receipts/view.html', receipt=receipt, amount_in_words=amount_in_words)
     
