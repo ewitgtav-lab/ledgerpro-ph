@@ -316,7 +316,17 @@ def create_app():
             receipt.items = json.dumps(items)
             db.session.commit()
         
-        return render_template('receipts/view.html', receipt=receipt)
+        # Calculate amount in words for professional receipt
+        total_amount = receipt.total_amount
+        pesos = int(total_amount)
+        centavos = int(round((total_amount - pesos) * 100))
+        
+        if centavos > 0:
+            amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos and {num2words(centavos, lang='en').title()} Centavos"
+        else:
+            amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos"
+        
+        return render_template('receipts/view.html', receipt=receipt, amount_in_words=amount_in_words)
     
     @app.route('/receipts/<int:id>/pdf')
     @login_required

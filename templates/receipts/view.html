@@ -9,10 +9,10 @@
         
         <!-- Header Section -->
         <div class="text-center py-4 border-b border-gray-300">
-            <h1 class="text-lg font-bold text-gray-900" style="font-size: 16px; margin-bottom: 4px;">
+            <h1 class="text-lg font-bold text-gray-900" style="font-size: 18px; margin-bottom: 4px;">
                 {{ current_user.shop_name.upper() }}
             </h1>
-            <p class="text-xs text-gray-600" style="font-size: 10px;">OFFICIAL RECEIPT</p>
+            <p class="text-xs text-gray-600" style="font-size: 12px; font-weight: bold;">OFFICIAL RECEIPT</p>
         </div>
 
         <!-- Receipt Number and Date -->
@@ -29,9 +29,11 @@
                 <span class="font-semibold uppercase">BILL TO:</span> {{ receipt.customer_name }}
             </div>
         </div>
+        
+        <hr style="border-top: 1px dashed #000; margin: 0;">
 
         <!-- Items Table -->
-        <div class="py-2 px-4 border-b border-gray-300">
+        <div class="py-2 px-4">
             <!-- Table Headers -->
             <div class="flex justify-between py-1" style="font-size: 10px; font-weight: bold; border-bottom: 1px dotted #666;">
                 <span class="flex-1">DESCRIPTION</span>
@@ -47,8 +49,8 @@
                 <div class="flex justify-between py-1" style="font-size: 11px; border-bottom: 1px dotted #ccc;">
                     <span class="flex-1">{{ item.name }}</span>
                     <span class="w-12 text-center">{{ item.quantity }}</span>
-                    <span class="w-16 text-right">₱{{ "%.2f"|format(item.price) }}</span>
-                    <span class="w-16 text-right">₱{{ "%.2f"|format(item.price * item.quantity) }}</span>
+                    <span class="w-16 text-right">₱{{ "{:,.2f}".format(item.price) }}</span>
+                    <span class="w-16 text-right">₱{{ "{:,.2f}".format(item.price * item.quantity) }}</span>
                 </div>
                 {% endfor %}
             {% else %}
@@ -57,21 +59,27 @@
                 </div>
             {% endif %}
         </div>
+        
+        <hr style="border-top: 1px dashed #000; margin: 0;">
 
         <!-- Total Section -->
-        <div class="py-3 px-4 border-b border-gray-300">
+        <div class="py-3 px-4">
             <div class="flex justify-between items-center" style="font-size: 12px; font-weight: bold;">
                 <span class="text-gray-900">TOTAL:</span>
-                <span class="text-gray-900">₱{{ "%.2f"|format(receipt.total_amount) }}</span>
+                <span class="text-gray-900">₱{{ "{:,.2f}".format(receipt.total_amount) }}</span>
             </div>
         </div>
+        
+        <hr style="border-top: 1px dashed #000; margin: 0;">
 
         <!-- Amount in Words -->
-        <div class="py-3 px-4 border-b border-gray-300" data-total="{{ receipt.total_amount }}">
+        <div class="py-3 px-4">
             <div class="text-gray-700 italic" style="font-size: 10px;">
-                Amount in Words: <span id="amount-in-words">Loading...</span> Pesos Only
+                Amount in Words: {{ amount_in_words }} Only
             </div>
         </div>
+        
+        <hr style="border-top: 1px dashed #000; margin: 0;">
 
         <!-- Footer -->
         <div class="py-4 px-4 text-center" style="font-size: 10px;">
@@ -106,70 +114,3 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
-<script>
-// Convert amount to words
-document.addEventListener('DOMContentLoaded', function() {
-    const amountContainer = document.querySelector('[data-total]');
-    const amountInWordsElement = document.getElementById('amount-in-words');
-    
-    if (amountContainer && amountInWordsElement) {
-        const totalAmount = parseFloat(amountContainer.getAttribute('data-total'));
-        
-        // Enhanced number to words conversion for Philippine business
-        const numberToWords = function(num) {
-            const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
-            const tens = ['', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-            const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-            
-            if (num === 0) return 'Zero';
-            if (num < 0) return 'Minus ' + numberToWords(Math.abs(num));
-            
-            var words = '';
-            
-            // Handle millions
-            if (num >= 1000000) {
-                const millions = Math.floor(num / 1000000);
-                words += numberToWords(millions) + ' Million ';
-                num = num % 1000000;
-            }
-            
-            // Handle thousands
-            if (num >= 1000) {
-                const thousands = Math.floor(num / 1000);
-                words += numberToWords(thousands) + ' Thousand ';
-                num = num % 1000;
-            }
-            
-            // Handle hundreds
-            if (num >= 100) {
-                const hundreds = Math.floor(num / 100);
-                words += ones[hundreds] + ' Hundred ';
-                num = num % 100;
-            }
-            
-            // Handle tens and ones
-            if (num >= 20) {
-                const tensDigit = Math.floor(num / 10);
-                words += tens[tensDigit] + ' ';
-                num = num % 10;
-            }
-            
-            if (num >= 10) {
-                words += teens[num - 10] + ' ';
-                num = 0;
-            }
-            
-            if (num > 0 && num < 10) {
-                words += ones[num] + ' ';
-            }
-            
-            return words.trim();
-        };
-        
-        const words = numberToWords(Math.floor(totalAmount));
-        amountInWordsElement.textContent = words;
-    }
-});
-</script>
-{% endblock %}
