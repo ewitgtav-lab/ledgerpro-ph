@@ -336,7 +336,7 @@ def create_app():
         # Header Section - Shop Name and Official Receipt
         p.setFillColor(colors.black)
         p.setFont("Helvetica-Bold", 20)
-        p.drawCentredString(current_user.shop_name.upper(), center_x, height - 60)
+        p.drawCentredString(str(current_user.shop_name).upper(), center_x, height - 60)
         
         p.setFont("Helvetica-Bold", 16)
         p.drawCentredString("OFFICIAL RECEIPT", center_x, height - 85)
@@ -407,8 +407,18 @@ def create_app():
         # Amount in Words (Crucial Part)
         y_position -= 30
         p.setFont("Helvetica-Oblique", 10)
-        amount_in_words = num2words(int(receipt.total_amount), lang='en')
-        p.drawString(left_margin, y_position, f"Total Amount in Words: {amount_in_words.title()} Pesos Only")
+        
+        # Handle amount in words properly for pesos and centavos
+        total_amount = receipt.total_amount
+        pesos = int(total_amount)
+        centavos = int(round((total_amount - pesos) * 100))
+        
+        if centavos > 0:
+            amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos and {num2words(centavos, lang='en').title()} Centavos"
+        else:
+            amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos"
+        
+        p.drawString(left_margin, y_position, f"Total Amount in Words: {amount_in_words} Only")
         
         # Dotted line separator after amount in words
         y_position -= 20
@@ -421,7 +431,7 @@ def create_app():
         footer_y = 80
         p.setFillColor(colors.black)
         p.setFont("Helvetica", 10)
-        p.drawCentredString(f"Thank you for shopping at {current_user.shop_name}!", center_x, footer_y)
+        p.drawCentredString(f"Thank you for shopping at {str(current_user.shop_name)}!", center_x, footer_y)
         
         # Watermark
         p.setFillColor(colors.lightgrey)
