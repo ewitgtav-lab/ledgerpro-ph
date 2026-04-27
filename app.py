@@ -378,8 +378,22 @@ def create_app():
         # Final safety check before passing to ReportLab
         if not isinstance(shop_name, str) or not shop_name:
             shop_name = 'LedgerPro PH'
+        
+        # ABSOLUTE FINAL SAFETY CHECK - Force string conversion at the last possible moment
+        shop_name = str(shop_name) if shop_name is not None else 'LedgerPro PH'
+        if not isinstance(shop_name, str):
+            shop_name = 'LedgerPro PH'
+        
+        # Double-check we're not passing a float or any other type
+        try:
+            float(shop_name)  # This will fail if it's not a number-like string
+            # If we get here, it might still be a number-like string, ensure it's actually a string
+            shop_name = str(shop_name)
+        except:
+            # It's not a number, which is good - keep it as is
+            pass
             
-        p.drawCentredString(shop_name.upper(), center_x, height - 60)
+        p.drawCentredString(str(shop_name).upper(), center_x, height - 60)
         
         p.setFont("Helvetica-Bold", 16)
         p.drawCentredString("OFFICIAL RECEIPT", center_x, height - 85)
@@ -474,7 +488,7 @@ def create_app():
         footer_y = 80
         p.setFillColor(colors.black)
         p.setFont("Helvetica", 10)
-        p.drawCentredString(f"Thank you for shopping at {shop_name}!", center_x, footer_y)
+        p.drawCentredString(f"Thank you for shopping at {str(shop_name)}!", center_x, footer_y)
         
         # Watermark
         p.setFillColor(colors.lightgrey)
