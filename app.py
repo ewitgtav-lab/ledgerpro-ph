@@ -41,15 +41,42 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize database
+# Initialize database with error handling
 @st.cache_resource
 def init_db():
-    return DatabaseManager()
+    try:
+        return DatabaseManager()
+    except Exception as e:
+        st.error(f"Database initialization failed: {e}")
+        st.warning("App will continue with limited functionality. Database will be created on first use.")
+        return None
 
 db = init_db()
-tax_calc = TaxCalculator()
+tax_calc = TaxCalculator(db) if db else None
+
+def health_check():
+    """Health check for Render deployment"""
+    if db is None:
+        return False, "Database not available"
+    try:
+        # Test database connection
+        with db.get_connection() as conn:
+            conn.execute("SELECT 1")
+        return True, "All systems operational"
+    except Exception as e:
+        return False, f"Database error: {str(e)}"
 
 def main():
+    # Health check indicator in sidebar
+    health_status, health_message = health_check()
+    if health_status:
+        st.sidebar.success("✅ System Healthy")
+    else:
+        st.sidebar.error("⚠️ System Issues")
+        st.sidebar.caption(health_message)
+    
+    st.sidebar.markdown("---")
+    
     # Sidebar navigation
     st.sidebar.markdown("# ☕ Pang-Kape Suite")
     st.sidebar.markdown("---")
@@ -67,6 +94,11 @@ def main():
             "⚙️ Settings"
         ]
     )
+    
+    # Check database availability for data-dependent pages
+    if db is None and page not in ["⚙️ Settings"]:
+        st.error("🗄️ Database not available. Please check Settings or try again later.")
+        return
     
     # Display current date and tax year
     st.sidebar.markdown(f"**Tax Year:** 2026")
@@ -92,6 +124,10 @@ def main():
 def show_dashboard():
     st.markdown('<h1 class="main-header">📊 Dashboard</h1>', unsafe_allow_html=True)
     
+    if not db:
+        st.warning("Dashboard requires database access. Please check Settings.")
+        return
+    
     # Key metrics
     col1, col2, col3, col4 = st.columns(4)
     
@@ -108,7 +144,7 @@ def show_dashboard():
     
     with col3:
         # Calculate estimated tax
-        estimated_tax = tax_calc.calculate_estimated_tax(2026)
+        estimated_tax = tax_calc.calculate_estimated_tax(2026) if tax_calc else 0
         st.metric("Estimated Tax Due", f"₱{estimated_tax:,.2f}")
     
     with col4:
@@ -159,6 +195,10 @@ def show_dashboard():
 
 def show_cash_receipt_journal():
     st.markdown('<h1 class="main-header">💰 Cash Receipt Journal</h1>', unsafe_allow_html=True)
+    
+    if not db:
+        st.error("Cash Receipt Journal requires database access.")
+        return
     
     # Tabs for manual entry and CSV import
     tab1, tab2 = st.tabs(["📝 Manual Entry", "📁 CSV Import"])
@@ -305,6 +345,10 @@ def show_cash_receipt_journal():
 def show_cash_disbursement_journal():
     st.markdown('<h1 class="main-header">💸 Cash Disbursement Journal</h1>', unsafe_allow_html=True)
     
+    if not db:
+        st.error("Cash Disbursement Journal requires database access.")
+        return
+    
     st.markdown("### Add New Cash Disbursement")
     
     col1, col2 = st.columns(2)
@@ -382,6 +426,10 @@ def show_cash_disbursement_journal():
 def show_general_ledger():
     st.markdown('<h1 class="main-header">📖 General Ledger</h1>', unsafe_allow_html=True)
     
+    if not db:
+        st.error("General Ledger requires database access.")
+        return
+    
     # Filters
     col1, col2, col3 = st.columns(3)
     
@@ -420,6 +468,10 @@ def show_general_ledger():
 def show_trial_balance():
     st.markdown('<h1 class="main-header">⚖️ Trial Balance</h1>', unsafe_allow_html=True)
     
+    if not db:
+        st.error("Trial Balance requires database access.")
+        return
+    
     as_of_date = st.date_input("As of Date", value=date.today())
     
     # Get trial balance
@@ -453,6 +505,10 @@ def show_trial_balance():
 
 def show_receipt_generator():
     st.markdown('<h1 class="main-header">🧾 Receipt Generator</h1>', unsafe_allow_html=True)
+    
+    if not db:
+        st.error("Receipt Generator requires database access.")
+        return
     
     # Receipt type selection
     receipt_type = st.selectbox("Receipt Type", ["Sales Invoice", "Service Invoice", "Official Receipt"])
@@ -533,6 +589,10 @@ def show_receipt_generator():
 
 def show_tax_reports():
     st.markdown('<h1 class="main-header">📋 Tax Reports</h1>', unsafe_allow_html=True)
+    
+    if not db or not tax_calc:
+        st.error("Tax Reports require database access.")
+        return
     
     # Tax period selection
     col1, col2 = st.columns(2)

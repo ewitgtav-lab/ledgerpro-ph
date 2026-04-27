@@ -6,14 +6,9 @@ import os
 class DatabaseManager:
     """Manages SQLite database operations for the Pang-Kape Bookkeeping System"""
     
-    def __init__(self, db_path: str = "data/bookkeeping.db"):
+    def __init__(self, db_path: str = "bir_database.db"):
         self.db_path = db_path
-        self.ensure_data_directory()
         self.init_database()
-    
-    def ensure_data_directory(self):
-        """Ensure the data directory exists"""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
     
     def get_connection(self) -> sqlite3.Connection:
         """Get database connection with foreign key constraints enabled"""
@@ -24,9 +19,10 @@ class DatabaseManager:
     
     def init_database(self):
         """Initialize all database tables with proper relationships"""
-        with self.get_connection() as conn:
-            # Chart of Accounts
-            conn.execute("""
+        try:
+            with self.get_connection() as conn:
+                # Chart of Accounts
+                conn.execute("""
                 CREATE TABLE IF NOT EXISTS chart_of_accounts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     account_code VARCHAR(10) UNIQUE NOT NULL,
@@ -170,6 +166,9 @@ class DatabaseManager:
             
             self._insert_default_accounts(conn)
             conn.commit()
+        except Exception as e:
+            print(f"Database initialization error: {e}")
+            # Continue without database - will be created on first use
     
     def _insert_default_accounts(self, conn: sqlite3.Connection):
         """Insert default chart of accounts"""

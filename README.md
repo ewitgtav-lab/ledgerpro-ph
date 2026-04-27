@@ -17,10 +17,27 @@ A desktop-optimized web application for Filipino e-commerce sellers and freelanc
 - **PDF Engine**: ReportLab/FPDF2
 
 ## Installation
+
+### Local Development
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
 ```
+
+### Render Deployment
+1. Push to GitHub repository
+2. Connect to Render.com
+3. Use the following configuration:
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `streamlit run app.py --server.port=$PORT --server.address=0.0.0.0`
+   - **Health Check**: `/healthcheck` or Streamlit's built-in health endpoint
+   - **Python Version**: 3.11.0 (recommended for pandas compatibility)
+
+### Database
+- Uses SQLite with relative path `bir_database.db`
+- Automatically creates database on first run
+- No persistent disk required for Render Free Tier
+- Handles database errors gracefully
 
 ## Project Structure
 ```
