@@ -24,7 +24,7 @@
                 {% elif receipt_count >= 15 %}
                 <div class="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full transition-all duration-300 w-full"></div>
                 {% else %}
-                <div class="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-300" data-width="{{ usage_percentage | default(0) }}"></div>
+                <div class="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-300" style="width: {{ usage_percentage | default(0) }}%;"></div>
                 {% endif %}
             </div>
             <span class="text-sm text-gray-600">{{ "%.0f"|format(usage_percentage | default(0)) }}%</span>

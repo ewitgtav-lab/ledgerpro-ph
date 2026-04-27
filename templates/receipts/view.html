@@ -123,30 +123,35 @@ document.addEventListener('DOMContentLoaded', function() {
             const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
             
             if (num === 0) return 'Zero';
+            if (num < 0) return 'Minus ' + numberToWords(Math.abs(num));
             
             var words = '';
             
             // Handle millions
             if (num >= 1000000) {
-                words += Math.floor(num / 1000000) + ' Million ';
+                const millions = Math.floor(num / 1000000);
+                words += numberToWords(millions) + ' Million ';
                 num = num % 1000000;
             }
             
             // Handle thousands
             if (num >= 1000) {
-                words += Math.floor(num / 1000) + ' Thousand ';
+                const thousands = Math.floor(num / 1000);
+                words += numberToWords(thousands) + ' Thousand ';
                 num = num % 1000;
             }
             
             // Handle hundreds
             if (num >= 100) {
-                words += Math.floor(num / 100) + ' Hundred ';
+                const hundreds = Math.floor(num / 100);
+                words += ones[hundreds] + ' Hundred ';
                 num = num % 100;
             }
             
             // Handle tens and ones
             if (num >= 20) {
-                words += tens[Math.floor(num / 10)] + ' ';
+                const tensDigit = Math.floor(num / 10);
+                words += tens[tensDigit] + ' ';
                 num = num % 10;
             }
             
@@ -155,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 num = 0;
             }
             
-            if (num > 0) {
+            if (num > 0 && num < 10) {
                 words += ones[num] + ' ';
             }
             
