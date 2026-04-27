@@ -38,15 +38,19 @@
             <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">Items</h3>
             <div class="space-y-3">
                 {% set items = receipt.items | from_json %}
-                {% for item in items %}
-                <div class="flex justify-between items-center py-2">
-                    <div class="flex-1">
-                        <p class="text-gray-900 font-medium">{{ item.name }}</p>
-                        <p class="text-sm text-gray-500">₱{{ "%.2f"|format(item.price) }} × {{ item.quantity }}</p>
+                {% if items %}
+                    {% for item in items %}
+                    <div class="flex justify-between items-center py-2">
+                        <div class="flex-1">
+                            <p class="text-gray-900 font-medium">{{ item.name }}</p>
+                            <p class="text-sm text-gray-500">₱{{ "%.2f"|format(item.price) }} × {{ item.quantity }}</p>
+                        </div>
+                        <p class="text-gray-900 font-medium">₱{{ "%.2f"|format(item.price * item.quantity) }}</p>
                     </div>
-                    <p class="text-gray-900 font-medium">₱{{ "%.2f"|format(item.price * item.quantity) }}</p>
-                </div>
-                {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    <p class="text-gray-500">No items found</p>
+                {% endif %}
             </div>
         </div>
 
@@ -56,6 +60,13 @@
                 <span class="text-lg font-medium text-gray-900">Total</span>
                 <span class="text-2xl font-bold text-gray-900">₱{{ "%.2f"|format(receipt.total_amount) }}</span>
             </div>
+        </div>
+
+        <!-- Amount in Words -->
+        <div class="px-8 py-4 bg-gray-50 border-t border-gray-200" data-total="{{ receipt.total_amount }}">
+            <p class="text-sm text-gray-600 italic">
+                Total Amount in Words: <span id="amount-in-words">Loading...</span> Pesos Only
+            </p>
         </div>
 
         <!-- Actions -->
@@ -84,4 +95,58 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Convert amount to words
+document.addEventListener('DOMContentLoaded', function() {
+    const amountContainer = document.querySelector('[data-total]');
+    const amountInWordsElement = document.getElementById('amount-in-words');
+    
+    if (amountContainer && amountInWordsElement) {
+        const totalAmount = parseFloat(amountContainer.getAttribute('data-total'));
+        
+        // Simple number to words conversion
+        const numberToWords = function(num) {
+            const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+            const tens = ['', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+            const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+            
+            if (num === 0) return 'Zero';
+            
+            var words = '';
+            
+            if (num >= 1000) {
+                words += Math.floor(num / 1000) + ' Thousand ';
+                num = num % 1000;
+            }
+            
+            if (num >= 100) {
+                words += Math.floor(num / 100) + ' Hundred ';
+                num = num % 100;
+            }
+            
+            if (num >= 20) {
+                words += tens[Math.floor(num / 10)] + ' ';
+                num = num % 10;
+            }
+            
+            if (num >= 10) {
+                words += teens[num - 10] + ' ';
+                num = 0;
+            }
+            
+            if (num > 0) {
+                words += ones[num] + ' ';
+            }
+            
+            return words.trim();
+        };
+        
+        const words = numberToWords(Math.floor(totalAmount));
+        amountInWordsElement.textContent = words;
+    }
+});
+</script>
 {% endblock %}
