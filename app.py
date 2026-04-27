@@ -759,6 +759,12 @@ def create_app():
         flash(f'Subscription request for {subscription.user.email} has been rejected.')
         return redirect(url_for('admin_verify'))
     
+    @app.route('/admin/init-db')
+    def init_db():
+        with app.app_context():
+            db.create_all()
+        return 'Database tables updated!'
+
     @app.route('/admin/logout')
     def admin_logout():
         session.pop('is_admin', None)
