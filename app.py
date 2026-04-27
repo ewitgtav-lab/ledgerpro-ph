@@ -261,6 +261,32 @@ def create_app():
     @login_required
     def view_receipt(id):
         receipt = Receipt.query.filter_by(id=id, user_id=current_user.id).first_or_404()
+        
+        # Handle items data - ensure it's always valid
+        try:
+            items = json.loads(receipt.items) if receipt.items else []
+            # If no items, create a default "General Sales" item
+            if not items:
+                default_item = {
+                    'name': 'General Sales',
+                    'price': receipt.total_amount,
+                    'quantity': 1
+                }
+                items = [default_item]
+                # Update the receipt with the default item
+                receipt.items = json.dumps(items)
+                db.session.commit()
+        except (json.JSONDecodeError, TypeError):
+            # Create default item if JSON is invalid
+            default_item = {
+                'name': 'General Sales',
+                'price': receipt.total_amount,
+                'quantity': 1
+            }
+            items = [default_item]
+            receipt.items = json.dumps(items)
+            db.session.commit()
+        
         return render_template('receipts/view.html', receipt=receipt)
     
     @app.route('/receipts/<int:id>/pdf')
