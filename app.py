@@ -1,785 +1,686 @@
-import os
-import uuid
-from datetime import datetime
-from flask import Flask, render_template, redirect, url_for, flash, request, send_file, jsonify, session
-from functools import wraps
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from flask_wtf.csrf import CSRFProtect
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
-from dotenv import load_dotenv
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.lib.units import inch
+import streamlit as st
 import pandas as pd
-import io
-import json
+from datetime import datetime, date
+import plotly.express as px
+import plotly.graph_objects as go
+from models import DatabaseManager
+from tax_engine import TaxCalculator
 
-# Try to import num2words, use fallback if not available
-try:
-    from num2words import num2words
-    NUM2WORDS_AVAILABLE = True
-except ImportError:
-    NUM2WORDS_AVAILABLE = False
-    def num2words(amount, lang='en'):
-        # Fallback function that converts number to words
-        def number_to_words(num):
-            if num == 0:
-                return "zero"
-            
-            ones = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
-            teens = ["ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"]
-            tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
-            
-            def convert_less_than_thousand(n):
-                if n == 0:
-                    return ""
-                elif n < 10:
-                    return ones[n]
-                elif n < 20:
-                    return teens[n - 10]
-                elif n < 100:
-                    return tens[n // 10] + (" " + ones[n % 10] if n % 10 != 0 else "")
-                else:
-                    return ones[n // 100] + " hundred" + (" " + convert_less_than_thousand(n % 100) if n % 100 != 0 else "")
-            
-            if num < 1000:
-                return convert_less_than_thousand(num)
-            elif num < 1000000:
-                return convert_less_than_thousand(num // 1000) + " thousand" + (" " + convert_less_than_thousand(num % 1000) if num % 1000 != 0 else "")
-            elif num < 1000000000:
-                return convert_less_than_thousand(num // 1000000) + " million" + (" " + convert_less_than_thousand(num % 1000000) if num % 1000000 != 0 else "")
-            else:
-                return str(num)
-        
-        return number_to_words(amount)
+# Configure Streamlit page
+st.set_page_config(
+    page_title="Pang-Kape: Bookkeeping & Tax Suite",
+    page_icon="☕",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-load_dotenv()
+# Custom CSS for dark theme
+st.markdown("""
+<style>
+    .stApp {
+        background-color: #1a1a1a;
+    }
+    .stSidebar {
+        background-color: #2d2d2d;
+    }
+    .main-header {
+        font-size: 2.5rem;
+        color: #ff6b6b;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .metric-card {
+        background-color: #2d2d2d;
+        padding: 1rem;
+        border-radius: 10px;
+        border-left: 4px solid #ff6b6b;
+    }
+    .dataframe {
+        background-color: #2d2d2d !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-db = SQLAlchemy()
-login_manager = LoginManager()
-csrf = CSRFProtect()
+# Initialize database
+@st.cache_resource
+def init_db():
+    return DatabaseManager()
 
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(512), nullable=False)
-    shop_name = db.Column(db.String(100), nullable=False)
-    is_pro = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    
-    receipts = db.relationship('Receipt', backref='user', lazy=True, cascade='all, delete-orphan')
-    transactions = db.relationship('Transaction', backref='user', lazy=True, cascade='all, delete-orphan')
+db = init_db()
+tax_calc = TaxCalculator()
 
-class Receipt(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    customer_name = db.Column(db.String(100), nullable=False)
-    items = db.Column(db.Text, nullable=False)  # JSON string of items
-    total_amount = db.Column(db.Float, nullable=False)
-    receipt_number = db.Column(db.String(20), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+def main():
+    # Sidebar navigation
+    st.sidebar.markdown("# ☕ Pang-Kape Suite")
+    st.sidebar.markdown("---")
     
-    transactions = db.relationship('Transaction', backref='receipt', lazy=True)
+    page = st.sidebar.selectbox(
+        "Navigate to:",
+        [
+            "📊 Dashboard",
+            "💰 Cash Receipt Journal",
+            "💸 Cash Disbursement Journal", 
+            "📖 General Ledger",
+            "⚖️ Trial Balance",
+            "🧾 Receipt Generator",
+            "📋 Tax Reports",
+            "⚙️ Settings"
+        ]
+    )
+    
+    # Display current date and tax year
+    st.sidebar.markdown(f"**Tax Year:** 2026")
+    st.sidebar.markdown(f"**Today:** {date.today().strftime('%B %d, %Y')}")
+    
+    if page == "📊 Dashboard":
+        show_dashboard()
+    elif page == "💰 Cash Receipt Journal":
+        show_cash_receipt_journal()
+    elif page == "💸 Cash Disbursement Journal":
+        show_cash_disbursement_journal()
+    elif page == "📖 General Ledger":
+        show_general_ledger()
+    elif page == "⚖️ Trial Balance":
+        show_trial_balance()
+    elif page == "🧾 Receipt Generator":
+        show_receipt_generator()
+    elif page == "📋 Tax Reports":
+        show_tax_reports()
+    elif page == "⚙️ Settings":
+        show_settings()
 
-class Transaction(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    receipt_id = db.Column(db.Integer, db.ForeignKey('receipt.id'), nullable=True)
-    description = db.Column(db.String(200), nullable=False)
-    amount = db.Column(db.Float, nullable=False)
-    type = db.Column(db.String(10), nullable=False)  # 'sale' or 'expense'
-    category = db.Column(db.String(50), nullable=True)
-    date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
-class SubscriptionRequest(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    screenshot_filename = db.Column(db.String(255), nullable=False)  # Renamed from screenshot_path
-    status = db.Column(db.String(20), default='Pending')  # Pending, Approved, Rejected
-    amount_paid = db.Column(db.Float, nullable=False, default=19.00)  # Amount paid by user
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+def show_dashboard():
+    st.markdown('<h1 class="main-header">📊 Dashboard</h1>', unsafe_allow_html=True)
     
-    user = db.relationship('User', backref='subscription_requests')
-
-def create_app():
-    app = Flask(__name__)
+    # Key metrics
+    col1, col2, col3, col4 = st.columns(4)
     
-    # Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-    database_url = os.environ.get('DATABASE_URL', 'sqlite:///app.db')
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['UPLOAD_FOLDER'] = 'uploads'
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+    with col1:
+        # Get total sales for current month
+        current_month = date.today().replace(day=1)
+        total_sales = get_monthly_sales(current_month)
+        st.metric("Monthly Sales", f"₱{total_sales:,.2f}", delta="+12.5%")
     
-    # Initialize extensions
-    db.init_app(app)
-    login_manager.init_app(app)
-    csrf.init_app(app)
-    login_manager.login_view = 'login'
+    with col2:
+        # Get total expenses for current month
+        total_expenses = get_monthly_expenses(current_month)
+        st.metric("Monthly Expenses", f"₱{total_expenses:,.2f}", delta="-5.2%")
     
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(int(user_id))
+    with col3:
+        # Calculate estimated tax
+        estimated_tax = tax_calc.calculate_estimated_tax(2026)
+        st.metric("Estimated Tax Due", f"₱{estimated_tax:,.2f}")
     
-    @app.context_processor
-    def inject_now():
-        return {'now': datetime.utcnow}
+    with col4:
+        # Net income
+        net_income = total_sales - total_expenses
+        st.metric("Net Income", f"₱{net_income:,.2f}", delta="+8.3%")
     
-    @app.template_filter('from_json')
-    def from_json(value):
-        import json
-        try:
-            return json.loads(value)
-        except (json.JSONDecodeError, TypeError):
-            return []
+    st.markdown("---")
     
-    @app.template_filter('currency')
-    def currency_format(value):
-        """Format currency with ₱ symbol and proper formatting"""
-        return f"₱{value:,.2f}"
+    # Charts section
+    col1, col2 = st.columns(2)
     
-    def allowed_file(filename):
-        ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
-        return '.' in filename and \
-               filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-    
-    # Tables will be created on-demand via /admin/force-fix-db route
-    
-    # Routes
-    @app.route('/')
-    def index():
-        if current_user.is_authenticated:
-            return redirect(url_for('dashboard'))
-        return redirect(url_for('login'))
-    
-    @app.route('/login', methods=['GET', 'POST'])
-    def login():
-        if current_user.is_authenticated:
-            return redirect(url_for('dashboard'))
-        
-        if request.method == 'POST':
-            email = request.form.get('email')
-            password = request.form.get('password')
-            user = User.query.filter_by(email=email).first()
-            
-            if user and check_password_hash(user.password_hash, password):
-                login_user(user)
-                return redirect(url_for('dashboard'))
-            flash('Invalid email or password')
-        
-        return render_template('auth/login.html')
-    
-    @app.route('/register', methods=['GET', 'POST'])
-    def register():
-        if current_user.is_authenticated:
-            return redirect(url_for('dashboard'))
-        
-        if request.method == 'POST':
-            email = request.form.get('email')
-            password = request.form.get('password')
-            shop_name = request.form.get('shop_name')
-            
-            if User.query.filter_by(email=email).first():
-                flash('Email already registered')
-                return render_template('auth/register.html')
-            
-            user = User(
-                email=email,
-                password_hash=generate_password_hash(password),
-                shop_name=shop_name
+    with col1:
+        st.markdown("### 📈 Monthly Sales vs Expenses")
+        monthly_data = get_monthly_comparison()
+        if monthly_data:
+            fig = px.line(
+                monthly_data, 
+                x='month', 
+                y=['sales', 'expenses'],
+                title="Sales vs Expenses Trend",
+                labels={'value': 'Amount (₱)', 'month': 'Month'},
+                color_discrete_map={'sales': '#ff6b6b', 'expenses': '#4ecdc4'}
             )
-            db.session.add(user)
-            db.session.commit()
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        
-        return render_template('auth/register.html')
+            fig.update_layout(template="plotly_dark")
+            st.plotly_chart(fig, use_container_width=True)
     
-    @app.route('/logout')
-    @login_required
-    def logout():
-        logout_user()
-        return redirect(url_for('login'))
-    
-    @app.route('/dashboard')
-    @login_required
-    def dashboard():
-        receipt_count = Receipt.query.filter_by(user_id=current_user.id).count()
-        usage_percentage = min((receipt_count / 15) * 100, 100) if not current_user.is_pro else 0
-        
-        # Check for pending subscription request
-        pending_request = SubscriptionRequest.query.filter_by(user_id=current_user.id, status='Pending').first()
-        
-        # Calculate real-time analytics (fresh calculation each time dashboard loads)
-        sales = Transaction.query.filter_by(user_id=current_user.id, type='sale').all()
-        expenses = Transaction.query.filter_by(user_id=current_user.id, type='expense').all()
-        
-        total_sales = sum(t.amount for t in sales)
-        total_expenses = sum(t.amount for t in expenses)
-        net_profit = total_sales - total_expenses
-        
-        return render_template('dashboard.html', 
-                             receipt_count=receipt_count,
-                             usage_percentage=usage_percentage,
-                             total_sales=total_sales,
-                             total_expenses=total_expenses,
-                             net_profit=net_profit,
-                             pending_request=pending_request)
-    
-    @app.route('/receipts')
-    @login_required
-    def receipts_list():
-        receipts = Receipt.query.filter_by(user_id=current_user.id).order_by(Receipt.created_at.desc()).all()
-        return render_template('receipts/list.html', receipts=receipts)
-    
-    @app.route('/receipts/new', methods=['GET', 'POST'])
-    @login_required
-    def new_receipt():
-        # Check if user has reached receipt limit (count database entries)
-        if not current_user.is_pro:
-            receipt_count = Receipt.query.filter_by(user_id=current_user.id).count()
-            if receipt_count >= 15:
-                flash('You have reached your free plan limit. Upgrade to Pro to create unlimited receipts.')
-                return redirect(url_for('subscribe'))
-        
-        if request.method == 'POST':
-            customer_name = request.form.get('customer_name')
-            items = request.form.get('items')  # JSON string from frontend
-            raw_total = request.form.get('total_amount')
-            total_amount = float(raw_total) if raw_total and raw_total.strip() else 0.0
-            
-            # Generate receipt number
-            receipt_count = Receipt.query.filter_by(user_id=current_user.id).count()
-            receipt_number = f"RCP-{current_user.id:04d}-{receipt_count + 1:04d}"
-            
-            receipt = Receipt(
-                user_id=current_user.id,
-                customer_name=customer_name,
-                items=items,
-                total_amount=total_amount,
-                receipt_number=receipt_number
+    with col2:
+        st.markdown("### 🛍️ Platform Sales Breakdown")
+        platform_data = get_platform_breakdown()
+        if platform_data:
+            fig = px.pie(
+                platform_data,
+                values='amount',
+                names='platform',
+                title="Sales by Platform",
+                color_discrete_sequence=['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24']
             )
-            db.session.add(receipt)
-            db.session.commit()
-            
-            # Create corresponding transaction
-            transaction = Transaction(
-                user_id=current_user.id,
-                receipt_id=receipt.id,
-                description=f"Receipt {receipt_number} - {customer_name}",
-                amount=total_amount,
-                type='sale',
-                category='receipt_sales'
-            )
-            db.session.add(transaction)
-            db.session.commit()
-            
-            flash('Receipt created successfully!')
-            return redirect(url_for('receipts_list'))
-        
-        return render_template('receipts/new.html')
+            fig.update_layout(template="plotly_dark")
+            st.plotly_chart(fig, use_container_width=True)
     
-    @app.route('/receipts/<int:id>')
-    @login_required
-    def view_receipt(id):
-        receipt = Receipt.query.filter_by(id=id, user_id=current_user.id).first_or_404()
+    # Recent transactions
+    st.markdown("### 📝 Recent Transactions")
+    recent_transactions = get_recent_transactions()
+    if recent_transactions:
+        df = pd.DataFrame(recent_transactions)
+        st.dataframe(df, use_container_width=True)
+
+def show_cash_receipt_journal():
+    st.markdown('<h1 class="main-header">💰 Cash Receipt Journal</h1>', unsafe_allow_html=True)
+    
+    # Tabs for manual entry and CSV import
+    tab1, tab2 = st.tabs(["📝 Manual Entry", "📁 CSV Import"])
+    
+    with tab1:
+        st.markdown("### Add New Cash Receipt")
         
-        # Handle items data - ensure it's always valid
-        try:
-            items = json.loads(receipt.items) if receipt.items else []
-            # If no items, create a default "General Sales" item
-            if not items:
-                default_item = {
-                    'name': 'General Sales',
-                    'price': receipt.total_amount,
-                    'quantity': 1
-                }
-                items = [default_item]
-                # Update the receipt with the default item
-                receipt.items = json.dumps(items)
-                db.session.commit()
-        except (json.JSONDecodeError, TypeError):
-            # Create default item if JSON is invalid
-            default_item = {
-                'name': 'General Sales',
-                'price': receipt.total_amount,
-                'quantity': 1
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            transaction_date = st.date_input("Transaction Date", value=date.today())
+            reference_number = st.text_input("Reference Number (Optional)")
+            customer_name = st.text_input("Customer Name")
+            customer_tin = st.text_input("Customer TIN (Optional)")
+        
+        with col2:
+            # Get revenue accounts
+            revenue_accounts = db.get_accounts_by_type('Revenue')
+            account_options = {f"{acc['account_code']} - {acc['account_name']}": acc['account_code'] 
+                              for acc in revenue_accounts}
+            selected_account = st.selectbox("Revenue Account", list(account_options.keys()))
+            account_code = account_options[selected_account]
+            
+            platform_name = st.selectbox("Platform", ["None", "Shopee", "Lazada", "TikTok", "Facebook", "Instagram"])
+            description = st.text_area("Description")
+        
+        # Financial details
+        st.markdown("### 💵 Financial Details")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            gross_sales = st.number_input("Gross Sales", min_value=0.0, value=0.0, step=0.01)
+            vat_output = st.number_input("VAT Output (12%)", min_value=0.0, value=0.0, step=0.01)
+        
+        with col2:
+            commission_fee = st.number_input("Commission Fee", min_value=0.0, value=0.0, step=0.01)
+            shipping_subsidy = st.number_input("Shipping Subsidy", min_value=0.0, value=0.0, step=0.01)
+        
+        with col3:
+            net_sales = gross_sales - vat_output
+            total_cash_received = net_sales - commission_fee + shipping_subsidy
+            st.markdown("**Net Sales:**")
+            st.info(f"₱{net_sales:,.2f}")
+            st.markdown("**Total Cash Received:**")
+            st.success(f"₱{total_cash_received:,.2f}")
+        
+        # Submit button
+        if st.button("💾 Add Entry", type="primary"):
+            entry_data = {
+                'transaction_date': transaction_date,
+                'reference_number': reference_number,
+                'customer_name': customer_name,
+                'customer_tin': customer_tin,
+                'account_code': account_code,
+                'description': description,
+                'gross_sales': gross_sales,
+                'vat_output': vat_output,
+                'net_sales': net_sales,
+                'platform_name': platform_name if platform_name != "None" else None,
+                'commission_fee': commission_fee,
+                'shipping_subsidy': shipping_subsidy,
+                'total_cash_received': total_cash_received
             }
-            items = [default_item]
-            receipt.items = json.dumps(items)
-            db.session.commit()
-        
-        # Calculate amount in words for professional receipt
-        total_amount = receipt.total_amount
-        pesos = int(total_amount)
-        centavos = int(round((total_amount - pesos) * 100))
-        
-        # Debug logging
-        import sys
-        print(f"DEBUG: total_amount={total_amount}, pesos={pesos}, centavos={centavos}", file=sys.stderr)
-        
-        if centavos > 0:
-            amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos and {num2words(centavos, lang='en').title()} Centavos"
-        else:
-            amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos"
-        
-        print(f"DEBUG: amount_in_words='{amount_in_words}'", file=sys.stderr)
-        
-        return render_template('receipts/view.html', receipt=receipt, amount_in_words=amount_in_words)
-    
-    @app.route('/receipts/<int:id>/pdf')
-    @login_required
-    def receipt_pdf(id):
-        receipt = Receipt.query.filter_by(id=id, user_id=current_user.id).first_or_404()
-        
-        try:
-            # Create Professional Philippine Business Receipt
-            buffer = io.BytesIO()
-            p = canvas.Canvas(buffer, pagesize=letter)
-            width, height = letter
-            
-            # Set margins for thermal receipt width simulation
-            left_margin = 50
-            right_margin = width - 50
-            center_x = width / 2
-            
-            # Header Section - Shop Name and Official Receipt
-            p.setFillColor(colors.black)
-            p.setFont("Helvetica-Bold", 20)
-            
-            # Get the raw shop_name value
-            raw_shop_name = getattr(current_user, 'shop_name', None)
-            
-            # Debug logging (you can remove this in production)
-            import sys
-            print(f"DEBUG: raw_shop_name type: {type(raw_shop_name)}, value: {raw_shop_name}", file=sys.stderr)
-            
-            # Handle different data types
-            if raw_shop_name is None:
-                shop_name = 'LedgerPro PH'
-            elif isinstance(raw_shop_name, (int, float)):
-                # Convert numbers to string
-                if raw_shop_name != 0:  # Only use non-zero numbers
-                    shop_name = str(int(raw_shop_name)) if raw_shop_name == int(raw_shop_name) else str(raw_shop_name)
-                else:
-                    shop_name = 'LedgerPro PH'
-            else:
-                # Handle strings and other types
-                shop_name = str(raw_shop_name).strip()
-            
-            # Clean up the string
-            shop_name = shop_name.replace('nan', '').replace('None', '').strip()
-            if not shop_name:
-                shop_name = 'LedgerPro PH'
-                
-            # Final safety check - ensure it's a string
-            if not isinstance(shop_name, str):
-                shop_name = str(shop_name)
-            
-            # Final safety check before passing to ReportLab
-            if not isinstance(shop_name, str) or not shop_name:
-                shop_name = 'LedgerPro PH'
-            
-            # ABSOLUTE FINAL SAFETY CHECK - Force string conversion at the last possible moment
-            shop_name = str(shop_name) if shop_name is not None else 'LedgerPro PH'
-            if not isinstance(shop_name, str):
-                shop_name = 'LedgerPro PH'
-            
-            # Double-check we're not passing a float or any other type
-            try:
-                float(shop_name)  # This will fail if it's not a number-like string
-                # If we get here, it might still be a number-like string, ensure it's actually a string
-                shop_name = str(shop_name)
-            except:
-                # It's not a number, which is good - keep it as is
-                pass
-            
-            p.drawCentredString(str(shop_name).upper(), center_x, height - 60)
-            
-            p.setFont("Helvetica-Bold", 16)
-            p.drawCentredString("OFFICIAL RECEIPT", center_x, height - 85)
-            
-            # Metadata Section - Date and Receipt Number
-            p.setFont("Helvetica", 11)
-            p.drawString(left_margin, height - 120, f"Date: {receipt.created_at.strftime('%B %d, %Y')}")
-            p.drawString(right_margin - 150, height - 120, f"Receipt No: {receipt.receipt_number}")
-            
-            # Customer Information
-            p.setFont("Helvetica-Bold", 12)
-            p.drawString(left_margin, height - 150, "Customer:")
-            p.setFont("Helvetica", 11)
-            p.drawString(left_margin + 60, height - 150, str(receipt.customer_name))
-            
-            # Line separator
-            p.setStrokeColor(colors.black)
-            p.line(left_margin, height - 170, right_margin, height - 170)
-            
-            # Items Table Header
-            y_position = height - 190
-            p.setFont("Helvetica-Bold", 10)
-            p.drawString(left_margin, y_position, "ITEM/DESCRIPTION")
-            p.drawCentredString("QTY", center_x - 50, y_position)
-            p.drawString(right_margin - 80, y_position, "AMOUNT")
-            
-            # Line separator under headers
-            p.line(left_margin, y_position - 10, right_margin, y_position - 10)
-            
-            # Items List
-            y_position -= 30
-            p.setFont("Helvetica", 10)
             
             try:
-                items = json.loads(receipt.items)
-                for item in items:
-                    item_name = item.get('name', 'N/A')
-                    quantity = item.get('quantity', 1)
-                    price = item.get('price', 0)
-                    total = price * quantity
-                    
-                    # Handle long item names
-                    if len(item_name) > 30:
-                        item_name = item_name[:27] + "..."
-                    
-                    p.drawString(left_margin, y_position, str(item_name))
-                    p.drawCentredString(str(quantity), center_x - 50, y_position)
-                    p.drawString(right_margin - 80, y_position, f"₱{total:,.2f}")
-                    
-                    y_position -= 20
-                    if y_position < height - 400:
-                        break
-            except:
-                p.drawString(left_margin, y_position, "Error loading items")
-            
-            # Dotted line separator before totals
-            y_position -= 10
-            p.setStrokeColor(colors.black)
-            p.setDash([2, 2])
-            p.line(left_margin, y_position, right_margin, y_position)
-            p.setDash()  # Reset to solid line
-            
-            # Totals Section
-            y_position -= 25
-            p.setFont("Helvetica-Bold", 12)
-            p.drawString(right_margin - 120, y_position, f"TOTAL: ₱{receipt.total_amount:,.2f}")
-            
-            # Amount in Words (Crucial Part)
-            y_position -= 30
-            p.setFont("Helvetica-Oblique", 10)
-            
-            # Calculate amount in words before canvas drawing
-            try:
-                total_amount = receipt.total_amount
-                pesos = int(total_amount)
-                centavos = int(round((total_amount - pesos) * 100))
-                
-                if centavos > 0:
-                    amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos and {num2words(centavos, lang='en').title()} Centavos Only"
-                else:
-                    amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos Only"
+                crj_id = db.add_crj_entry(entry_data)
+                st.success(f"✅ Entry added successfully! ID: {crj_id}")
+                st.balloons()
             except Exception as e:
-                # Fallback if num2words fails
-                amount_in_words = f"{receipt.total_amount:,.2f} Pesos Only"
-            
-            p.drawString(left_margin, y_position, str(amount_in_words))
-            
-            # Dotted line separator after amount in words
-            y_position -= 20
-            p.setStrokeColor(colors.black)
-            p.setDash([2, 2])
-            p.line(left_margin, y_position, right_margin, y_position)
-            p.setDash()
-            
-            # Footer Section
-            footer_y = 80
-            p.setFillColor(colors.black)
-            p.setFont("Helvetica", 10)
-            p.drawCentredString(f"Thank you for shopping at {str(shop_name)}!", center_x, footer_y)
-            
-            # Watermark
-            p.setFillColor(colors.lightgrey)
-            p.setFont("Helvetica", 8)
-            p.drawCentredString("Generated by LedgerPro PH", center_x, footer_y - 20)
-            
-            # Generation timestamp
-            p.setFillColor(colors.grey)
-            p.setFont("Helvetica", 8)
-            p.drawCentredString(f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", center_x, footer_y - 35)
-            p.showPage()
-            p.save()
-            
-            buffer.seek(0)
-            
-            return send_file(buffer, as_attachment=True, download_name=f'Receipt_{receipt.receipt_number}.pdf', mimetype='application/pdf')
-            
-        except Exception as e:
-            # Log error and return a simple error response
-            import sys
-            print(f"PDF Generation Error: {e}", file=sys.stderr)
-            
-            # Create a simple error PDF as fallback
-            error_buffer = io.BytesIO()
-            error_p = canvas.Canvas(error_buffer, pagesize=letter)
-            error_p.setFont("Helvetica", 16)
-            error_p.drawCentredString("Error Generating PDF", letter[0]/2, letter[1]/2)
-            error_p.setFont("Helvetica", 12)
-            error_p.drawCentredString(f"Error: {str(e)}", letter[0]/2, letter[1]/2 - 30)
-            error_p.showPage()
-            error_p.save()
-            error_buffer.seek(0)
-            
-            return send_file(error_buffer, as_attachment=True, download_name=f'Error_Receipt_{receipt.receipt_number}.pdf', mimetype='application/pdf')
+                st.error(f"❌ Error adding entry: {str(e)}")
     
-    @app.route('/receipts/<int:id>/delete', methods=['POST'])
-    @login_required
-    def delete_receipt(id):
-        receipt = Receipt.query.filter_by(id=id, user_id=current_user.id).first_or_404()
-        db.session.delete(receipt)
-        db.session.commit()
-        flash('Receipt deleted successfully!')
-        return redirect(url_for('receipts_list'))
-    
-    @app.route('/subscribe', methods=['GET', 'POST'])
-    @login_required
-    def subscribe():
-        if current_user.is_pro:
-            flash('You are already a Pro user!')
-            return redirect(url_for('dashboard'))
+    with tab2:
+        st.markdown("### 📁 Import from CSV")
+        st.markdown("Upload CSV files from Shopee, Lazada, or TikTok")
         
-        # Check if user already has a pending request
-        existing_request = SubscriptionRequest.query.filter_by(user_id=current_user.id, status='Pending').first()
-        if existing_request:
-            flash('You already have a pending subscription request. Please wait for verification.')
-            return redirect(url_for('dashboard'))
+        uploaded_file = st.file_uploader("Choose CSV file", type=['csv'])
         
-        if request.method == 'POST':
-            if 'screenshot' not in request.files:
-                flash('Please select a payment screenshot')
-                return redirect(request.url)
-            
-            file = request.files['screenshot']
-            if file.filename == '':
-                flash('Please select a payment screenshot')
-                return redirect(request.url)
-            
-            if file and allowed_file(file.filename):
-                # Generate unique filename
-                filename = secure_filename(file.filename)
-                unique_filename = f"{uuid.uuid4()}_{filename}"
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        if uploaded_file is not None:
+            try:
+                df = pd.read_csv(uploaded_file)
+                st.success(f"✅ File loaded successfully! Found {len(df)} records")
                 
-                # Ensure upload directory exists
-                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+                # Show preview
+                st.markdown("### 📋 Data Preview")
+                st.dataframe(df.head())
                 
-                # Save file
-                file.save(filepath)
+                # Column mapping
+                st.markdown("### 🔄 Map Columns")
                 
-                # Create subscription request
-                subscription = SubscriptionRequest(
-                    user_id=current_user.id,
-                    screenshot_filename=unique_filename,
-                    status='Pending',
-                    amount_paid=19.00
-                )
-                db.session.add(subscription)
-                db.session.commit()
+                # Auto-detect common column names
+                common_mappings = {
+                    'Date': ['date', 'transaction_date', 'order_date', 'created_at'],
+                    'Customer': ['customer_name', 'buyer_name', 'customer', 'buyer'],
+                    'Amount': ['amount', 'total', 'gross_sales', 'order_amount'],
+                    'Commission': ['commission', 'commission_fee', 'platform_fee'],
+                    'Shipping': ['shipping', 'shipping_fee', 'shipping_subsidy']
+                }
                 
-                flash('Payment submitted! Please wait 12-24 hours for manual verification.')
-                return redirect(url_for('dashboard'))
-            else:
-                flash('Invalid file type. Please upload an image file.')
-                return redirect(request.url)
-        
-        return render_template('subscribe.html')
-    
-    @app.route('/ledger')
-    @login_required
-    def ledger():
-        return redirect(url_for('sales_journal'))
-    
-    @app.route('/ledger/sales')
-    @login_required
-    def sales_journal():
-        sales = Transaction.query.filter_by(user_id=current_user.id, type='sale').order_by(Transaction.date.desc()).all()
-        total_sales = sum(transaction.amount for transaction in sales)
-        return render_template('ledger/sales.html', transactions=sales, title='Sales Journal', total_sales=total_sales)
-    
-    @app.route('/ledger/expenses')
-    @login_required
-    def expenses_journal():
-        expenses = Transaction.query.filter_by(user_id=current_user.id, type='expense').order_by(Transaction.date.desc()).all()
-        total_expenses = sum(transaction.amount for transaction in expenses)
-        return render_template('ledger/expenses.html', transactions=expenses, title='Expense Journal', total_expenses=total_expenses)
-    
-    @app.route('/import', methods=['GET', 'POST'])
-    @login_required
-    def import_data():
-        if request.method == 'POST':
-            if 'file' not in request.files:
-                flash('No file selected')
-                return redirect(request.url)
-            
-            file = request.files['file']
-            if file.filename == '':
-                flash('No file selected')
-                return redirect(request.url)
-            
-            if file and (file.filename.endswith('.csv') or file.filename.endswith(('.xlsx', '.xls'))):
-                try:
-                    if file.filename.endswith('.csv'):
-                        df = pd.read_csv(file)
+                mapped_columns = {}
+                for field, possible_names in common_mappings.items():
+                    available_columns = [col for col in df.columns if any(name in col.lower() for name in possible_names)]
+                    if available_columns:
+                        mapped_columns[field] = st.selectbox(f"{field} Column", available_columns, index=0)
                     else:
-                        df = pd.read_excel(file)
+                        mapped_columns[field] = st.selectbox(f"{field} Column", df.columns)
+                
+                # Process import
+                if st.button("🚀 Import Data", type="primary"):
+                    success_count = 0
+                    error_count = 0
                     
-                    # Get column mappings
-                    description_col = request.form.get('description_col', 'description')
-                    amount_col = request.form.get('amount_col', 'amount')
-                    type_col = request.form.get('type_col', 'type')
+                    for index, row in df.iterrows():
+                        try:
+                            entry_data = {
+                                'transaction_date': pd.to_datetime(row[mapped_columns['Date']]).date(),
+                                'reference_number': f"CSV-{index+1}",
+                                'customer_name': row.get(mapped_columns['Customer'], f"Customer {index+1}"),
+                                'account_code': '401001',  # Default Sales Revenue
+                                'description': f"CSV Import - {platform_name}",
+                                'gross_sales': float(row[mapped_columns['Amount']]),
+                                'commission_fee': float(row.get(mapped_columns['Commission'], 0)),
+                                'shipping_subsidy': float(row.get(mapped_columns['Shipping'], 0)),
+                                'total_cash_received': float(row[mapped_columns['Amount']])
+                            }
+                            
+                            db.add_crj_entry(entry_data)
+                            success_count += 1
+                        except Exception as e:
+                            error_count += 1
+                            continue
                     
-                    imported_count = 0
-                    for _, row in df.iterrows():
-                        transaction = Transaction(
-                            user_id=current_user.id,
-                            description=str(row[description_col]),
-                            amount=float(row[amount_col]),
-                            type=str(row[type_col]).lower(),
-                            category=str(row.get('category', 'imported')),
-                            date=pd.to_datetime(row.get('date', datetime.utcnow()))
-                        )
-                        db.session.add(transaction)
-                        imported_count += 1
+                    st.success(f"✅ Import completed! {success_count} records added, {error_count} errors")
                     
-                    db.session.commit()
-                    flash(f'Successfully imported {imported_count} transactions!')
-                    return redirect(url_for('ledger'))
-                    
-                except Exception as e:
-                    flash(f'Error importing file: {str(e)}')
-                    return redirect(request.url)
-            else:
-                flash('Invalid file type. Please upload a CSV or Excel file.')
-                return redirect(request.url)
-        
-        return render_template('import.html')
+            except Exception as e:
+                st.error(f"❌ Error reading file: {str(e)}")
     
-    @app.route('/export')
-    @login_required
-    def export_data():
-        transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.date.desc()).all()
-        
-        # Create DataFrame
-        data = []
-        for t in transactions:
-            data.append({
-                'Date': t.date.strftime('%Y-%m-%d'),
-                'Description': t.description,
-                'Amount': t.amount,
-                'Type': t.type,
-                'Category': t.category or '',
-                'Receipt Number': t.receipt.receipt_number if t.receipt else ''
-            })
-        
-        df = pd.DataFrame(data)
-        
-        # Create Excel file
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Transactions')
-        
-        output.seek(0)
-        return send_file(output, as_attachment=True, download_name='transactions.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    
-    # Admin routes
-    @app.route('/admin/login', methods=['GET', 'POST'])
-    def admin_login():
-        if request.method == 'POST':
-            admin_password = request.form.get('password')
-            expected_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
-            
-            if admin_password == expected_password:
-                session['is_admin'] = True
-                flash('Admin login successful!')
-                return redirect(url_for('admin_verify'))
-            else:
-                flash('Invalid admin password')
-        
-        return render_template('admin/login.html')
-    
-    def admin_required(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if not session.get('is_admin'):
-                return redirect(url_for('admin_login'))
-            return f(*args, **kwargs)
-        return decorated_function
-    
-    @app.route('/admin/verify')
-    @admin_required
-    def admin_verify():
-        pending_requests = SubscriptionRequest.query.filter_by(status='Pending').order_by(SubscriptionRequest.created_at.desc()).all()
-        return render_template('admin/verify.html', requests=pending_requests)
-    
-    @app.route('/admin/approve/<int:request_id>', methods=['POST'])
-    @admin_required
-    def approve_request(request_id):
-        subscription = SubscriptionRequest.query.get_or_404(request_id)
-        subscription.status = 'Approved'
-        
-        # Upgrade user to Pro
-        user = subscription.user
-        user.is_pro = True
-        
-        # Optionally delete screenshot to save space
-        try:
-            screenshot_path = os.path.join(app.config['UPLOAD_FOLDER'], subscription.screenshot_filename)
-            if os.path.exists(screenshot_path):
-                os.remove(screenshot_path)
-        except Exception as e:
-            print(f"Error deleting screenshot: {e}")
-        
-        db.session.commit()
-        flash(f'User {user.email} has been upgraded to Pro!')
-        return redirect(url_for('admin_verify'))
-    
-    @app.route('/admin/reject/<int:request_id>', methods=['POST'])
-    @admin_required
-    def reject_request(request_id):
-        subscription = SubscriptionRequest.query.get_or_404(request_id)
-        subscription.status = 'Rejected'
-        
-        db.session.commit()
-        flash(f'Subscription request for {subscription.user.email} has been rejected.')
-        return redirect(url_for('admin_verify'))
-    
-    
-    @app.route('/admin/logout')
-    def admin_logout():
-        session.pop('is_admin', None)
-        flash('Admin logged out successfully!')
-        return redirect(url_for('dashboard'))
-    
-    @app.route('/uploads/<filename>')
-    def uploaded_file(filename):
-        return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-    
-    @app.after_request
-    def after_request(response):
-        # Add caching headers for static assets
-        if request.endpoint and request.endpoint.startswith('static'):
-            response.cache_control.max_age = 31536000  # 1 year
-            response.cache_control.public = True
-        return response
-    
-    @app.errorhandler(500)
-    def internal_server_error(error):
-        return render_template('errors/500.html', error=str(error)), 500
-    
-    return app
+    # Display existing entries
+    st.markdown("### 📋 Recent Cash Receipts")
+    crj_entries = get_crj_entries()
+    if crj_entries:
+        df = pd.DataFrame(crj_entries)
+        st.dataframe(df, use_container_width=True)
 
-app = create_app()
+def show_cash_disbursement_journal():
+    st.markdown('<h1 class="main-header">💸 Cash Disbursement Journal</h1>', unsafe_allow_html=True)
+    
+    st.markdown("### Add New Cash Disbursement")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        transaction_date = st.date_input("Transaction Date", value=date.today(), key="cdj_date")
+        reference_number = st.text_input("Reference Number (Optional)", key="cdj_ref")
+        payee_name = st.text_input("Payee Name")
+        payee_tin = st.text_input("Payee TIN (Optional)")
+    
+    with col2:
+        # Get expense accounts
+        expense_accounts = db.get_accounts_by_type('Expense')
+        account_options = {f"{acc['account_code']} - {acc['account_name']}": acc['account_code'] 
+                          for acc in expense_accounts}
+        selected_account = st.selectbox("Expense Account", list(account_options.keys()), key="cdj_account")
+        account_code = account_options[selected_account]
+        
+        # Auto-categorization
+        expense_categories = [
+            "Platform Fees", "Shipping Expenses", "Marketing Expenses", 
+            "Office Supplies", "Internet Expenses", "Utilities", 
+            "Repairs and Maintenance", "Miscellaneous Expenses"
+        ]
+        expense_category = st.selectbox("Expense Category", expense_categories)
+        
+        description = st.text_area("Description", key="cdj_desc")
+    
+    # Financial details
+    st.markdown("### 💵 Financial Details")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        amount = st.number_input("Amount", min_value=0.0, value=0.0, step=0.01, key="cdj_amount")
+    
+    with col2:
+        vat_input = st.number_input("VAT Input (12%)", min_value=0.0, value=0.0, step=0.01, key="cdj_vat")
+        ewt = st.number_input("EWT (if applicable)", min_value=0.0, value=0.0, step=0.01, key="cdj_ewt")
+    
+    with col3:
+        net_amount = amount - vat_input - ewt
+        st.markdown("**Net Amount:**")
+        st.success(f"₱{net_amount:,.2f}")
+    
+    # Submit button
+    if st.button("💾 Add Disbursement", type="primary"):
+        entry_data = {
+            'transaction_date': transaction_date,
+            'reference_number': reference_number,
+            'payee_name': payee_name,
+            'payee_tin': payee_tin,
+            'account_code': account_code,
+            'expense_category': expense_category,
+            'description': description,
+            'amount': amount,
+            'vat_input': vat_input,
+            'ewt': ewt,
+            'net_amount': net_amount
+        }
+        
+        try:
+            cdj_id = db.add_cdj_entry(entry_data)
+            st.success(f"✅ Disbursement added successfully! ID: {cdj_id}")
+            st.balloons()
+        except Exception as e:
+            st.error(f"❌ Error adding disbursement: {str(e)}")
+    
+    # Display existing entries
+    st.markdown("### 📋 Recent Cash Disbursements")
+    cdj_entries = get_cdj_entries()
+    if cdj_entries:
+        df = pd.DataFrame(cdj_entries)
+        st.dataframe(df, use_container_width=True)
+
+def show_general_ledger():
+    st.markdown('<h1 class="main-header">📖 General Ledger</h1>', unsafe_allow_html=True)
+    
+    # Filters
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        account_types = ['All', 'Asset', 'Liability', 'Equity', 'Revenue', 'Expense']
+        selected_type = st.selectbox("Account Type", account_types)
+    
+    with col2:
+        start_date = st.date_input("Start Date", value=date(date.today().year, 1, 1))
+    
+    with col3:
+        end_date = st.date_input("End Date", value=date.today())
+    
+    # Get ledger data
+    ledger_entries = get_ledger_entries(selected_type, start_date, end_date)
+    
+    if ledger_entries:
+        df = pd.DataFrame(ledger_entries)
+        
+        # Summary by account
+        st.markdown("### 📊 Account Summary")
+        account_summary = df.groupby(['account_code', 'account_name']).agg({
+            'debit_amount': 'sum',
+            'credit_amount': 'sum',
+            'balance': 'last'
+        }).reset_index()
+        
+        st.dataframe(account_summary, use_container_width=True)
+        
+        # Detailed transactions
+        st.markdown("### 📋 Detailed Transactions")
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("No ledger entries found for the selected criteria.")
+
+def show_trial_balance():
+    st.markdown('<h1 class="main-header">⚖️ Trial Balance</h1>', unsafe_allow_html=True)
+    
+    as_of_date = st.date_input("As of Date", value=date.today())
+    
+    # Get trial balance
+    trial_balance = db.get_trial_balance(as_of_date.strftime('%Y-%m-%d'))
+    
+    if trial_balance:
+        df = pd.DataFrame(trial_balance)
+        
+        # Calculate totals
+        total_debits = df[df['normal_balance'] == 'Debit']['balance'].sum()
+        total_credits = df[df['normal_balance'] == 'Credit']['balance'].sum()
+        
+        # Display trial balance
+        st.markdown("### 📋 Trial Balance")
+        st.dataframe(df, use_container_width=True)
+        
+        # Totals
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Debits", f"₱{total_debits:,.2f}")
+        with col2:
+            st.metric("Total Credits", f"₱{total_credits:,.2f}")
+        
+        # Check if balanced
+        if abs(total_debits - total_credits) < 0.01:
+            st.success("✅ Trial Balance is BALANCED")
+        else:
+            st.error(f"❌ Trial Balance is NOT BALANCED. Difference: ₱{abs(total_debits - total_credits):,.2f}")
+    else:
+        st.info("No trial balance data available.")
+
+def show_receipt_generator():
+    st.markdown('<h1 class="main-header">🧾 Receipt Generator</h1>', unsafe_allow_html=True)
+    
+    # Receipt type selection
+    receipt_type = st.selectbox("Receipt Type", ["Sales Invoice", "Service Invoice", "Official Receipt"])
+    
+    # Customer information
+    st.markdown("### 👤 Customer Information")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        customer_name = st.text_input("Customer Name *")
+        customer_tin = st.text_input("Customer TIN *")
+        customer_address = st.text_area("Customer Address")
+    
+    with col2:
+        transaction_date = st.date_input("Transaction Date", value=date.today())
+        payment_method = st.selectbox("Payment Method", ["Cash", "Bank Transfer", "GCash", "PayMaya", "Credit Card"])
+    
+    # Items
+    st.markdown("### 📦 Items")
+    items = []
+    
+    # Item input
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        item_description = st.text_input("Item Description")
+    with col2:
+        item_quantity = st.number_input("Quantity", min_value=1, value=1)
+    with col3:
+        unit_price = st.number_input("Unit Price", min_value=0.0, value=0.0, step=0.01)
+    with col4:
+        vat_rate = st.selectbox("VAT Rate", [0, 12]) / 100
+    
+    # Add item button
+    if st.button("➕ Add Item"):
+        if item_description and unit_price > 0:
+            items.append({
+                'description': item_description,
+                'quantity': item_quantity,
+                'unit_price': unit_price,
+                'vat_rate': vat_rate,
+                'total': item_quantity * unit_price,
+                'vat_amount': item_quantity * unit_price * vat_rate
+            })
+            st.success(f"✅ {item_description} added")
+    
+    # Display items
+    if items:
+        st.markdown("### 📋 Current Items")
+        items_df = pd.DataFrame(items)
+        st.dataframe(items_df, use_container_width=True)
+        
+        total_amount = sum(item['total'] for item in items)
+        total_vat = sum(item['vat_amount'] for item in items)
+        grand_total = total_amount + total_vat
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Subtotal", f"₱{total_amount:,.2f}")
+        with col2:
+            st.metric("VAT", f"₱{total_vat:,.2f}")
+        with col3:
+            st.metric("Grand Total", f"₱{grand_total:,.2f}")
+    
+    # Generate receipt
+    if st.button("🧾 Generate Receipt", type="primary") and items and customer_name:
+        try:
+            # Get next serial number
+            serial_number = db.get_next_receipt_serial(receipt_type)
+            
+            # Generate PDF (placeholder for now)
+            st.success(f"✅ Receipt generated! Serial: {serial_number}")
+            st.info(f"Customer: {customer_name}")
+            st.info(f"Total Amount: ₱{grand_total:,.2f}")
+            
+        except Exception as e:
+            st.error(f"❌ Error generating receipt: {str(e)}")
+
+def show_tax_reports():
+    st.markdown('<h1 class="main-header">📋 Tax Reports</h1>', unsafe_allow_html=True)
+    
+    # Tax period selection
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        tax_year = st.selectbox("Tax Year", [2026, 2025, 2024])
+        tax_period = st.selectbox("Tax Period", ["Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4", "Annual"])
+    
+    with col2:
+        tax_regime = st.selectbox("Tax Regime", ["8% Flat Rate", "Graduated Rates", "Mixed"])
+    
+    # Calculate tax
+    if st.button("🧮 Calculate Tax", type="primary"):
+        tax_computation = tax_calc.calculate_tax(
+            tax_year=tax_year,
+            period=tax_period,
+            regime=tax_regime
+        )
+        
+        if tax_computation:
+            st.markdown("### 📊 Tax Computation Results")
+            
+            # Display computation details
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric("Gross Sales", f"₱{tax_computation.get('gross_sales', 0):,.2f}")
+                st.metric("Business Expenses", f"₱{tax_computation.get('business_expenses', 0):,.2f}")
+                st.metric("Net Taxable Income", f"₱{tax_computation.get('net_taxable_income', 0):,.2f}")
+            
+            with col2:
+                st.metric("Tax Due", f"₱{tax_computation.get('tax_due', 0):,.2f}")
+                st.metric("Quarterly Tax Paid", f"₱{tax_computation.get('quarterly_tax_paid', 0):,.2f}")
+                st.metric("Remaining Tax Due", f"₱{tax_computation.get('remaining_tax_due', 0):,.2f}")
+            
+            # Generate BIR forms
+            st.markdown("### 📄 BIR Forms Generation")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("📋 Generate Annex A (No Inventory)"):
+                    st.info("Annex A PDF generation will be implemented")
+            
+            with col2:
+                if st.button("📋 Generate Annex D (Inventory List)"):
+                    st.info("Annex D PDF generation will be implemented")
+
+def show_settings():
+    st.markdown('<h1 class="main-header">⚙️ Settings</h1>', unsafe_allow_html=True)
+    
+    st.markdown("### 🏢 Business Information")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        business_name = st.text_input("Business Name")
+        owner_name = st.text_input("Owner Name")
+        tin = st.text_input("TIN")
+    
+    with col2:
+        business_address = st.text_area("Business Address")
+        registered_date = st.date_input("Registered Date")
+    
+    st.markdown("### 🧮 Tax Settings")
+    
+    default_regime = st.selectbox(
+        "Default Tax Regime",
+        ["8% Flat Rate", "Graduated Rates", "Mixed"],
+        help="Select your preferred tax regime for calculations"
+    )
+    
+    st.markdown("### 📊 Data Management")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("📥 Export Data", type="secondary"):
+            st.info("Data export functionality will be implemented")
+    
+    with col2:
+        if st.button("🗑️ Clear All Data", type="secondary"):
+            st.warning("This will delete all data. This action cannot be undone!")
+            confirm = st.checkbox("I understand and want to proceed")
+            if confirm and st.button("Yes, Delete Everything", type="primary"):
+                st.info("Data deletion will be implemented")
+
+# Helper functions for data retrieval
+def get_monthly_sales(month_date):
+    """Get total sales for a specific month"""
+    # Placeholder implementation
+    return 150000.00
+
+def get_monthly_expenses(month_date):
+    """Get total expenses for a specific month"""
+    # Placeholder implementation
+    return 45000.00
+
+def get_monthly_comparison():
+    """Get monthly sales vs expenses data for charts"""
+    # Placeholder implementation
+    return [
+        {'month': 'Jan', 'sales': 120000, 'expenses': 35000},
+        {'month': 'Feb', 'sales': 135000, 'expenses': 40000},
+        {'month': 'Mar', 'sales': 150000, 'expenses': 45000},
+        {'month': 'Apr', 'sales': 142000, 'expenses': 42000}
+    ]
+
+def get_platform_breakdown():
+    """Get sales breakdown by platform"""
+    # Placeholder implementation
+    return [
+        {'platform': 'Shopee', 'amount': 85000},
+        {'platform': 'Lazada', 'amount': 45000},
+        {'platform': 'TikTok', 'amount': 20000}
+    ]
+
+def get_recent_transactions():
+    """Get recent transactions for dashboard"""
+    # Placeholder implementation
+    return [
+        {'date': '2026-04-27', 'type': 'Sales', 'description': 'Shopee Order #1234', 'amount': 2500.00},
+        {'date': '2026-04-27', 'type': 'Expense', 'description': 'Internet Bill', 'amount': -1500.00},
+        {'date': '2026-04-26', 'type': 'Sales', 'description': 'Lazada Order #5678', 'amount': 3200.00}
+    ]
+
+def get_crj_entries():
+    """Get cash receipt journal entries"""
+    # Placeholder implementation
+    return [
+        {'date': '2026-04-27', 'customer': 'Juan Dela Cruz', 'amount': 2500.00, 'platform': 'Shopee'},
+        {'date': '2026-04-26', 'customer': 'Maria Santos', 'amount': 3200.00, 'platform': 'Lazada'}
+    ]
+
+def get_cdj_entries():
+    """Get cash disbursement journal entries"""
+    # Placeholder implementation
+    return [
+        {'date': '2026-04-27', 'payee': 'PLDT', 'amount': 1500.00, 'category': 'Internet Expenses'},
+        {'date': '2026-04-26', 'payee': 'Meralco', 'amount': 2200.00, 'category': 'Utilities'}
+    ]
+
+def get_ledger_entries(account_type, start_date, end_date):
+    """Get general ledger entries"""
+    # Placeholder implementation
+    return [
+        {'date': '2026-04-27', 'account_code': '401001', 'account_name': 'Sales Revenue', 'debit': 0, 'credit': 2500.00, 'balance': 2500.00},
+        {'date': '2026-04-27', 'account_code': '101001', 'account_name': 'Cash on Hand', 'debit': 2500.00, 'credit': 0, 'balance': 2500.00}
+    ]
+
+if __name__ == "__main__":
+    main()
