@@ -339,23 +339,21 @@ def create_app():
     def receipt_pdf(id):
         receipt = Receipt.query.filter_by(id=id, user_id=current_user.id).first_or_404()
         
-        # Create Professional Philippine Business Receipt
-        buffer = io.BytesIO()
-        p = canvas.Canvas(buffer, pagesize=letter)
-        width, height = letter
-        
-        # Set margins for thermal receipt width simulation
-        left_margin = 50
-        right_margin = width - 50
-        center_x = width / 2
-        
-        # Header Section - Shop Name and Official Receipt
-        p.setFillColor(colors.black)
-        p.setFont("Helvetica-Bold", 20)
-        # Force shop_name to be a proper string - handle all edge cases
-        shop_name = 'LedgerPro PH'  # Default fallback
-        
         try:
+            # Create Professional Philippine Business Receipt
+            buffer = io.BytesIO()
+            p = canvas.Canvas(buffer, pagesize=letter)
+            width, height = letter
+            
+            # Set margins for thermal receipt width simulation
+            left_margin = 50
+            right_margin = width - 50
+            center_x = width / 2
+            
+            # Header Section - Shop Name and Official Receipt
+            p.setFillColor(colors.black)
+            p.setFont("Helvetica-Bold", 20)
+            
             # Get the raw shop_name value
             raw_shop_name = getattr(current_user, 'shop_name', None)
             
@@ -384,144 +382,155 @@ def create_app():
             # Final safety check - ensure it's a string
             if not isinstance(shop_name, str):
                 shop_name = str(shop_name)
-                
-        except Exception as e:
-            # Debug logging
-            import sys
-            print(f"DEBUG: Exception in shop_name processing: {e}", file=sys.stderr)
-            shop_name = 'LedgerPro PH'
-        
-        # Final safety check before passing to ReportLab
-        if not isinstance(shop_name, str) or not shop_name:
-            shop_name = 'LedgerPro PH'
-        
-        # ABSOLUTE FINAL SAFETY CHECK - Force string conversion at the last possible moment
-        shop_name = str(shop_name) if shop_name is not None else 'LedgerPro PH'
-        if not isinstance(shop_name, str):
-            shop_name = 'LedgerPro PH'
-        
-        # Double-check we're not passing a float or any other type
-        try:
-            float(shop_name)  # This will fail if it's not a number-like string
-            # If we get here, it might still be a number-like string, ensure it's actually a string
-            shop_name = str(shop_name)
-        except:
-            # It's not a number, which is good - keep it as is
-            pass
             
-        p.drawCentredString(str(shop_name).upper(), center_x, height - 60)
-        
-        p.setFont("Helvetica-Bold", 16)
-        p.drawCentredString("OFFICIAL RECEIPT", center_x, height - 85)
-        
-        # Metadata Section - Date and Receipt Number
-        p.setFont("Helvetica", 11)
-        p.drawString(left_margin, height - 120, f"Date: {receipt.created_at.strftime('%B %d, %Y')}")
-        p.drawString(right_margin - 150, height - 120, f"Receipt No: {receipt.receipt_number}")
-        
-        # Customer Information
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(left_margin, height - 150, "Customer:")
-        p.setFont("Helvetica", 11)
-        p.drawString(left_margin + 60, height - 150, receipt.customer_name)
-        
-        # Line separator
-        p.setStrokeColor(colors.black)
-        p.line(left_margin, height - 170, right_margin, height - 170)
-        
-        # Items Table Header
-        y_position = height - 190
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(left_margin, y_position, "ITEM/DESCRIPTION")
-        p.drawCentredString("QTY", center_x - 50, y_position)
-        p.drawString(right_margin - 80, y_position, "AMOUNT")
-        
-        # Line separator under headers
-        p.line(left_margin, y_position - 10, right_margin, y_position - 10)
-        
-        # Items List
-        y_position -= 30
-        p.setFont("Helvetica", 10)
-        
-        try:
-            items = json.loads(receipt.items)
-            for item in items:
-                item_name = item.get('name', 'N/A')
-                quantity = item.get('quantity', 1)
-                price = item.get('price', 0)
-                total = price * quantity
-                
-                # Handle long item names
-                if len(item_name) > 30:
-                    item_name = item_name[:27] + "..."
-                
-                p.drawString(left_margin, y_position, item_name)
-                p.drawCentredString(str(quantity), center_x - 50, y_position)
-                p.drawString(right_margin - 80, y_position, f"₱{total:,.2f}")
-                
-                y_position -= 20
-                if y_position < height - 400:
-                    break
-        except:
-            p.drawString(left_margin, y_position, "Error loading items")
-        
-        # Dotted line separator before totals
-        y_position -= 10
-        p.setStrokeColor(colors.black)
-        p.setDash([2, 2])
-        p.line(left_margin, y_position, right_margin, y_position)
-        p.setDash()  # Reset to solid line
-        
-        # Totals Section
-        y_position -= 25
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(right_margin - 120, y_position, f"TOTAL: ₱{receipt.total_amount:,.2f}")
-        
-        # Amount in Words (Crucial Part)
-        y_position -= 30
-        p.setFont("Helvetica-Oblique", 10)
-        
-        # Handle amount in words properly for pesos and centavos
-        total_amount = receipt.total_amount
-        pesos = int(total_amount)
-        centavos = int(round((total_amount - pesos) * 100))
-        
-        if centavos > 0:
-            amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos and {num2words(centavos, lang='en').title()} Centavos"
-        else:
-            amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos"
-        
-        p.drawString(left_margin, y_position, f"Total Amount in Words: {amount_in_words} Only")
-        
-        # Dotted line separator after amount in words
-        y_position -= 20
-        p.setStrokeColor(colors.black)
-        p.setDash([2, 2])
-        p.line(left_margin, y_position, right_margin, y_position)
-        p.setDash()
-        
-        # Footer Section
-        footer_y = 80
-        p.setFillColor(colors.black)
-        p.setFont("Helvetica", 10)
-        p.drawCentredString(f"Thank you for shopping at {str(shop_name)}!", center_x, footer_y)
-        
-        # Watermark
-        p.setFillColor(colors.lightgrey)
-        p.setFont("Helvetica", 8)
-        p.drawCentredString("Generated by LedgerPro PH", center_x, footer_y - 20)
-        
-        # Generation timestamp
-        p.setFillColor(colors.grey)
-        p.setFont("Helvetica", 8)
-        p.drawCentredString(f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", center_x, footer_y - 35)
-        
-        p.showPage()
-        p.save()
-        
-        buffer.seek(0)
-        
-        return send_file(buffer, as_attachment=True, download_name=f'Receipt_{receipt.receipt_number}.pdf', mimetype='application/pdf')
+            # Final safety check before passing to ReportLab
+            if not isinstance(shop_name, str) or not shop_name:
+                shop_name = 'LedgerPro PH'
+            
+            # ABSOLUTE FINAL SAFETY CHECK - Force string conversion at the last possible moment
+            shop_name = str(shop_name) if shop_name is not None else 'LedgerPro PH'
+            if not isinstance(shop_name, str):
+                shop_name = 'LedgerPro PH'
+            
+            # Double-check we're not passing a float or any other type
+            try:
+                float(shop_name)  # This will fail if it's not a number-like string
+                # If we get here, it might still be a number-like string, ensure it's actually a string
+                shop_name = str(shop_name)
+            except:
+                # It's not a number, which is good - keep it as is
+                pass
+            
+            p.drawCentredString(str(shop_name).upper(), center_x, height - 60)
+            
+            p.setFont("Helvetica-Bold", 16)
+            p.drawCentredString("OFFICIAL RECEIPT", center_x, height - 85)
+            
+            # Metadata Section - Date and Receipt Number
+            p.setFont("Helvetica", 11)
+            p.drawString(left_margin, height - 120, f"Date: {receipt.created_at.strftime('%B %d, %Y')}")
+            p.drawString(right_margin - 150, height - 120, f"Receipt No: {receipt.receipt_number}")
+            
+            # Customer Information
+            p.setFont("Helvetica-Bold", 12)
+            p.drawString(left_margin, height - 150, "Customer:")
+            p.setFont("Helvetica", 11)
+            p.drawString(left_margin + 60, height - 150, str(receipt.customer_name))
+            
+            # Line separator
+            p.setStrokeColor(colors.black)
+            p.line(left_margin, height - 170, right_margin, height - 170)
+            
+            # Items Table Header
+            y_position = height - 190
+            p.setFont("Helvetica-Bold", 10)
+            p.drawString(left_margin, y_position, "ITEM/DESCRIPTION")
+            p.drawCentredString("QTY", center_x - 50, y_position)
+            p.drawString(right_margin - 80, y_position, "AMOUNT")
+            
+            # Line separator under headers
+            p.line(left_margin, y_position - 10, right_margin, y_position - 10)
+            
+            # Items List
+            y_position -= 30
+            p.setFont("Helvetica", 10)
+            
+            try:
+                items = json.loads(receipt.items)
+                for item in items:
+                    item_name = item.get('name', 'N/A')
+                    quantity = item.get('quantity', 1)
+                    price = item.get('price', 0)
+                    total = price * quantity
+                    
+                    # Handle long item names
+                    if len(item_name) > 30:
+                        item_name = item_name[:27] + "..."
+                    
+                    p.drawString(left_margin, y_position, item_name)
+                    p.drawCentredString(str(quantity), center_x - 50, y_position)
+                    p.drawString(right_margin - 80, y_position, str(f"₱{total:,.2f}"))
+                    
+                    y_position -= 20
+                    if y_position < height - 400:
+                        break
+            except:
+                p.drawString(left_margin, y_position, "Error loading items")
+            
+            # Dotted line separator before totals
+            y_position -= 10
+            p.setStrokeColor(colors.black)
+            p.setDash([2, 2])
+            p.line(left_margin, y_position, right_margin, y_position)
+            p.setDash()  # Reset to solid line
+            
+            # Totals Section
+            y_position -= 25
+            p.setFont("Helvetica-Bold", 12)
+            p.drawString(right_margin - 120, y_position, str(f"TOTAL: ₱{receipt.total_amount:,.2f}"))
+            
+            # Amount in Words (Crucial Part)
+            y_position -= 30
+            p.setFont("Helvetica-Oblique", 10)
+            
+            # Handle amount in words properly for pesos and centavos
+            total_amount = receipt.total_amount
+            pesos = int(total_amount)
+            centavos = int(round((total_amount - pesos) * 100))
+            
+            if centavos > 0:
+                amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos and {num2words(centavos, lang='en').title()} Centavos"
+            else:
+                amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos"
+            
+            p.drawString(left_margin, y_position, str(f"Total Amount in Words: {amount_in_words} Only"))
+            
+            # Dotted line separator after amount in words
+            y_position -= 20
+            p.setStrokeColor(colors.black)
+            p.setDash([2, 2])
+            p.line(left_margin, y_position, right_margin, y_position)
+            p.setDash()
+            
+            # Footer Section
+            footer_y = 80
+            p.setFillColor(colors.black)
+            p.setFont("Helvetica", 10)
+            p.drawCentredString(f"Thank you for shopping at {str(shop_name)}!", center_x, footer_y)
+            
+            # Watermark
+            p.setFillColor(colors.lightgrey)
+            p.setFont("Helvetica", 8)
+            p.drawCentredString("Generated by LedgerPro PH", center_x, footer_y - 20)
+            
+            # Generation timestamp
+            p.setFillColor(colors.grey)
+            p.setFont("Helvetica", 8)
+            p.drawCentredString(f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", center_x, footer_y - 35)
+            p.showPage()
+            p.save()
+            
+            buffer.seek(0)
+            
+            return send_file(buffer, as_attachment=True, download_name=f'Receipt_{receipt.receipt_number}.pdf', mimetype='application/pdf')
+            
+        except Exception as e:
+            # Log error and return a simple error response
+            import sys
+            print(f"PDF Generation Error: {e}", file=sys.stderr)
+            
+            # Create a simple error PDF as fallback
+            error_buffer = io.BytesIO()
+            error_p = canvas.Canvas(error_buffer, pagesize=letter)
+            error_p.setFont("Helvetica", 16)
+            error_p.drawCentredString("Error Generating PDF", letter[0]/2, letter[1]/2)
+            error_p.setFont("Helvetica", 12)
+            error_p.drawCentredString(f"Error: {str(e)}", letter[0]/2, letter[1]/2 - 30)
+            error_p.showPage()
+            error_p.save()
+            error_buffer.seek(0)
+            
+            return send_file(error_buffer, as_attachment=True, download_name=f'Error_Receipt_{receipt.receipt_number}.pdf', mimetype='application/pdf')
     
     @app.route('/receipts/<int:id>/delete', methods=['POST'])
     @login_required
