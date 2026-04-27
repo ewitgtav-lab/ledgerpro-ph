@@ -336,16 +336,49 @@ def create_app():
         # Header Section - Shop Name and Official Receipt
         p.setFillColor(colors.black)
         p.setFont("Helvetica-Bold", 20)
+        # Force shop_name to be a proper string - handle all edge cases
+        shop_name = 'LedgerPro PH'  # Default fallback
+        
         try:
-            shop_name = str(getattr(current_user, 'shop_name', '')).strip()
-            if not shop_name or shop_name == 'nan' or shop_name == 'None':
+            # Get the raw shop_name value
+            raw_shop_name = getattr(current_user, 'shop_name', None)
+            
+            # Debug logging (you can remove this in production)
+            import sys
+            print(f"DEBUG: raw_shop_name type: {type(raw_shop_name)}, value: {raw_shop_name}", file=sys.stderr)
+            
+            # Handle different data types
+            if raw_shop_name is None:
                 shop_name = 'LedgerPro PH'
-            # Ensure it's a proper string by filtering out any non-printable characters
-            shop_name = ''.join(char for char in shop_name if char.isprintable())
+            elif isinstance(raw_shop_name, (int, float)):
+                # Convert numbers to string
+                if raw_shop_name != 0:  # Only use non-zero numbers
+                    shop_name = str(int(raw_shop_name)) if raw_shop_name == int(raw_shop_name) else str(raw_shop_name)
+                else:
+                    shop_name = 'LedgerPro PH'
+            else:
+                # Handle strings and other types
+                shop_name = str(raw_shop_name).strip()
+            
+            # Clean up the string
+            shop_name = shop_name.replace('nan', '').replace('None', '').strip()
             if not shop_name:
                 shop_name = 'LedgerPro PH'
-        except Exception:
+                
+            # Final safety check - ensure it's a string
+            if not isinstance(shop_name, str):
+                shop_name = str(shop_name)
+                
+        except Exception as e:
+            # Debug logging
+            import sys
+            print(f"DEBUG: Exception in shop_name processing: {e}", file=sys.stderr)
             shop_name = 'LedgerPro PH'
+        
+        # Final safety check before passing to ReportLab
+        if not isinstance(shop_name, str) or not shop_name:
+            shop_name = 'LedgerPro PH'
+            
         p.drawCentredString(shop_name.upper(), center_x, height - 60)
         
         p.setFont("Helvetica-Bold", 16)
