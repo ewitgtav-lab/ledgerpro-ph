@@ -449,9 +449,9 @@ def create_app():
                     if len(item_name) > 30:
                         item_name = item_name[:27] + "..."
                     
-                    p.drawString(left_margin, y_position, item_name)
+                    p.drawString(left_margin, y_position, str(item_name))
                     p.drawCentredString(str(quantity), center_x - 50, y_position)
-                    p.drawString(right_margin - 80, y_position, str(f"₱{total:,.2f}"))
+                    p.drawString(right_margin - 80, y_position, f"₱{total:,.2f}")
                     
                     y_position -= 20
                     if y_position < height - 400:
@@ -469,23 +469,27 @@ def create_app():
             # Totals Section
             y_position -= 25
             p.setFont("Helvetica-Bold", 12)
-            p.drawString(right_margin - 120, y_position, str(f"TOTAL: ₱{receipt.total_amount:,.2f}"))
+            p.drawString(right_margin - 120, y_position, f"TOTAL: ₱{receipt.total_amount:,.2f}")
             
             # Amount in Words (Crucial Part)
             y_position -= 30
             p.setFont("Helvetica-Oblique", 10)
             
-            # Handle amount in words properly for pesos and centavos
-            total_amount = receipt.total_amount
-            pesos = int(total_amount)
-            centavos = int(round((total_amount - pesos) * 100))
+            # Calculate amount in words before canvas drawing
+            try:
+                total_amount = receipt.total_amount
+                pesos = int(total_amount)
+                centavos = int(round((total_amount - pesos) * 100))
+                
+                if centavos > 0:
+                    amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos and {num2words(centavos, lang='en').title()} Centavos Only"
+                else:
+                    amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos Only"
+            except Exception as e:
+                # Fallback if num2words fails
+                amount_in_words = f"{receipt.total_amount:,.2f} Pesos Only"
             
-            if centavos > 0:
-                amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos and {num2words(centavos, lang='en').title()} Centavos"
-            else:
-                amount_in_words = f"{num2words(pesos, lang='en').title()} Pesos"
-            
-            p.drawString(left_margin, y_position, str(f"Total Amount in Words: {amount_in_words} Only"))
+            p.drawString(left_margin, y_position, str(amount_in_words))
             
             # Dotted line separator after amount in words
             y_position -= 20

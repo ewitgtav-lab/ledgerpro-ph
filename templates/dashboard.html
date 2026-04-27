@@ -24,7 +24,7 @@
                 {% elif receipt_count >= 15 %}
                 <div class="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full transition-all duration-300 w-full"></div>
                 {% else %}
-                <div class="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-300" style="width: {{ usage_percentage | default(0) }}%;"></div>
+                <div class="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-300" data-width="{{ usage_percentage | default(0) }}" style="--usage-percent: {{ usage_percentage | default(0) }}; width: calc(var(--usage-percent) * 1%)"></div>
                 {% endif %}
             </div>
             <span class="text-sm text-gray-600">{{ "%.0f"|format(usage_percentage | default(0)) }}%</span>
@@ -131,11 +131,18 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const progressBar = document.querySelector('[data-width]');
-    if (progressBar) {
-        const width = progressBar.getAttribute('data-width');
-        progressBar.style.width = width + '%';
-    }
+    // Handle progress bar animation
+    const progressBars = document.querySelectorAll('[data-width]');
+    progressBars.forEach(function(bar) {
+        const width = bar.getAttribute('data-width');
+        if (width) {
+            // Animate from 0 to target width
+            bar.style.width = '0%';
+            setTimeout(function() {
+                bar.style.width = width + '%';
+            }, 100);
+        }
+    });
 });
 </script>
 {% endblock %}
