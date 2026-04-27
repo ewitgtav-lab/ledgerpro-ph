@@ -759,11 +759,13 @@ def create_app():
         flash(f'Subscription request for {subscription.user.email} has been rejected.')
         return redirect(url_for('admin_verify'))
     
-    @app.route('/admin/init-db')
-    def init_db():
-        with app.app_context():
+    @app.route('/admin/update-db-schema')
+    def update_db_schema():
+        try:
             db.create_all()
-        return 'Database tables updated!'
+            return "Database tables updated with missing columns successfully!"
+        except Exception as e:
+            return f"Error: {str(e)}"
 
     @app.route('/admin/logout')
     def admin_logout():
