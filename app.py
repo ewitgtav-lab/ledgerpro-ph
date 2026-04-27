@@ -336,7 +336,10 @@ def create_app():
         # Header Section - Shop Name and Official Receipt
         p.setFillColor(colors.black)
         p.setFont("Helvetica-Bold", 20)
-        p.drawCentredString(str(current_user.shop_name).upper(), center_x, height - 60)
+        shop_name = str(getattr(current_user, 'shop_name', '')).strip()
+        if not shop_name:
+            shop_name = 'LedgerPro PH'
+        p.drawCentredString(shop_name.upper(), center_x, height - 60)
         
         p.setFont("Helvetica-Bold", 16)
         p.drawCentredString("OFFICIAL RECEIPT", center_x, height - 85)
@@ -431,7 +434,7 @@ def create_app():
         footer_y = 80
         p.setFillColor(colors.black)
         p.setFont("Helvetica", 10)
-        p.drawCentredString(f"Thank you for shopping at {str(current_user.shop_name)}!", center_x, footer_y)
+        p.drawCentredString(f"Thank you for shopping at {shop_name}!", center_x, footer_y)
         
         # Watermark
         p.setFillColor(colors.lightgrey)
