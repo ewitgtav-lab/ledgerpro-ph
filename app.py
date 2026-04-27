@@ -336,8 +336,15 @@ def create_app():
         # Header Section - Shop Name and Official Receipt
         p.setFillColor(colors.black)
         p.setFont("Helvetica-Bold", 20)
-        shop_name = str(getattr(current_user, 'shop_name', '')).strip()
-        if not shop_name:
+        try:
+            shop_name = str(getattr(current_user, 'shop_name', '')).strip()
+            if not shop_name or shop_name == 'nan' or shop_name == 'None':
+                shop_name = 'LedgerPro PH'
+            # Ensure it's a proper string by filtering out any non-printable characters
+            shop_name = ''.join(char for char in shop_name if char.isprintable())
+            if not shop_name:
+                shop_name = 'LedgerPro PH'
+        except Exception:
             shop_name = 'LedgerPro PH'
         p.drawCentredString(shop_name.upper(), center_x, height - 60)
         
