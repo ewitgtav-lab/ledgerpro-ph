@@ -38,7 +38,7 @@
             <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">Items</h3>
             <div class="space-y-3">
                 {% set items = receipt.items | from_json %}
-                {% if items %}
+                {% if items and items|length > 0 %}
                     {% for item in items %}
                     <div class="flex justify-between items-center py-2">
                         <div class="flex-1">
@@ -102,11 +102,17 @@
 <script>
 // Convert amount to words
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Amount in words script loaded');
+    
     const amountContainer = document.querySelector('[data-total]');
     const amountInWordsElement = document.getElementById('amount-in-words');
     
+    console.log('Amount container:', amountContainer);
+    console.log('Amount in words element:', amountInWordsElement);
+    
     if (amountContainer && amountInWordsElement) {
         const totalAmount = parseFloat(amountContainer.getAttribute('data-total'));
+        console.log('Total amount:', totalAmount);
         
         // Simple number to words conversion
         const numberToWords = function(num) {
@@ -146,7 +152,10 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         const words = numberToWords(Math.floor(totalAmount));
+        console.log('Words:', words);
         amountInWordsElement.textContent = words;
+    } else {
+        console.log('Elements not found');
     }
 });
 </script>

@@ -104,7 +104,10 @@ def create_app():
     @app.template_filter('from_json')
     def from_json(value):
         import json
-        return json.loads(value)
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return []
     
     @app.template_filter('currency')
     def currency_format(value):
