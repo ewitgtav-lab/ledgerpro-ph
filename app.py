@@ -757,18 +757,7 @@ def create_app():
         flash(f'Subscription request for {subscription.user.email} has been rejected.')
         return redirect(url_for('admin_verify'))
     
-    @app.route('/admin/force-fix-db')
-    def force_fix_db():
-        from sqlalchemy import text
-        try:
-            # This bypasses SQLAlchemy models and talks directly to PostgreSQL
-            db.session.execute(text('ALTER TABLE subscription_request ADD COLUMN IF NOT EXISTS screenshot_filename VARCHAR(255)'))
-            db.session.commit()
-            return "Success! The column has been forced into the database."
-        except Exception as e:
-            db.session.rollback()
-            return f"Failed: {str(e)}"
-
+    
     @app.route('/admin/logout')
     def admin_logout():
         session.pop('is_admin', None)
