@@ -16,6 +16,16 @@ import pandas as pd
 import io
 import json
 
+# Try to import num2words, use fallback if not available
+try:
+    from num2words import num2words
+    NUM2WORDS_AVAILABLE = True
+except ImportError:
+    NUM2WORDS_AVAILABLE = False
+    def num2words(amount, lang='en'):
+        # Fallback function that returns amount as text
+        return f"{amount}"
+
 load_dotenv()
 
 db = SQLAlchemy()
@@ -255,121 +265,122 @@ def create_app():
     def receipt_pdf(id):
         receipt = Receipt.query.filter_by(id=id, user_id=current_user.id).first_or_404()
         
-        # Create Modern Corporate PDF
+        # Create Professional Philippine Business Receipt
         buffer = io.BytesIO()
         p = canvas.Canvas(buffer, pagesize=letter)
         width, height = letter
         
-        # Modern Corporate Header with Blue Accent
-        p.setFillColor(colors.HexColor('#1e40af'))
-        p.rect(30, height - 60, width - 60, 50, fill=True, stroke=False)
-        p.setFillColor(colors.white)
-        p.setFont("Helvetica-Bold", 24)
-        p.drawCentredText("OFFICIAL RECEIPT", width/2, height - 45)
-        p.setFont("Helvetica-Bold", 16)
-        p.drawCentredText(current_user.shop_name, width/2, height - 65)
-        p.setFont("Helvetica", 12)
-        p.drawCentredText(f"Receipt #: {receipt.receipt_number}", width/2, height - 85)
-        p.drawCentredText(f"Date: {receipt.created_at.strftime('%B %d, %Y')}", width/2, height - 105)
+        # Set margins for thermal receipt width simulation
+        left_margin = 50
+        right_margin = width - 50
+        center_x = width / 2
         
-        # Customer Info Box
-        p.setFillColor(colors.HexColor('#f3f4f6'))
-        p.rect(40, height - 140, width - 80, 60, fill=True, stroke=False)
+        # Header Section - Shop Name and Official Receipt
         p.setFillColor(colors.black)
+        p.setFont("Helvetica-Bold", 20)
+        p.drawCentredText(current_user.shop_name.upper(), center_x, height - 60)
+        
+        p.setFont("Helvetica-Bold", 16)
+        p.drawCentredText("OFFICIAL RECEIPT", center_x, height - 85)
+        
+        # Metadata Section - Date and Receipt Number
+        p.setFont("Helvetica", 11)
+        p.drawString(left_margin, height - 120, f"Date: {receipt.created_at.strftime('%B %d, %Y')}")
+        p.drawString(right_margin - 150, height - 120, f"Receipt No: {receipt.receipt_number}")
+        
+        # Customer Information
         p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, height - 120, "BILL TO:")
-        p.setFont("Helvetica", 14)
-        p.drawString(50, height - 140, receipt.customer_name)
+        p.drawString(left_margin, height - 150, "Customer:")
+        p.setFont("Helvetica", 11)
+        p.drawString(left_margin + 60, height - 150, receipt.customer_name)
         
-        # Professional Items Table
-        y_position = height - 210
-        p.setFillColor(colors.HexColor('#e5e7eb'))
-        p.rect(40, y_position, width - 80, 120, fill=True, stroke=False)
+        # Line separator
+        p.setStrokeColor(colors.black)
+        p.line(left_margin, height - 170, right_margin, height - 170)
         
-        # Table Headers
-        p.setFillColor(colors.HexColor('#6b7280'))
-        p.rect(40, y_position, width - 80, 25, fill=True, stroke=False)
-        p.setFillColor(colors.white)
-        p.setFont("Helvetica-Bold", 11)
-        p.drawString(45, y_position + 15, "DESCRIPTION")
-        p.drawCentredText("QTY", 150, y_position + 15)
-        p.drawCentredText("PRICE", 280, y_position + 15)
-        p.drawCentredText("TOTAL", 350, y_position + 15)
+        # Items Table Header
+        y_position = height - 190
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(left_margin, y_position, "ITEM/DESCRIPTION")
+        p.drawCentredText("QTY", center_x - 50, y_position)
+        p.drawString(right_margin - 80, y_position, "AMOUNT")
         
-        # Table Line
-        p.setStrokeColor(colors.HexColor('#d1d5db'))
-        p.line(40, y_position + 25, width - 40, y_position + 25)
+        # Line separator under headers
+        p.line(left_margin, y_position - 10, right_margin, y_position - 10)
         
-        # Table Items with Alternating Colors
-        y_position += 35
+        # Items List
+        y_position -= 30
         p.setFont("Helvetica", 10)
-        import json
+        
         try:
             items = json.loads(receipt.items)
             for item in items:
-                # Alternate row colors
-                if items.index(item) % 2 == 0:
-                    p.setFillColor(colors.white)
-                else:
-                    p.setFillColor(colors.HexColor('#f9fafb'))
-                
-                p.rect(40, y_position, width - 80, 20, fill=True, stroke=False)
-                p.setFillColor(colors.black)
-                
                 item_name = item.get('name', 'N/A')
                 quantity = item.get('quantity', 1)
                 price = item.get('price', 0)
                 total = price * quantity
                 
-                # Truncate long names
-                display_name = item_name if len(item_name) <= 25 else item_name[:22] + "..."
+                # Handle long item names
+                if len(item_name) > 30:
+                    item_name = item_name[:27] + "..."
                 
-                p.drawString(45, y_position + 12, display_name)
-                p.drawCentredText(str(quantity), 150, y_position + 12)
-                p.drawCentredText(f"₱{price:,.2f}", 280, y_position + 12)
-                p.drawCentredText(f"₱{total:,.2f}", 350, y_position + 12)
+                p.drawString(left_margin, y_position, item_name)
+                p.drawCentredText(str(quantity), center_x - 50, y_position)
+                p.drawString(right_margin - 80, y_position, f"₱{total:,.2f}")
                 
-                y_position += 20
-                if y_position < height - 100:
+                y_position -= 20
+                if y_position < height - 400:
                     break
         except:
-            p.drawString(50, y_position, "Error loading items")
+            p.drawString(left_margin, y_position, "Error loading items")
         
-        # Summary Box
-        y_position = height - 90
-        p.setFillColor(colors.HexColor('#fef3c7'))
-        p.rect(40, y_position, width - 80, 70, fill=True, stroke=False)
+        # Dotted line separator before totals
+        y_position -= 10
+        p.setStrokeColor(colors.black)
+        p.setDash([2, 2])
+        p.line(left_margin, y_position, right_margin, y_position)
+        p.setDash()  # Reset to solid line
+        
+        # Totals Section
+        y_position -= 25
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(right_margin - 120, y_position, f"TOTAL: ₱{receipt.total_amount:,.2f}")
+        
+        # Amount in Words (Crucial Part)
+        y_position -= 30
+        p.setFont("Helvetica-Oblique", 10)
+        amount_in_words = num2words(int(receipt.total_amount), lang='en')
+        p.drawString(left_margin, y_position, f"Total Amount in Words: {amount_in_words.title()} Pesos Only")
+        
+        # Dotted line separator after amount in words
+        y_position -= 20
+        p.setStrokeColor(colors.black)
+        p.setDash([2, 2])
+        p.line(left_margin, y_position, right_margin, y_position)
+        p.setDash()
+        
+        # Footer Section
+        footer_y = 80
         p.setFillColor(colors.black)
-        p.setFont("Helvetica-Bold", 14)
-        p.drawString(50, y_position + 45, "SUMMARY")
-        p.setFont("Helvetica", 12)
-        p.drawString(50, y_position + 25, "Subtotal:")
-        p.drawString(50, y_position + 10, "Tax (0%):")
-        p.drawString(50, y_position - 5, "TOTAL:")
-        p.setFont("Helvetica-Bold", 18)
-        p.drawCentredText(f"₱{receipt.total_amount:,.2f}", width/2, y_position - 25)
-        
-        # Professional Footer
-        p.setFillColor(colors.HexColor('#1e40af'))
-        p.rect(30, 20, width - 60, 40, fill=True, stroke=False)
-        p.setFillColor(colors.white)
         p.setFont("Helvetica", 10)
-        p.drawCentredText("Thank you for your business!", width/2, 35)
-        p.drawCentredText(current_user.email, width/2, 20)
-        p.setFont("Helvetica", 9)
-        p.drawCentredText(f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", width/2, 10)
+        p.drawCentredText(f"Thank you for shopping at {current_user.shop_name}!", center_x, footer_y)
         
-        # Page Number
-        p.setFillColor(colors.black)
+        # Watermark
+        p.setFillColor(colors.lightgrey)
         p.setFont("Helvetica", 8)
-        p.drawString(width - 50, 30, "Page 1 of 1")
+        p.drawCentredText("Generated by LedgerPro PH", center_x, footer_y - 20)
+        
+        # Generation timestamp
+        p.setFillColor(colors.grey)
+        p.setFont("Helvetica", 8)
+        p.drawCentredText(f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", center_x, footer_y - 35)
         
         p.showPage()
         p.save()
         
         buffer.seek(0)
         
-        return send_file(buffer, as_attachment=True, download_name=f'receipt_{receipt.receipt_number}.pdf', mimetype='application/pdf')
+        return send_file(buffer, as_attachment=True, download_name=f'Receipt_{receipt.receipt_number}.pdf', mimetype='application/pdf')
     
     @app.route('/receipts/<int:id>/delete', methods=['POST'])
     @login_required
