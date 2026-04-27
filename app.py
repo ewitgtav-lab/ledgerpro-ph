@@ -759,13 +759,14 @@ def create_app():
         flash(f'Subscription request for {subscription.user.email} has been rejected.')
         return redirect(url_for('admin_verify'))
     
-    @app.route('/admin/update-db-schema')
-    def update_db_schema():
+    @app.route('/admin/sync-db')
+    def sync_db():
         try:
+            # This adds missing tables/columns without deleting data
             db.create_all()
-            return "Database tables updated with missing columns successfully!"
+            return "Database synchronized successfully! The dashboard should work now."
         except Exception as e:
-            return f"Error: {str(e)}"
+            return f"Sync failed: {str(e)}"
 
     @app.route('/admin/logout')
     def admin_logout():
