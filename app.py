@@ -759,14 +759,16 @@ def create_app():
         flash(f'Subscription request for {subscription.user.email} has been rejected.')
         return redirect(url_for('admin_verify'))
     
-    @app.route('/admin/sync-db')
-    def sync_db():
+    @app.route('/admin/fix-db')
+    def fix_db():
         try:
-            # This adds missing tables/columns without deleting data
-            db.create_all()
-            return "Database synchronized successfully! The dashboard should work now."
+            from sqlalchemy import text
+            # This manually adds the missing column to the existing table
+            db.session.execute(text('ALTER TABLE subscription_request ADD COLUMN IF NOT EXISTS screenshot_filename VARCHAR(255)'))
+            db.session.commit()
+            return "Column added successfully! Dashboard should work now."
         except Exception as e:
-            return f"Sync failed: {str(e)}"
+            return f"Error: {str(e)}"
 
     @app.route('/admin/logout')
     def admin_logout():
