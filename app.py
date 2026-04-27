@@ -790,6 +790,7 @@ def create_app():
     def internal_server_error(error):
         return render_template('errors/500.html', error=str(error)), 500
     
+    db.create_all()
     return app
 
 app = create_app()
