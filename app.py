@@ -654,6 +654,9 @@ def activate_license_key(user_id, license_key):
 
 # Subscription page
 def show_subscription_page():
+    # Simple test to see if function is called
+    st.write("SUBSCRIPTION PAGE LOADED - TEST MESSAGE")
+    
     st.markdown("""
     <div class="main-header">
         <h1>🔑 Subscription</h1>
@@ -678,6 +681,7 @@ def show_subscription_page():
             
     except Exception as e:
         st.error(f"Error loading subscription page: {str(e)}")
+        st.write("Exception details:", str(e))
         return
     
     # Current status
@@ -2561,6 +2565,7 @@ def main():
     elif page == "📄 Financial Statements":
         show_financial_statements()
     elif page == "🔑 Subscription":
+        st.write("DEBUG: Subscription page selected")
         show_subscription_page()
     elif page == "⚙️ Settings":
         show_settings_page()
