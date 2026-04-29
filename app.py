@@ -2274,33 +2274,91 @@ def show_dashboard():
             total_revenue = total_expenses = net_income = total_tax = 0
             transactions = pd.DataFrame()
         
-        # Display metrics (show even if no data)
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Total Revenue", f"₱{total_revenue:,.2f}")
-        with col2:
-            st.metric("Total Expenses", f"₱{total_expenses:,.2f}")
-        with col3:
-            st.metric("Net Income", f"₱{net_income:,.2f}")
-        with col4:
-            st.metric("Tax Total", f"₱{total_tax:,.2f}")
+        # Enhanced metrics display with professional styling
+        st.markdown("### 📊 Financial Overview")
         
-        # Revenue trend chart
+        # Create professional metrics cards
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            delta_color = "normal" if total_revenue >= 0 else "inverse"
+            st.metric(
+                "💰 Total Revenue", 
+                f"₱{total_revenue:,.2f}",
+                delta=f"₱{total_revenue:,.2f}" if total_revenue != 0 else None,
+                delta_color=delta_color
+            )
+            
+        with col2:
+            delta_color = "inverse" if total_expenses > 0 else "normal"
+            st.metric(
+                "💸 Total Expenses", 
+                f"₱{total_expenses:,.2f}",
+                delta=f"₱{total_expenses:,.2f}" if total_expenses != 0 else None,
+                delta_color=delta_color
+            )
+            
+        with col3:
+            delta_color = "normal" if net_income >= 0 else "inverse"
+            st.metric(
+                "📈 Net Income", 
+                f"₱{net_income:,.2f}",
+                delta=f"₱{net_income:,.2f}" if net_income != 0 else None,
+                delta_color=delta_color
+            )
+            
+        with col4:
+            st.metric(
+                "🏛️ Tax Total", 
+                f"₱{total_tax:,.2f}",
+                delta=f"₱{total_tax:,.2f}" if total_tax != 0 else None
+            )
+        
+        # Revenue trend chart with enhanced styling
+        st.markdown("### 📈 Revenue Analytics")
+        
         if not transactions.empty and len(transactions) > 0:
             revenue_transactions = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
             if len(revenue_transactions) > 0:
                 daily_revenue = revenue_transactions.groupby(revenue_transactions['transaction_date'].dt.date)['final_amount'].sum().reset_index()
                 
                 if len(daily_revenue) > 0:
-                    fig = px.line(daily_revenue, x='transaction_date', y='final_amount',
-                                 title='Daily Revenue Trend',
-                                 labels={'final_amount': 'Revenue (₱)', 'transaction_date': 'Date'},
-                                 color_discrete_sequence=['#3b82f6'])
-                    # fig = apply_dark_theme(fig)  # Commented out - function doesn't exist
-                    st.plotly_chart(fig, width='stretch')
+                    fig = px.line(
+                        daily_revenue, 
+                        x='transaction_date', 
+                        y='final_amount',
+                        title='Daily Revenue Trend',
+                        labels={'final_amount': 'Revenue (₱)', 'transaction_date': 'Date'},
+                        color_discrete_sequence=['#10b981']
+                    )
+                    
+                    # Enhanced chart styling
+                    fig.update_traces(
+                        line=dict(width=3),  # Make line thicker
+                        marker=dict(size=6)     # Add markers
+                    )
+                    fig.update_layout(
+                        title_font_size=16,
+                        title_x=0.5,
+                        xaxis_title_font_size=12,
+                        yaxis_title_font_size=12,
+                        showlegend=False,
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        height=400
+                    )
+                    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+                    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+                    
+                    st.plotly_chart(fig, width='stretch', use_container_width=True)
+                else:
+                    st.info("No revenue data available for the selected period.")
+        else:
+            st.info("No transaction data available. Start adding transactions to see analytics.")
         
-        # Recent transactions
-        st.markdown("### 📋 Recent Transactions")
+        # Enhanced recent transactions section
+        st.markdown("### 📋 Recent Activity")
+        
         if not transactions.empty and len(transactions) > 0:
             recent_transactions = transactions.sort_values('transaction_date', ascending=False).head(10)
             
@@ -2308,11 +2366,25 @@ def show_dashboard():
                 display_data = recent_transactions[['transaction_date', 'type', 'description', 'final_amount']].copy()
                 display_data['transaction_date'] = display_data['transaction_date'].dt.strftime('%Y-%m-%d')
                 display_data.columns = ['Date', 'Type', 'Description', 'Amount']
-                st.dataframe(display_data, width="stretch", hide_index=True)
+                
+                # Add styling for amounts
+                display_data['Amount'] = display_data['Amount'].apply(lambda x: f"₱{x:,.2f}")
+                
+                # Add emoji for transaction types
+                type_emoji = {
+                    'cash_receipt': '💰',
+                    'sales': '📈', 
+                    'purchase': '🛒',
+                    'expense': '💸',
+                    'cash_disbursement': '💳'
+                }
+                display_data['Type'] = display_data['Type'].apply(lambda x: f"{type_emoji.get(x, '📝')} {x.title()}")
+                
+                st.dataframe(display_data, width="stretch", hide_index=True, use_container_width=True)
             else:
                 st.info("No transactions this month. Start by adding your first transaction!")
         else:
-            st.info("No transactions yet. Start by adding your first transaction!")
+            st.info("📝 No transactions yet. Navigate to any journal to start recording your financial data.")
             
     except Exception as e:
         st.error(f"Error loading dashboard data: {str(e)}")
