@@ -635,15 +635,18 @@ def show_navigation():
         key="navigation_selectbox"
     )
     
-    # Update session state to match selectbox selection
-    st.session_state.selected_page = page
+    # Only update session state if user manually changed the selectbox
+    # (not if a button set it)
+    if page != st.session_state.selected_page:
+        st.session_state.selected_page = page
     
     st.markdown("---")
     
     if st.button("🚪 Sign Out"):
         handle_signout()
     
-    return page
+    # Return the session state value (which buttons can set) instead of selectbox value
+    return st.session_state.selected_page
 
 # License key verification
 @st.cache_data(ttl=300)
