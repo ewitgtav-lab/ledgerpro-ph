@@ -654,39 +654,59 @@ def activate_license_key(user_id, license_key):
 
 # Subscription page
 def show_subscription_page():
-    # Simple test to see if function is called
-    st.write("SUBSCRIPTION PAGE LOADED - TEST MESSAGE")
-    st.write("Function is definitely being called!")
-    
-    # Try the simplest possible content
-    st.markdown("## 🔑 Subscription")
-    st.write("This is the subscription page.")
-    
-    st.markdown("""
-    <div class="main-header">
-        <h1>🔑 Subscription</h1>
-        <p>Manage your LedgerPro-PH subscription</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
     try:
+        # Simple test to see if function is called
+        st.write("SUBSCRIPTION PAGE LOADED - TEST MESSAGE")
+        st.write("Function is definitely being called!")
+        
+        # Try the simplest possible content
+        st.markdown("## 🔑 Subscription")
+        st.write("This is the subscription page.")
+        
+        st.markdown("""
+        <div class="main-header">
+            <h1>🔑 Subscription</h1>
+            <p>Manage your LedgerPro-PH subscription</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.info("ℹ️ About to get current user...")
+        
         user = get_current_user()
         st.write("Debug - User:", user)
         
         if not user:
             st.error("No authenticated user found")
+            st.warning("⚠️ This might indicate an authentication issue")
             return
             
+        st.info("ℹ️ About to get user profile...")
+        
         profile = get_user_profile(user.id)
         st.write("Debug - Profile:", profile)
         
         if not profile:
             st.error("Unable to load user profile")
+            st.warning("⚠️ This might indicate a database connection issue")
             return
             
+        st.success("✅ User and profile loaded successfully!")
+            
     except Exception as e:
-        st.error(f"Error loading subscription page: {str(e)}")
-        st.write("Exception details:", str(e))
+        st.error("❌ ERROR IN SUBSCRIPTION FUNCTION")
+        st.error(f"Error type: {type(e).__name__}")
+        st.error(f"Error message: {str(e)}")
+        
+        # Show full traceback
+        import traceback
+        st.code(traceback.format_exc(), language="python")
+        
+        # Show additional debugging info
+        st.write("Function debugging information:")
+        st.write(f"Error occurred at: {datetime.now()}")
+        st.write(f"User object: {user if 'user' in locals() else 'Not defined'}")
+        st.write(f"Profile object: {profile if 'profile' in locals() else 'Not defined'}")
+        
         return
     
     # Current status
@@ -2570,14 +2590,32 @@ def main():
     elif page == "📄 Financial Statements":
         show_financial_statements()
     elif page == "🔑 Subscription":
-        st.write("DEBUG: Subscription page selected")
-        st.markdown("### 🔑 Subscription Test")
-        st.write("This is a basic test to see if the subscription tab renders at all.")
         try:
+            st.write("DEBUG: Subscription page selected")
+            st.markdown("### 🔑 Subscription Test")
+            st.write("This is a basic test to see if the subscription tab renders at all.")
+            
+            # Test basic Streamlit functionality
+            st.success("✅ Streamlit is working!")
+            st.info("ℹ️ About to call subscription function...")
+            
             show_subscription_page()
+            
+            st.success("✅ Subscription function completed successfully!")
+            
         except Exception as e:
-            st.error(f"Error in subscription page: {str(e)}")
-            st.write("Exception occurred:", str(e))
+            st.error("❌ ERROR OCCURRED IN SUBSCRIPTION TAB")
+            st.error(f"Error type: {type(e).__name__}")
+            st.error(f"Error message: {str(e)}")
+            
+            # Show full traceback
+            import traceback
+            st.code(traceback.format_exc(), language="python")
+            
+            # Show additional debugging info
+            st.write("Debugging information:")
+            st.write(f"Page selected: {page}")
+            st.write(f"Error occurred at: {datetime.now()}")
     elif page == "⚙️ Settings":
         show_settings_page()
 
