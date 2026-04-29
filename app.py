@@ -606,7 +606,7 @@ def show_sidebar_with_user():
         if profile:
             st.markdown(f"""
             <div class="sidebar-nav">
-                <h3>� {profile.get('business_name', 'Business')}</h3>
+                <h3>🏢 {profile.get('business_name', 'Business')}</h3>
                 <p style="color: var(--text-secondary); font-size: 0.875rem;">{profile.get('email', '')}</p>
                 <p style="color: {'#10b981' if profile.get('is_pro_status') else '#f59e0b'}; font-size: 0.75rem;">
                     {'🌟 PRO User' if profile.get('is_pro_status') else '🆓 Free Plan'}
@@ -2621,6 +2621,14 @@ def show_chart_of_accounts():
 
 # Main app
 def main():
+    # Page configuration - must be first st command
+    st.set_page_config(
+        page_title="LedgerPro-PH",
+        page_icon="🇵🇭",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
     # Load CSS
     load_css()
     
