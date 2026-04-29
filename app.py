@@ -2240,12 +2240,12 @@ def show_dashboard():
             
             if result.data and len(result.data) > 0:
                 # Create DataFrame with explicit error handling
-            try:
-                transactions = pd.DataFrame(result.data)
-            except Exception as df_error:
-                st.error(f"DataFrame creation error: {str(df_error)}")
-                st.write("Debug - Raw data sample:", result.data[:2])
-                raise df_error
+                try:
+                    transactions = pd.DataFrame(result.data)
+                except Exception as df_error:
+                    st.error(f"DataFrame creation error: {str(df_error)}")
+                    st.write("Debug - Raw data sample:", result.data[:2])
+                    raise df_error
             
             # Ensure proper data types
             if not transactions.empty:
