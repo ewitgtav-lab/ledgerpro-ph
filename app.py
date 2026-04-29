@@ -631,6 +631,16 @@ def show_sidebar_with_user():
         st.markdown("---")
         
         # Navigation menu
+        # Check if a page was selected via button click
+        if 'selected_page' in st.session_state:
+            # Use the selected page and clear the session state
+            page = st.session_state.selected_page
+            del st.session_state.selected_page
+        else:
+            # Default to first page if no session state
+            page = "🏠 Dashboard"
+        
+        # Create selectbox with current selection
         page = st.selectbox(
             "Navigate to:",
             [
@@ -646,7 +656,21 @@ def show_sidebar_with_user():
                 "📄 Financial Statements",
                 "🔑 Subscription",
                 "⚙️ Settings"
-            ]
+            ],
+            index=[
+                "🏠 Dashboard",
+                "💰 Cash Receipts Journal",
+                "📈 Sales Journal", 
+                "🛒 Purchase Journal",
+                "💳 Cash Disbursement Journal",
+                "📝 General Journal",
+                "📋 General Ledger",
+                "📊 Chart of Accounts",
+                "🏛️ Tax Compliance",
+                "📄 Financial Statements",
+                "🔑 Subscription",
+                "⚙️ Settings"
+            ].index(page)
         )
         
         st.markdown("---")
@@ -1993,7 +2017,7 @@ def show_settings_page():
         with col1:
             submitted = st.form_submit_button("💾 Save Changes", type="primary")
         with col2:
-            if st.form_submit_button("🚪 Sign Out"):
+            if st.button("🚪 Sign Out"):
                 handle_signout()
         
         if submitted:
