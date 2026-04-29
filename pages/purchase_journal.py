@@ -3,8 +3,13 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, date
 import plotly.express as px
-from supabase import create_client
 import json
+
+# Import from main app for consistency
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from app import init_supabase
 
 # Dark mode chart helper
 def apply_dark_theme(fig):
@@ -541,5 +546,3 @@ def show_purchase_settings():
         if st.button("🔄 Recalculate Tax", type="primary"):
             st.success("✅ Tax recalculated for all entries!")
 
-if __name__ == "__main__":
-    show_purchase_journal()
