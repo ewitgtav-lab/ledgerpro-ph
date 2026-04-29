@@ -642,15 +642,91 @@ def verify_license_key(license_key):
 def activate_license_key(user_id, license_key):
     try:
         supabase = init_supabase()
-        # Mark license as used
-        supabase.table('license_keys').update({'is_used': True, 'used_by': user_id, 'used_at': datetime.now().isoformat()}).eq('key', license_key).execute()
+        # Mark license as used and link to user
+        result = supabase.table('license_keys').update({
+            'is_used': True,
+            'used_by': user_id,
+            'used_at': datetime.now().isoformat()
+        }).eq('key', license_key).execute()
         
         # Update user profile to pro status
-        supabase.table('profiles').update({'is_pro_status': True, 'license_key': license_key}).eq('id', user_id).execute()
+        supabase.table('profiles').update({
+            'is_pro_status': True,
+            'license_key': license_key
+        }).eq('id', user_id).execute()
         
         return True
     except:
         return False
+
+# Admin license generation
+def generate_license_key():
+    """Generate a new license key"""
+    import random
+    import string
+    
+    # Generate random 16-character key in XXXX-XXXX-XXXX-XXXX format
+    characters = string.ascii_uppercase + string.digits
+    parts = []
+    for _ in range(4):
+        part = ''.join(random.choice(characters) for _ in range(4))
+        parts.append(part)
+    
+    return '-'.join(parts)
+
+def admin_generate_multiple_keys(count=10):
+    """Generate multiple license keys for admin use"""
+    keys = []
+    for _ in range(count):
+        key = generate_license_key()
+        try:
+            supabase = init_supabase()
+            result = supabase.table('license_keys').insert({
+                'key': key,
+                'is_used': False
+            }).execute()
+            if result.data:
+                keys.append(key)
+        except:
+            continue
+    
+    return keys
+
+def admin_get_license_stats():
+    """Get statistics about license usage"""
+    try:
+        supabase = init_supabase()
+        
+        # Total keys
+        total_result = supabase.table('license_keys').select('id', count='exact').execute()
+        total_keys = total_result.count or 0
+        
+        # Used keys
+        used_result = supabase.table('license_keys').select('id', count='exact').eq('is_used', True).execute()
+        used_keys = used_result.count or 0
+        
+        # Available keys
+        available_keys = total_keys - used_keys
+        
+        return {
+            'total': total_keys,
+            'used': used_keys,
+            'available': available_keys
+        }
+    except:
+        return {'total': 0, 'used': 0, 'available': 0}
+
+def admin_get_all_licenses():
+    """Get all license keys with usage info"""
+    try:
+        supabase = init_supabase()
+        result = supabase.table('license_keys').select(
+            'key', 'is_used', 'used_by', 'used_at', 'created_at'
+        ).order('created_at', desc=True).execute()
+        
+        return result.data if result.data else []
+    except:
+        return []
 
 # Subscription page
 def show_subscription_page():
@@ -744,6 +820,53 @@ def show_subscription_page():
         
         if profile.get('license_key'):
             st.info(f"License Key: {profile.get('license_key')}")
+    
+    # Admin section (only show for admin users - you can check email or create admin role)
+    if user.email == "admin@ledgerpro-ph.com" or user.email.endswith("@admin.com"):  # Replace with your admin email
+        st.markdown("---")
+        st.markdown("### 🔧 Admin License Management")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total Keys", admin_get_license_stats()['total'])
+        with col2:
+            st.metric("Used Keys", admin_get_license_stats()['used'])
+        with col3:
+            st.metric("Available Keys", admin_get_license_stats()['available'])
+        
+        st.markdown("---")
+        
+        # Generate new keys
+        st.markdown("#### 🎯 Generate New License Keys")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            key_count = st.number_input("Number of keys to generate", min_value=1, max_value=100, value=10)
+        with col2:
+            if st.button("🔑 Generate Keys", type="primary"):
+                with st.spinner("Generating license keys..."):
+                    new_keys = admin_generate_multiple_keys(key_count)
+                    if new_keys:
+                        st.success(f"✅ Generated {len(new_keys)} new license keys!")
+                        st.code("\n".join(new_keys))
+                    else:
+                        st.error("❌ Failed to generate license keys")
+        
+        # View all licenses
+        st.markdown("#### 📋 All License Keys")
+        
+        all_licenses = admin_get_all_licenses()
+        if all_licenses:
+            license_df = pd.DataFrame(all_licenses)
+            license_df['status'] = license_df['is_used'].apply(lambda x: '🟢 Used' if x else '🔴 Available')
+            license_df['used_at'] = license_df['used_at'].apply(lambda x: x[:10] if x else 'Never')
+            license_df['created_at'] = license_df['created_at'].apply(lambda x: x[:10] if x else 'Unknown')
+            
+            display_df = license_df[['key', 'status', 'used_at', 'created_at']]
+            st.dataframe(display_df, use_container_width=True)
+        else:
+            st.info("No license keys found.")
 
 # Cash Disbursement Journal
 def show_cash_disbursement_journal():
