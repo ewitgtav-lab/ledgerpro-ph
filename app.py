@@ -893,19 +893,10 @@ def show_dashboard():
         
         result = supabase.table('transactions').select('*').eq('user_id', user.id).gte('transaction_date', start_date.strftime('%Y-%m-%d')).lt('transaction_date', end_date.strftime('%Y-%m-%d')).execute()
         
-        st.write("Debug - Result type:", type(result))
-        st.write("Debug - Has data attribute:", hasattr(result, 'data'))
-        st.write("Debug - Result data:", result.data)
-        
         if result.data and len(result.data) > 0:
-            st.write("Debug - Creating DataFrame from:", result.data[0] if result.data else "Empty")
-            
             # Create DataFrame with explicit error handling
             try:
                 transactions = pd.DataFrame(result.data)
-                st.write("Debug - DataFrame created successfully")
-                st.write("Debug - DataFrame columns:", transactions.columns.tolist())
-                st.write("Debug - DataFrame shape:", transactions.shape)
             except Exception as df_error:
                 st.error(f"DataFrame creation error: {str(df_error)}")
                 st.write("Debug - Raw data sample:", result.data[:2])
@@ -964,7 +955,7 @@ def show_dashboard():
                                  title='Daily Revenue Trend',
                                  labels={'final_amount': 'Revenue (₱)', 'transaction_date': 'Date'},
                                  color_discrete_sequence=['#3b82f6'])
-                    fig = apply_dark_theme(fig)
+                    # fig = apply_dark_theme(fig)  # Commented out - function doesn't exist
                     st.plotly_chart(fig, use_container_width=True)
         
         # Recent transactions
