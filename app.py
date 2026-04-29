@@ -889,15 +889,32 @@ def show_dashboard():
         result = supabase.table('transactions').select('*').eq('user_id', user.id).like('transaction_date', f'{current_month}%').execute()
         
         if result.data:
-            transactions = pd.DataFrame(result.data)
-            # Convert dates
-            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'])
+            # Debug: Print data structure
+            st.write("Debug - Raw data:", result.data[:1] if result.data else "No data")
             
-            # Key metrics
-            total_revenue = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]['final_amount'].sum()
-            total_expenses = transactions[transactions['type'].isin(['purchase', 'expense'])]['final_amount'].sum()
-            net_income = total_revenue - total_expenses
-            total_tax = transactions['vat_amount'].sum() + transactions['ewt_amount'].sum()
+            transactions = pd.DataFrame(result.data)
+            
+            # Ensure proper data types
+            if not transactions.empty:
+                # Convert numeric columns
+                numeric_cols = ['gross_amount', 'platform_fee', 'net_amount', 'vat_amount', 'ewt_amount', 'final_amount']
+                for col in numeric_cols:
+                    if col in transactions.columns:
+                        transactions[col] = pd.to_numeric(transactions[col], errors='coerce').fillna(0)
+                
+                # Convert dates
+                transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], errors='coerce')
+                
+                # Key metrics
+                revenue_mask = transactions['type'].isin(['cash_receipt', 'sales'])
+                expense_mask = transactions['type'].isin(['purchase', 'expense'])
+                
+                total_revenue = transactions[revenue_mask]['final_amount'].sum()
+                total_expenses = transactions[expense_mask]['final_amount'].sum()
+                net_income = total_revenue - total_expenses
+                total_tax = transactions['vat_amount'].sum() + transactions['ewt_amount'].sum()
+            else:
+                total_revenue = total_expenses = net_income = total_tax = 0
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -910,16 +927,18 @@ def show_dashboard():
                 st.metric("Tax Total", f"₱{total_tax:,.2f}")
             
             # Revenue trend chart
-            if len(transactions) > 0:
-                daily_revenue = transactions[transactions['type'].isin(['cash_receipt', 'sales'])].groupby(transactions['transaction_date'].dt.date)['final_amount'].sum().reset_index()
-                
-                if len(daily_revenue) > 0:
-                    fig = px.line(daily_revenue, x='transaction_date', y='final_amount',
-                                 title='Daily Revenue Trend',
-                                 labels={'final_amount': 'Revenue (₱)', 'transaction_date': 'Date'},
-                                 color_discrete_sequence=['#3b82f6'])
-                    fig = apply_dark_theme(fig)
-                    st.plotly_chart(fig, use_container_width=True)
+            if not transactions.empty and len(transactions) > 0:
+                revenue_transactions = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
+                if len(revenue_transactions) > 0:
+                    daily_revenue = revenue_transactions.groupby(revenue_transactions['transaction_date'].dt.date)['final_amount'].sum().reset_index()
+                    
+                    if len(daily_revenue) > 0:
+                        fig = px.line(daily_revenue, x='transaction_date', y='final_amount',
+                                     title='Daily Revenue Trend',
+                                     labels={'final_amount': 'Revenue (₱)', 'transaction_date': 'Date'},
+                                     color_discrete_sequence=['#3b82f6'])
+                        fig = apply_dark_theme(fig)
+                        st.plotly_chart(fig, use_container_width=True)
             
             # Recent transactions
             st.markdown("### 📋 Recent Transactions")
