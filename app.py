@@ -498,11 +498,11 @@ def main():
     elif page == "💰 Cash Receipts Journal":
         show_cash_receipts_journal()
     elif page == "📈 Sales Journal":
-        st.markdown("### 📈 Sales Journal")
-        st.info("Sales Journal module coming soon...")
+        from pages.sales_journal import show_sales_journal
+        show_sales_journal()
     elif page == "🛒 Purchase Journal":
-        st.markdown("### 🛒 Purchase Journal")
-        st.info("Purchase Journal module coming soon...")
+        from pages.purchase_journal import show_purchase_journal
+        show_purchase_journal()
     elif page == "💳 Cash Disbursement Journal":
         st.markdown("### 💳 Cash Disbursement Journal")
         st.info("Cash Disbursement Journal module coming soon...")
@@ -513,8 +513,8 @@ def main():
         st.markdown("### 📋 General Ledger")
         st.info("General Ledger module coming soon...")
     elif page == "📊 Chart of Accounts":
-        st.markdown("### 📊 Chart of Accounts")
-        st.info("Chart of Accounts module coming soon...")
+        from pages.chart_of_accounts import show_chart_of_accounts
+        show_chart_of_accounts()
     elif page == "📦 Inventory Management":
         st.markdown("### 📦 Inventory Management")
         st.info("Inventory Management module coming soon...")
