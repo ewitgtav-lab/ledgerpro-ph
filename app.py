@@ -1060,16 +1060,16 @@ def show_cash_receipts_journal():
                     check_number = st.text_input("Check Number", placeholder="Enter check number")
                     description = st.text_input("Description", placeholder="Payment description")
                 
-                # Auto-calculate tax amounts
+                # Auto-calculate tax amounts (initialize with default values)
+                tax_calculations = calculate_tax_amounts(
+                    gross_amount, 
+                    profile.get('tax_type', 'VAT (12%)'),
+                    platform_name,
+                    platform_fee
+                )
+                
+                # Display calculated amounts if gross_amount > 0
                 if gross_amount > 0:
-                    tax_calculations = calculate_tax_amounts(
-                        gross_amount, 
-                        profile.get('tax_type', 'VAT (12%)'),
-                        platform_name,
-                        platform_fee
-                    )
-                    
-                    # Display calculated amounts
                     st.markdown("### 💰 Amount Breakdown")
                     col1, col2, col3, col4 = st.columns(4)
                     
@@ -1164,7 +1164,7 @@ def show_cash_receipts_journal():
             
             # Format for display
             display_data = []
-            for record in cash_receipts_data:
+            for _, record in cash_receipts_data.iterrows():
                 display_data.append({
                     'Date': pd.to_datetime(record['transaction_date']).strftime('%Y-%m-%d'),
                     'Customer': record['customer_name'],
