@@ -661,11 +661,23 @@ def show_subscription_page():
     </div>
     """, unsafe_allow_html=True)
     
-    user = get_current_user()
-    profile = get_user_profile(user.id) if user else None
-    
-    if not profile:
-        st.error("Unable to load user profile")
+    try:
+        user = get_current_user()
+        st.write("Debug - User:", user)
+        
+        if not user:
+            st.error("No authenticated user found")
+            return
+            
+        profile = get_user_profile(user.id)
+        st.write("Debug - Profile:", profile)
+        
+        if not profile:
+            st.error("Unable to load user profile")
+            return
+            
+    except Exception as e:
+        st.error(f"Error loading subscription page: {str(e)}")
         return
     
     # Current status
