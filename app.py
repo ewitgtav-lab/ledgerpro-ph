@@ -2338,17 +2338,23 @@ def show_dashboard():
     
     with col1:
         if st.button("➕ Add Transaction", type="primary", width='stretch'):
+            st.write("DEBUG: Add Transaction button clicked")
             st.session_state.selected_page = "💰 Cash Receipts Journal"
+            st.write(f"DEBUG: Set selected_page to: {st.session_state.selected_page}")
             st.rerun()
     
     with col2:
         if st.button("📊 View Reports", width='stretch'):
+            st.write("DEBUG: View Reports button clicked")
             st.session_state.selected_page = "🏛️ Tax Compliance"
+            st.write(f"DEBUG: Set selected_page to: {st.session_state.selected_page}")
             st.rerun()
     
     with col3:
         if st.button("🔑 Upgrade to Pro", width='stretch', disabled=profile.get('is_pro_status')):
+            st.write("DEBUG: Upgrade to Pro button clicked")
             st.session_state.selected_page = "🔑 Subscription"
+            st.write(f"DEBUG: Set selected_page to: {st.session_state.selected_page}")
             st.rerun()
     
     # Cash Receipts Journal
