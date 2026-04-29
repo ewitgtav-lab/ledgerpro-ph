@@ -886,8 +886,8 @@ def show_subscription_page():
         if all_licenses:
             license_df = pd.DataFrame(all_licenses)
             license_df['status'] = license_df['is_used'].apply(lambda x: '🟢 Used' if x else '🔴 Available')
-            license_df['used_at'] = license_df['used_at'].apply(lambda x: str(x)[:10] if x else 'Never')
-            license_df['created_at'] = license_df['created_at'].apply(lambda x: str(x)[:10] if x else 'Unknown')
+            license_df['used_at'] = license_df['used_at'].apply(lambda x: str(x)[:10] if x and not pd.isna(x) else 'Never')
+            license_df['created_at'] = license_df['created_at'].apply(lambda x: str(x)[:10] if x and not pd.isna(x) else 'Unknown')
             
             display_df = license_df[['key', 'status', 'used_at', 'created_at']]
             st.dataframe(display_df, width='stretch')
