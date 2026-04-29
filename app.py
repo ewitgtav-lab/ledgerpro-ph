@@ -1,4 +1,6 @@
 import streamlit as st
+
+st.write("DEBUG: App file loaded")
 import pandas as pd
 import numpy as np
 from datetime import datetime, date
@@ -2620,6 +2622,8 @@ def show_chart_of_accounts():
 
 # Main app
 def main():
+    st.write("DEBUG: Main function called")
+    
     # Load CSS
     load_css()
     
@@ -2632,14 +2636,20 @@ def main():
         return
     
     # Check authentication
+    st.write("DEBUG: About to check authentication")
     if not check_authentication():
+        st.write("DEBUG: Authentication failed, returning early")
         return
+    st.write("DEBUG: Authentication passed")
     
     # Get current user
+    st.write("DEBUG: About to get current user")
     user = get_current_user()
     if not user:
+        st.write("DEBUG: No user found, showing auth page")
         show_auth_page()
         return
+    st.write("DEBUG: User found, about to show sidebar")
     
     # Show sidebar and get selected page
     page = show_sidebar_with_user()
