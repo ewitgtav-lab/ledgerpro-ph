@@ -290,7 +290,7 @@ def show_import_export():
         
         # Download template
         st.markdown("#### 📋 Download Template")
-        template_df = pd.DataFrame(PHIPPINE_COA_TEMPLATE[:5])  # First 5 accounts as template
+        template_df = pd.DataFrame(PHILIPPINE_COA_TEMPLATE[:5])  # First 5 accounts as template
         
         csv = template_df.to_csv(index=False)
         st.download_button(
