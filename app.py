@@ -867,11 +867,11 @@ def show_subscription_page():
         if all_licenses:
             license_df = pd.DataFrame(all_licenses)
             license_df['status'] = license_df['is_used'].apply(lambda x: '🟢 Used' if x else '🔴 Available')
-            license_df['used_at'] = license_df['used_at'].apply(lambda x: x[:10] if x else 'Never')
-            license_df['created_at'] = license_df['created_at'].apply(lambda x: x[:10] if x else 'Unknown')
+            license_df['used_at'] = license_df['used_at'].apply(lambda x: str(x)[:10] if x else 'Never')
+            license_df['created_at'] = license_df['created_at'].apply(lambda x: str(x)[:10] if x else 'Unknown')
             
             display_df = license_df[['key', 'status', 'used_at', 'created_at']]
-            st.dataframe(display_df, use_container_width=True)
+            st.dataframe(display_df, width='stretch')
         else:
             st.info("No license keys found.")
 
@@ -939,7 +939,7 @@ def show_cash_disbursement_journal():
             # Submit button
             col1, col2, col3 = st.columns(3)
             with col2:
-                if st.form_submit_button("💾 Save Cash Disbursement", type="primary", use_container_width=False):
+                if st.form_submit_button("💾 Save Cash Disbursement", type="primary", width='content'):
                     try:
                         # Initialize Supabase client
                         supabase = init_supabase()
@@ -1145,7 +1145,7 @@ def show_general_journal():
             # Submit button
             col1, col2, col3 = st.columns(3)
             with col2:
-                submitted = st.form_submit_button("💾 Save Journal Entry", type="primary", use_container_width=False)
+                submitted = st.form_submit_button("💾 Save Journal Entry", type="primary", width='content')
                 
                 if submitted:
                     if abs(total_debit - total_credit) > 0.01:
@@ -2110,7 +2110,7 @@ def show_settings_page():
     st.markdown("---")
     
     # Sign Out button outside of form
-    if st.button("🚪 Sign Out", use_container_width=True):
+    if st.button("🚪 Sign Out", width='stretch'):
         handle_signout()
     
     st.markdown("---")
@@ -2278,7 +2278,7 @@ def show_dashboard():
                                  labels={'final_amount': 'Revenue (₱)', 'transaction_date': 'Date'},
                                  color_discrete_sequence=['#3b82f6'])
                     # fig = apply_dark_theme(fig)  # Commented out - function doesn't exist
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
         
         # Recent transactions
         st.markdown("### 📋 Recent Transactions")
@@ -2318,17 +2318,17 @@ def show_dashboard():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("➕ Add Transaction", type="primary", use_container_width=True):
+        if st.button("➕ Add Transaction", type="primary", width='stretch'):
             st.session_state.selected_page = "💰 Cash Receipts Journal"
             st.rerun()
     
     with col2:
-        if st.button("📊 View Reports", use_container_width=True):
+        if st.button("📊 View Reports", width='stretch'):
             st.session_state.selected_page = "🏛️ Tax Compliance"
             st.rerun()
     
     with col3:
-        if st.button("🔑 Upgrade to Pro", use_container_width=True, disabled=profile.get('is_pro_status')):
+        if st.button("🔑 Upgrade to Pro", width='stretch', disabled=profile.get('is_pro_status')):
             st.session_state.selected_page = "🔑 Subscription"
             st.rerun()
     
@@ -3067,7 +3067,7 @@ def show_chart_of_accounts():
         }
         
         df_accounts = pd.DataFrame(account_data)
-        st.dataframe(df_accounts, use_container_width=True)
+        st.dataframe(df_accounts, width='stretch')
         
         st.markdown("#### 📈 Account Balances")
         
@@ -3075,7 +3075,7 @@ def show_chart_of_accounts():
         fig = px.bar(df_accounts, x='Account', y='Balance', color='Type',
                     title='Account Balance Distribution')
         fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     
     with col2:
         st.markdown("#### 📋 Account Categories")
