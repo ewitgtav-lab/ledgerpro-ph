@@ -1961,12 +1961,7 @@ def show_settings_page():
                                ["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"],
                                index=["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"].index(profile.get('tax_type', 'VAT (12%)')))
         
-        col1, col2 = st.columns(2)
-        with col1:
-            submitted = st.form_submit_button("💾 Save Changes", type="primary")
-        with col2:
-            if st.button("🚪 Sign Out"):
-                handle_signout()
+        submitted = st.form_submit_button("💾 Save Changes", type="primary")
         
         if submitted:
             try:
@@ -1981,6 +1976,12 @@ def show_settings_page():
                 st.rerun()
             except Exception as e:
                 st.error("❌ Failed to update profile")
+    
+    st.markdown("---")
+    
+    # Sign Out button outside of form
+    if st.button("🚪 Sign Out", use_container_width=True):
+        handle_signout()
     
     st.markdown("---")
     st.markdown("### 📊 Usage Statistics")
