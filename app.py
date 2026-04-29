@@ -604,6 +604,10 @@ def show_navigation():
     st.markdown("---")
     
     # Simple navigation
+    # Check if a button set the selected_page, otherwise use current selection
+    if 'selected_page' not in st.session_state:
+        st.session_state.selected_page = "🏠 Dashboard"
+    
     page = st.selectbox(
         "Navigate to:",
         [
@@ -619,8 +623,25 @@ def show_navigation():
             "📄 Financial Statements",
             "🔑 Subscription",
             "⚙️ Settings"
-        ]
+        ],
+        index=[
+            "🏠 Dashboard",
+            "💰 Cash Receipts Journal",
+            "📈 Sales Journal", 
+            "🛒 Purchase Journal",
+            "💳 Cash Disbursement Journal",
+            "📝 General Journal",
+            "📋 General Ledger",
+            "📊 Chart of Accounts",
+            "🏛️ Tax Compliance",
+            "📄 Financial Statements",
+            "🔑 Subscription",
+            "⚙️ Settings"
+        ].index(st.session_state.selected_page)
     )
+    
+    # Update session state to match selectbox selection
+    st.session_state.selected_page = page
     
     st.markdown("---")
     
