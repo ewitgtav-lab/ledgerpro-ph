@@ -2334,9 +2334,14 @@ def show_dashboard():
     st.markdown("---")
     st.markdown("### 🚀 Quick Actions")
     
+    st.write("DEBUG: About to create buttons...")
+    
     col1, col2, col3 = st.columns(3)
     
+    st.write("DEBUG: Created columns...")
+    
     with col1:
+        st.write("DEBUG: In column 1...")
         if st.button("➕ Add Transaction", type="primary", width='stretch'):
             st.write("DEBUG: Add Transaction button clicked")
             st.session_state.selected_page = "💰 Cash Receipts Journal"
@@ -2344,6 +2349,7 @@ def show_dashboard():
             st.rerun()
     
     with col2:
+        st.write("DEBUG: In column 2...")
         if st.button("📊 View Reports", width='stretch'):
             st.write("DEBUG: View Reports button clicked")
             st.session_state.selected_page = "🏛️ Tax Compliance"
@@ -2351,11 +2357,14 @@ def show_dashboard():
             st.rerun()
     
     with col3:
+        st.write("DEBUG: In column 3...")
         if st.button("🔑 Upgrade to Pro", width='stretch', disabled=profile.get('is_pro_status')):
             st.write("DEBUG: Upgrade to Pro button clicked")
             st.session_state.selected_page = "🔑 Subscription"
             st.write(f"DEBUG: Set selected_page to: {st.session_state.selected_page}")
             st.rerun()
+    
+    st.write("DEBUG: Buttons section completed.")
     
     # Cash Receipts Journal
 def show_cash_receipts_journal():
