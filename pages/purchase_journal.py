@@ -247,7 +247,7 @@ def show_purchase_records():
                     return 'background-color: #ef444420; color: #ef4444;'
                 return ''
             
-            styled_df = display_df.style.applymap(style_status, subset=['status'])
+            styled_df = display_df.style.map(style_status, subset=['status'])
             st.dataframe(styled_df, use_container_width=True, hide_index=True)
             
             # Action buttons

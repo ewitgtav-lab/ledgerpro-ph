@@ -181,7 +181,7 @@ def show_accounts_view():
                         return 'background-color: #f8fafc;'
                 return ''
             
-            styled_df = df.style.applymap(style_accounts, subset=['account_subtype'])
+            styled_df = df.style.map(style_accounts, subset=['account_subtype'])
             
             # Display with custom formatting
             display_df = df[['account_code', 'account_name', 'account_subtype', 'normal_balance', 'is_active']].copy()
