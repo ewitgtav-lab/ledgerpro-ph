@@ -888,11 +888,23 @@ def show_dashboard():
         current_month = datetime.now().strftime('%Y-%m')
         result = supabase.table('transactions').select('*').eq('user_id', user.id).like('transaction_date', f'{current_month}%').execute()
         
-        if result.data:
-            # Debug: Print data structure
-            st.write("Debug - Raw data:", result.data[:1] if result.data else "No data")
+        st.write("Debug - Result type:", type(result))
+        st.write("Debug - Has data attribute:", hasattr(result, 'data'))
+        st.write("Debug - Result data:", result.data)
+        
+        if result.data and len(result.data) > 0:
+            st.write("Debug - Creating DataFrame from:", result.data[0] if result.data else "Empty")
             
-            transactions = pd.DataFrame(result.data)
+            # Create DataFrame with explicit error handling
+            try:
+                transactions = pd.DataFrame(result.data)
+                st.write("Debug - DataFrame created successfully")
+                st.write("Debug - DataFrame columns:", transactions.columns.tolist())
+                st.write("Debug - DataFrame shape:", transactions.shape)
+            except Exception as df_error:
+                st.error(f"DataFrame creation error: {str(df_error)}")
+                st.write("Debug - Raw data sample:", result.data[:2])
+                raise df_error
             
             # Ensure proper data types
             if not transactions.empty:
@@ -905,43 +917,54 @@ def show_dashboard():
                 # Convert dates
                 transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], errors='coerce')
                 
-                # Key metrics
-                revenue_mask = transactions['type'].isin(['cash_receipt', 'sales'])
-                expense_mask = transactions['type'].isin(['purchase', 'expense'])
-                
-                total_revenue = transactions[revenue_mask]['final_amount'].sum()
-                total_expenses = transactions[expense_mask]['final_amount'].sum()
-                net_income = total_revenue - total_expenses
-                total_tax = transactions['vat_amount'].sum() + transactions['ewt_amount'].sum()
+                # Key metrics with explicit error handling
+                try:
+                    revenue_mask = transactions['type'].isin(['cash_receipt', 'sales'])
+                    expense_mask = transactions['type'].isin(['purchase', 'expense'])
+                    
+                    total_revenue = transactions[revenue_mask]['final_amount'].sum()
+                    total_expenses = transactions[expense_mask]['final_amount'].sum()
+                    net_income = total_revenue - total_expenses
+                    total_tax = transactions['vat_amount'].sum() + transactions['ewt_amount'].sum()
+                except Exception as metric_error:
+                    st.error(f"Metrics calculation error: {str(metric_error)}")
+                    st.write("Debug - Transactions types:", transactions['type'].unique() if 'type' in transactions.columns else "No type column")
+                    raise metric_error
             else:
                 total_revenue = total_expenses = net_income = total_tax = 0
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Total Revenue", f"₱{total_revenue:,.2f}")
-            with col2:
-                st.metric("Total Expenses", f"₱{total_expenses:,.2f}")
-            with col3:
-                st.metric("Net Income", f"₱{net_income:,.2f}")
-            with col4:
-                st.metric("Tax Total", f"₱{total_tax:,.2f}")
-            
-            # Revenue trend chart
-            if not transactions.empty and len(transactions) > 0:
-                revenue_transactions = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
-                if len(revenue_transactions) > 0:
-                    daily_revenue = revenue_transactions.groupby(revenue_transactions['transaction_date'].dt.date)['final_amount'].sum().reset_index()
-                    
-                    if len(daily_revenue) > 0:
-                        fig = px.line(daily_revenue, x='transaction_date', y='final_amount',
-                                     title='Daily Revenue Trend',
-                                     labels={'final_amount': 'Revenue (₱)', 'transaction_date': 'Date'},
-                                     color_discrete_sequence=['#3b82f6'])
-                        fig = apply_dark_theme(fig)
-                        st.plotly_chart(fig, use_container_width=True)
-            
-            # Recent transactions
-            st.markdown("### 📋 Recent Transactions")
+        else:
+            st.write("Debug - No transaction data found")
+            total_revenue = total_expenses = net_income = total_tax = 0
+            transactions = pd.DataFrame()
+        
+        # Display metrics (show even if no data)
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Revenue", f"₱{total_revenue:,.2f}")
+        with col2:
+            st.metric("Total Expenses", f"₱{total_expenses:,.2f}")
+        with col3:
+            st.metric("Net Income", f"₱{net_income:,.2f}")
+        with col4:
+            st.metric("Tax Total", f"₱{total_tax:,.2f}")
+        
+        # Revenue trend chart
+        if not transactions.empty and len(transactions) > 0:
+            revenue_transactions = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
+            if len(revenue_transactions) > 0:
+                daily_revenue = revenue_transactions.groupby(revenue_transactions['transaction_date'].dt.date)['final_amount'].sum().reset_index()
+                
+                if len(daily_revenue) > 0:
+                    fig = px.line(daily_revenue, x='transaction_date', y='final_amount',
+                                 title='Daily Revenue Trend',
+                                 labels={'final_amount': 'Revenue (₱)', 'transaction_date': 'Date'},
+                                 color_discrete_sequence=['#3b82f6'])
+                    fig = apply_dark_theme(fig)
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        # Recent transactions
+        st.markdown("### 📋 Recent Transactions")
+        if not transactions.empty and len(transactions) > 0:
             recent_transactions = transactions.sort_values('transaction_date', ascending=False).head(10)
             
             if len(recent_transactions) > 0:
@@ -951,7 +974,6 @@ def show_dashboard():
                 st.dataframe(display_data, width="stretch", hide_index=True)
             else:
                 st.info("No transactions this month. Start by adding your first transaction!")
-        
         else:
             st.info("No transactions yet. Start by adding your first transaction!")
             
