@@ -2216,29 +2216,30 @@ def show_dashboard():
     </div>
     """, unsafe_allow_html=True)
     
-    user = get_current_user()
-    st.write(f"DEBUG: Current user: {user.email if user else 'None'}")
-    profile = get_user_profile(user.id) if user else None
-    st.write(f"DEBUG: Profile loaded: {profile is not None}")
-    
-    if not profile:
-        st.error("Unable to load user profile")
-        return
+    try:
+        user = get_current_user()
+        st.write(f"DEBUG: Current user: {user.email if user else 'None'}")
+        profile = get_user_profile(user.id) if user else None
+        st.write(f"DEBUG: Profile loaded: {profile is not None}")
+        
+        if not profile:
+            st.error("Unable to load user profile")
+            return
     
     # Load user transactions with date filtering
-    try:
-        supabase = init_supabase()
-        # Get current month data
-        current_month = datetime.now().strftime('%Y-%m')
-        # Use date range filter instead of LIKE on timestamp
-        from dateutil.relativedelta import relativedelta
-        start_date = datetime.now().replace(day=1)
-        end_date = start_date + relativedelta(months=1)
-        
-        result = supabase.table('transactions').select('*').eq('user_id', user.id).gte('transaction_date', start_date.strftime('%Y-%m-%d')).lt('transaction_date', end_date.strftime('%Y-%m-%d')).execute()
-        
-        if result.data and len(result.data) > 0:
-            # Create DataFrame with explicit error handling
+        try:
+            supabase = init_supabase()
+            # Get current month data
+            current_month = datetime.now().strftime('%Y-%m')
+            # Use date range filter instead of LIKE on timestamp
+            from dateutil.relativedelta import relativedelta
+            start_date = datetime.now().replace(day=1)
+            end_date = start_date + relativedelta(months=1)
+            
+            result = supabase.table('transactions').select('*').eq('user_id', user.id).gte('transaction_date', start_date.strftime('%Y-%m-%d')).lt('transaction_date', end_date.strftime('%Y-%m-%d')).execute()
+            
+            if result.data and len(result.data) > 0:
+                # Create DataFrame with explicit error handling
             try:
                 transactions = pd.DataFrame(result.data)
             except Exception as df_error:
@@ -2359,6 +2360,57 @@ def show_dashboard():
                     st.info("No revenue data available for the selected period.")
         else:
             st.info("No transaction data available. Start adding transactions to see analytics.")
+        
+        # Transaction breakdown pie chart
+        st.markdown("### 🥧 Transaction Breakdown")
+        
+        if not transactions.empty and len(transactions) > 0:
+            # Group transactions by type
+            transaction_summary = transactions.groupby('type')['final_amount'].sum().reset_index()
+            
+            if len(transaction_summary) > 0:
+                # Add emoji for transaction types
+                type_labels = {
+                    'cash_receipt': '💰 Cash Receipts',
+                    'sales': '📈 Sales', 
+                    'purchase': '🛒 Purchases',
+                    'expense': '💸 Expenses',
+                    'cash_disbursement': '💳 Cash Disbursements'
+                }
+                
+                transaction_summary['type_label'] = transaction_summary['type'].apply(
+                    lambda x: type_labels.get(x, x.title())
+                )
+                
+                # Create pie chart
+                fig = px.pie(
+                    transaction_summary, 
+                    values='final_amount',
+                    names='type_label',
+                    title='Transaction Distribution',
+                    color_discrete_sequence=['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6']
+                )
+                
+                # Enhanced pie chart styling
+                fig.update_layout(
+                    title_font_size=16,
+                    title_x=0.5,
+                    height=400,
+                    showlegend=True,
+                    legend=dict(
+                        orientation="v",
+                        yanchor="middle",
+                        y=0.5,
+                        xanchor="left",
+                        x=1.01
+                    )
+                )
+                
+                st.plotly_chart(fig, width='stretch', use_container_width=True)
+            else:
+                st.info("No transaction data available for breakdown.")
+        else:
+            st.info("No transactions yet. Start adding transactions to see the breakdown chart.")
         
         # Enhanced recent transactions section
         st.markdown("### 📋 Recent Activity")
