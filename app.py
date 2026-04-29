@@ -17,13 +17,22 @@ def init_supabase():
         SUPABASE_URL = st.secrets.get("SUPABASE_URL")
         SUPABASE_KEY = st.secrets.get("SUPABASE_KEY")
         
-        if not SUPABASE_URL or not SUPABASE_KEY:
-            st.error("🔧 System Configuration Error")
+        # Debug: Show what we're trying to load
+        st.sidebar.write("🔍 Debug Info:")
+        st.sidebar.write(f"URL found: {bool(SUPABASE_URL)}")
+        st.sidebar.write(f"Key found: {bool(SUPABASE_KEY)}")
+        
+        if not SUPABASE_URL:
+            st.error("❌ Missing SUPABASE_URL in secrets")
+            st.stop()
+            
+        if not SUPABASE_KEY:
+            st.error("❌ Missing SUPABASE_KEY in secrets")
             st.stop()
             
         return create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as e:
-        st.error("🔧 System Maintenance - We'll be back shortly!")
+        st.error(f"❌ Supabase Connection Error: {str(e)}")
         st.stop()
 
 # Check system health
@@ -31,10 +40,13 @@ def check_system_health():
     try:
         supabase = init_supabase()
         # Test connection with a simple query
-        supabase.table('profiles').select('id').limit(1).execute()
+        result = supabase.table('profiles').select('id').limit(1).execute()
+        st.sidebar.write("✅ Database connection successful")
         return True, None
     except Exception as e:
-        return False, str(e)
+        error_msg = f"Database connection failed: {str(e)}"
+        st.sidebar.write(f"❌ {error_msg}")
+        return False, error_msg
 
 # Authentication functions
 def show_auth_page():
@@ -1234,8 +1246,9 @@ def main():
     # Check system health first
     is_healthy, error = check_system_health()
     if not is_healthy:
-        st.error("🔧 System Maintenance")
-        st.info("We're currently performing system maintenance. Please try again in a few minutes.")
+        st.error("❌ Connection Error")
+        st.error(f"Details: {error}")
+        st.info("Please check your Supabase configuration and try again.")
         return
     
     # Check authentication
