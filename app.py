@@ -454,6 +454,8 @@ def load_css():
     .stSidebar {
         background-color: var(--card-background) !important;
         border-right: 1px solid var(--border-color) !important;
+        display: block !important;
+        visibility: visible !important;
     }
 
     .stSelectbox > div > div {
@@ -592,7 +594,10 @@ def get_user_transaction_count(user_id):
 
 # Navigation with user profile
 def show_sidebar_with_user():
+    st.write("DEBUG: Sidebar function called")
+    
     with st.sidebar:
+        st.write("DEBUG: Inside sidebar context")
         # User profile section
         user = get_current_user()
         profile = get_user_profile(user.id) if user else None
