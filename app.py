@@ -616,7 +616,7 @@ def show_sidebar_with_user():
                 "📊 Chart of Accounts",
                 "🏛️ Tax Compliance",
                 "📄 Financial Statements",
-                "� Subscription",
+                "🔑 Subscription",
                 "⚙️ Settings"
             ]
         )
@@ -2590,19 +2590,17 @@ def main():
     elif page == "📄 Financial Statements":
         show_financial_statements()
     elif page == "🔑 Subscription":
-        # MINIMAL SUBSCRIPTION PAGE - bypass all complex logic
+        # TEST: Simple content to see if navigation works
+        st.write("SUBSCRIPTION TAB SELECTED")
         st.markdown("## 🔑 Subscription")
         st.write("This is the subscription page.")
-        st.write("Current status: Free Plan")
-        st.write("Transactions used: 0/20")
+        st.write("If you can see this, the navigation is working.")
         
-        st.markdown("### 🚀 Upgrade to Pro")
-        st.write("✅ Unlimited transactions")
-        st.write("✅ Advanced tax reports")
-        st.write("✅ Export to Excel/PDF")
-        
-        st.text_input("License Key", placeholder="Enter your license key", key="license_input")
-        st.button("🔓 Activate License", type="primary")
+        # Try a simple form
+        with st.form("test_form"):
+            st.write("Test form:")
+            st.text_input("Test input", key="test_input")
+            st.form_submit_button("Test button")
     elif page == "⚙️ Settings":
         show_settings_page()
 
