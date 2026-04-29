@@ -609,23 +609,110 @@ def show_cash_receipts_journal():
         col1, col2, col3 = st.columns(3)
         with col2:
             if st.button("💾 Save Cash Receipt", type="primary", use_container_width=False):
-                st.success("✅ Cash receipt saved successfully!")
-                st.balloons()
+                try:
+                    # Initialize Supabase client
+                    supabase = init_supabase()
+                    
+                    # Prepare data for insertion
+                    cash_receipt_data = {
+                        'transaction_date': datetime.now().isoformat(),
+                        'or_number': f"CR-{datetime.now().strftime('%Y-%m%d-%H%M%S')}",
+                        'customer_name': customer_name,
+                        'gross_amount': gross_amount,
+                        'platform_name': platform_name if platform_name != 'None' else None,
+                        'platform_fee': platform_fee,
+                        'seller_discount': seller_discount,
+                        'net_amount': net_amount,
+                        'vat_amount': vat_amount,
+                        'ewt_amount': ewt_amount,
+                        'final_amount': final_amount,
+                        'payment_method': payment_method,
+                        'bank_name': bank_name if bank_name else None,
+                        'check_number': check_number if check_number else None,
+                        'vat_registered': vat_registered,
+                        'ewt_rate': ewt_rate,
+                        'status': 'POSTED',
+                        'created_at': datetime.now().isoformat()
+                    }
+                    
+                    # Insert into Supabase
+                    result = supabase.table('cash_receipts_journal').insert(cash_receipt_data).execute()
+                    
+                    if result.data:
+                        st.success("✅ Cash receipt saved successfully!")
+                        st.balloons()
+                        
+                        # Clear form fields by resetting session state
+                        if 'cash_receipts_data' not in st.session_state:
+                            st.session_state.cash_receipts_data = []
+                        
+                        # Add to session state for immediate display
+                        st.session_state.cash_receipts_data.append({
+                            'Date': datetime.now().strftime('%Y-%m-%d'),
+                            'O.R. #': cash_receipt_data['or_number'],
+                            'Customer': customer_name,
+                            'Gross Amount': gross_amount,
+                            'VAT': vat_amount,
+                            'Net Amount': net_amount,
+                            'Platform': platform_name,
+                            'Status': 'POSTED'
+                        })
+                        
+                        # Rerun to update the display
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to save cash receipt")
+                        
+                except Exception as e:
+                    st.error(f"❌ Error saving cash receipt: {str(e)}")
+                    st.info("Please check your Supabase configuration and try again.")
     
     # Existing records table
     st.markdown("### 📋 Cash Receipts Records")
     
-    # Sample data
-    cash_receipts_data = pd.DataFrame({
-        'Date': ['2024-01-15', '2024-01-14', '2024-01-13', '2024-01-12'],
-        'O.R. #': ['CR-2024-001', 'CR-2024-002', 'CR-2024-003', 'CR-2024-004'],
-        'Customer': ['Juan Dela Cruz', 'Maria Santos', 'Pedro Reyes', 'Anna Cruz'],
-        'Gross Amount': [15000.00, 25000.00, 8500.00, 12000.00],
-        'VAT': [1800.00, 3000.00, 1020.00, 1440.00],
-        'Net Amount': [13200.00, 22000.00, 7480.00, 10560.00],
-        'Platform': ['SHOPEE', 'None', 'LAZADA', 'TIKTOK'],
-        'Status': ['Posted', 'Posted', 'Posted', 'Pending']
-    })
+    # Load data from Supabase
+    try:
+        supabase = init_supabase()
+        result = supabase.table('cash_receipts_journal').select('*').order('created_at', desc=True).execute()
+        
+        if result.data:
+            # Convert to DataFrame for display
+            cash_receipts_data = pd.DataFrame(result.data)
+            
+            # Format for display
+            display_data = []
+            for record in cash_receipts_data:
+                display_data.append({
+                    'Date': pd.to_datetime(record['transaction_date']).strftime('%Y-%m-%d'),
+                    'O.R. #': record['or_number'],
+                    'Customer': record['customer_name'],
+                    'Gross Amount': record['gross_amount'],
+                    'VAT': record['vat_amount'],
+                    'Net Amount': record['net_amount'],
+                    'Platform': record['platform_name'] or 'None',
+                    'Status': record['status']
+                })
+            
+            cash_receipts_data = pd.DataFrame(display_data)
+        else:
+            # No data in database, show empty state
+            cash_receipts_data = pd.DataFrame(columns=[
+                'Date', 'O.R. #', 'Customer', 'Gross Amount', 'VAT', 'Net Amount', 'Platform', 'Status'
+            ])
+            
+    except Exception as e:
+        st.error(f"❌ Error loading data: {str(e)}")
+        # Show sample data as fallback
+        cash_receipts_data = pd.DataFrame({
+            'Date': ['2024-01-15', '2024-01-14', '2024-01-13', '2024-01-12'],
+            'O.R. #': ['CR-2024-001', 'CR-2024-002', 'CR-2024-003', 'CR-2024-004'],
+            'Customer': ['Juan Dela Cruz', 'Maria Santos', 'Pedro Reyes', 'Anna Cruz'],
+            'Gross Amount': [15000.00, 25000.00, 8500.00, 12000.00],
+            'VAT': [1800.00, 3000.00, 1020.00, 1440.00],
+            'Net Amount': [13200.00, 22000.00, 7480.00, 10560.00],
+            'Platform': ['SHOPEE', 'None', 'LAZADA', 'TIKTOK'],
+            'Status': ['Posted', 'Posted', 'Posted', 'Pending']
+        })
     
     # Style the dataframe
     st.dataframe(cash_receipts_data, width="stretch", hide_index=True)
