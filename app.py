@@ -2615,14 +2615,6 @@ def show_chart_of_accounts():
 
 # Main app
 def main():
-    # Page configuration - must be first st command
-    st.set_page_config(
-        page_title="LedgerPro-PH",
-        page_icon="🇵🇭",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    
     # Load CSS
     load_css()
     
