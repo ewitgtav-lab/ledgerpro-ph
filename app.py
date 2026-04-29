@@ -1,13 +1,4 @@
 import streamlit as st
-
-try:
-    st.write("DEBUG: App file loaded")
-    st.markdown("<h1 style='color: red; font-size: 24px;'>TEST: File is loading</h1>", unsafe_allow_html=True)
-except Exception as e:
-    st.error(f"ERROR loading file: {str(e)}")
-    st.write(f"Error type: {type(e).__name__}")
-    import traceback
-    st.code(traceback.format_exc())
 import pandas as pd
 import numpy as np
 from datetime import datetime, date
@@ -601,58 +592,19 @@ def get_user_transaction_count(user_id):
     except:
         return 0
 
-# Navigation with user profile
-def show_sidebar_with_user():
-    st.write("DEBUG: Sidebar function called")
-    
+# Simple sidebar function
+def show_sidebar():
     with st.sidebar:
-        st.write("DEBUG: Inside sidebar context")
-        # User profile section
+        st.title("LedgerPro-PH")
+        st.markdown("---")
+        
         user = get_current_user()
-        profile = get_user_profile(user.id) if user else None
-        
-        if profile:
-            st.markdown(f"""
-            <div class="sidebar-nav">
-                <h3>🏢 {profile.get('business_name', 'Business')}</h3>
-                <p style="color: var(--text-secondary); font-size: 0.875rem;">{profile.get('email', '')}</p>
-                <p style="color: {'#10b981' if profile.get('is_pro_status') else '#f59e0b'}; font-size: 0.75rem;">
-                    {'🌟 PRO User' if profile.get('is_pro_status') else '🆓 Free Plan'}
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Transaction counter
-            transaction_count = get_user_transaction_count(user.id)
-            remaining = 20 - transaction_count if not profile.get('is_pro_status') else '∞'
-            
-            st.markdown(f"""
-            <div style="background: var(--card-background); padding: 0.75rem; border-radius: 8px; margin: 1rem 0;">
-                <p style="color: var(--text-secondary); font-size: 0.75rem; margin: 0;">Transactions</p>
-                <p style="color: var(--text-primary); font-size: 1rem; font-weight: bold; margin: 0;">
-                    {transaction_count} / {'∞' if profile.get('is_pro_status') else '20'}
-                </p>
-                {'<p style="color: #ef4444; font-size: 0.75rem; margin: 0;">⚠️ Limit reached</p>' if not profile.get('is_pro_status') and transaction_count >= 20 else ''}
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Sign out button (always visible for logged-in users)
-        if st.button("🚪 Sign Out", use_container_width=True):
-            handle_signout()
+        if user:
+            st.write(f"Logged in as: {user.email}")
         
         st.markdown("---")
         
-        # Navigation menu
-        # Check if a page was selected via button click
-        if 'selected_page' in st.session_state:
-            # Use the selected page and clear the session state
-            page = st.session_state.selected_page
-            del st.session_state.selected_page
-        else:
-            # Default to first page if no session state
-            page = "🏠 Dashboard"
-        
-        # Create selectbox with current selection
+        # Simple navigation
         page = st.selectbox(
             "Navigate to:",
             [
@@ -668,24 +620,13 @@ def show_sidebar_with_user():
                 "📄 Financial Statements",
                 "🔑 Subscription",
                 "⚙️ Settings"
-            ],
-            index=[
-                "🏠 Dashboard",
-                "💰 Cash Receipts Journal",
-                "📈 Sales Journal", 
-                "🛒 Purchase Journal",
-                "💳 Cash Disbursement Journal",
-                "📝 General Journal",
-                "📋 General Ledger",
-                "📊 Chart of Accounts",
-                "🏛️ Tax Compliance",
-                "📄 Financial Statements",
-                "🔑 Subscription",
-                "⚙️ Settings"
-            ].index(page)
+            ]
         )
         
         st.markdown("---")
+        
+        if st.button("🚪 Sign Out"):
+            handle_signout()
         
         return page
 
@@ -2629,8 +2570,6 @@ def show_chart_of_accounts():
 
 # Main app
 def main():
-    st.write("DEBUG: Main function called")
-    
     # Load CSS
     load_css()
     
@@ -2643,23 +2582,17 @@ def main():
         return
     
     # Check authentication
-    st.write("DEBUG: About to check authentication")
     if not check_authentication():
-        st.write("DEBUG: Authentication failed, returning early")
         return
-    st.write("DEBUG: Authentication passed")
     
     # Get current user
-    st.write("DEBUG: About to get current user")
     user = get_current_user()
     if not user:
-        st.write("DEBUG: No user found, showing auth page")
         show_auth_page()
         return
-    st.write("DEBUG: User found, about to show sidebar")
     
     # Show sidebar and get selected page
-    page = show_sidebar_with_user()
+    page = show_sidebar()
     
     # Route to appropriate page
     if page == "🏠 Dashboard":
