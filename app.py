@@ -654,59 +654,18 @@ def activate_license_key(user_id, license_key):
 
 # Subscription page
 def show_subscription_page():
-    try:
-        # Simple test to see if function is called
-        st.write("SUBSCRIPTION PAGE LOADED - TEST MESSAGE")
-        st.write("Function is definitely being called!")
-        
-        # Try the simplest possible content
-        st.markdown("## 🔑 Subscription")
-        st.write("This is the subscription page.")
-        
-        st.markdown("""
-        <div class="main-header">
-            <h1>🔑 Subscription</h1>
-            <p>Manage your LedgerPro-PH subscription</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.info("ℹ️ About to get current user...")
-        
-        user = get_current_user()
-        st.write("Debug - User:", user)
-        
-        if not user:
-            st.error("No authenticated user found")
-            st.warning("⚠️ This might indicate an authentication issue")
-            return
-            
-        st.info("ℹ️ About to get user profile...")
-        
-        profile = get_user_profile(user.id)
-        st.write("Debug - Profile:", profile)
-        
-        if not profile:
-            st.error("Unable to load user profile")
-            st.warning("⚠️ This might indicate a database connection issue")
-            return
-            
-        st.success("✅ User and profile loaded successfully!")
-            
-    except Exception as e:
-        st.error("❌ ERROR IN SUBSCRIPTION FUNCTION")
-        st.error(f"Error type: {type(e).__name__}")
-        st.error(f"Error message: {str(e)}")
-        
-        # Show full traceback
-        import traceback
-        st.code(traceback.format_exc(), language="python")
-        
-        # Show additional debugging info
-        st.write("Function debugging information:")
-        st.write(f"Error occurred at: {datetime.now()}")
-        st.write(f"User object: {user if 'user' in locals() else 'Not defined'}")
-        st.write(f"Profile object: {profile if 'profile' in locals() else 'Not defined'}")
-        
+    st.markdown("""
+    <div class="main-header">
+        <h1>🔑 Subscription</h1>
+        <p>Manage your LedgerPro-PH subscription</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
         return
     
     # Current status
@@ -2590,17 +2549,7 @@ def main():
     elif page == "📄 Financial Statements":
         show_financial_statements()
     elif page == "🔑 Subscription":
-        # TEST: Simple content to see if navigation works
-        st.write("SUBSCRIPTION TAB SELECTED")
-        st.markdown("## 🔑 Subscription")
-        st.write("This is the subscription page.")
-        st.write("If you can see this, the navigation is working.")
-        
-        # Try a simple form
-        with st.form("test_form"):
-            st.write("Test form:")
-            st.text_input("Test input", key="test_input")
-            st.form_submit_button("Test button")
+        show_subscription_page()
     elif page == "⚙️ Settings":
         show_settings_page()
 
