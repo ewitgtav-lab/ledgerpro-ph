@@ -188,7 +188,7 @@ def handle_signout():
             del st.session_state.authenticated
         
         # Clear any other session data that might exist
-        keys_to_clear = ['sales_journal_data', 'purchase_journal_data', 'cash_receipts_data']
+        keys_to_clear = ['cash_receipts_data']
         for key in keys_to_clear:
             if key in st.session_state:
                 del st.session_state[key]
@@ -646,12 +646,9 @@ def show_sidebar_with_user():
             [
                 "🏠 Dashboard",
                 "💰 Cash Receipts Journal",
-                "📈 Sales Journal", 
-                "🛒 Purchase Journal",
                 "💳 Cash Disbursement Journal",
                 "📝 General Journal",
                 "📋 General Ledger",
-                "📊 Chart of Accounts",
                 "🏛️ Tax Compliance",
                 "📄 Financial Statements",
                 "🔑 Subscription",
@@ -660,12 +657,9 @@ def show_sidebar_with_user():
             index=[
                 "🏠 Dashboard",
                 "💰 Cash Receipts Journal",
-                "📈 Sales Journal", 
-                "🛒 Purchase Journal",
                 "💳 Cash Disbursement Journal",
                 "📝 General Journal",
                 "📋 General Ledger",
-                "📊 Chart of Accounts",
                 "🏛️ Tax Compliance",
                 "📄 Financial Statements",
                 "🔑 Subscription",
@@ -2581,21 +2575,12 @@ def main():
         show_dashboard()
     elif page == "💰 Cash Receipts Journal":
         show_cash_receipts_journal()
-    elif page == "📈 Sales Journal":
-        from pages.sales_journal import show_sales_journal
-        show_sales_journal()
-    elif page == "🛒 Purchase Journal":
-        from pages.purchase_journal import show_purchase_journal
-        show_purchase_journal()
     elif page == "💳 Cash Disbursement Journal":
         show_cash_disbursement_journal()
     elif page == "📝 General Journal":
         show_general_journal()
     elif page == "📋 General Ledger":
         show_general_ledger()
-    elif page == "📊 Chart of Accounts":
-        from pages.chart_of_accounts import show_chart_of_accounts
-        show_chart_of_accounts()
     elif page == "🏛️ Tax Compliance":
         show_tax_compliance()
     elif page == "📄 Financial Statements":
