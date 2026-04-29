@@ -2208,6 +2208,7 @@ def check_transaction_limit(user_id):
 
 # Dashboard
 def show_dashboard():
+    st.write("DEBUG: Dashboard function called")
     st.markdown("""
     <div class="main-header">
         <h1>Dashboard</h1>
@@ -2216,7 +2217,9 @@ def show_dashboard():
     """, unsafe_allow_html=True)
     
     user = get_current_user()
+    st.write(f"DEBUG: Current user: {user.email if user else 'None'}")
     profile = get_user_profile(user.id) if user else None
+    st.write(f"DEBUG: Profile loaded: {profile is not None}")
     
     if not profile:
         st.error("Unable to load user profile")
@@ -2275,6 +2278,7 @@ def show_dashboard():
             transactions = pd.DataFrame()
         
         # Enhanced metrics display with professional styling
+        st.write("DEBUG: Starting dashboard rendering...")
         st.markdown("### 📊 Financial Overview")
         
         # Create professional metrics cards
