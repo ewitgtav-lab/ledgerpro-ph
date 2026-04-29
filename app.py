@@ -10,12 +10,139 @@ from typing import Optional, Dict, Any
 import hashlib
 import hmac
 
-# Initialize Supabase client
+# Initialize Supabase client with proper error handling
 @st.cache_resource
 def init_supabase():
-    SUPABASE_URL = st.secrets.get("SUPABASE_URL", "your_supabase_url")
-    SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "your_supabase_key")
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    try:
+        SUPABASE_URL = st.secrets.get("SUPABASE_URL")
+        SUPABASE_KEY = st.secrets.get("SUPABASE_KEY")
+        
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            st.error("🔧 System Configuration Error")
+            st.stop()
+            
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        st.error("🔧 System Maintenance - We'll be back shortly!")
+        st.stop()
+
+# Check system health
+def check_system_health():
+    try:
+        supabase = init_supabase()
+        # Test connection with a simple query
+        supabase.table('profiles').select('id').limit(1).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+# Authentication functions
+def show_auth_page():
+    st.markdown("""
+    <div class="main-header">
+        <h1>LedgerPro-PH</h1>
+        <p>Philippine Bookkeeping & Tax Compliance System</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    tab1, tab2 = st.tabs(["🔐 Sign In", "📝 Sign Up"])
+    
+    with tab1:
+        with st.form("login_form"):
+            email = st.text_input("Email", placeholder="your@email.com")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            submitted = st.form_submit_button("Sign In", type="primary")
+            
+            if submitted:
+                if email and password:
+                    try:
+                        supabase = init_supabase()
+                        auth_response = supabase.auth.sign_in_with_password({
+                            "email": email,
+                            "password": password
+                        })
+                        
+                        if auth_response.user:
+                            st.session_state.user = auth_response.user
+                            st.session_state.authenticated = True
+                            st.success("✅ Welcome back!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Invalid credentials")
+                    except Exception as e:
+                        st.error("❌ Sign in failed. Please try again.")
+                else:
+                    st.error("Please fill in all fields")
+    
+    with tab2:
+        with st.form("signup_form"):
+            new_email = st.text_input("Email", placeholder="your@email.com")
+            new_password = st.text_input("Password", type="password", placeholder="Create a password")
+            business_name = st.text_input("Business Name", placeholder="Your Business Name")
+            tax_type = st.selectbox("Tax Type", ["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"])
+            submitted = st.form_submit_button("Create Account", type="primary")
+            
+            if submitted:
+                if new_email and new_password and business_name:
+                    try:
+                        supabase = init_supabase()
+                        # Create user account
+                        auth_response = supabase.auth.sign_up({
+                            "email": new_email,
+                            "password": new_password,
+                            "options": {
+                                "data": {
+                                    "business_name": business_name,
+                                    "tax_type": tax_type
+                                }
+                            }
+                        })
+                        
+                        if auth_response.user:
+                            # Create profile record
+                            profile_data = {
+                                "id": auth_response.user.id,
+                                "email": new_email,
+                                "business_name": business_name,
+                                "tax_type": tax_type,
+                                "is_pro_status": False,
+                                "created_at": datetime.now().isoformat()
+                            }
+                            
+                            supabase.table('profiles').insert(profile_data).execute()
+                            
+                            st.success("✅ Account created! Please check your email to verify.")
+                            st.info("After verification, you can sign in to continue.")
+                        else:
+                            st.error("❌ Account creation failed")
+                    except Exception as e:
+                        st.error("❌ Sign up failed. Email might already be registered.")
+                else:
+                    st.error("Please fill in all fields")
+
+def check_authentication():
+    """Check if user is authenticated"""
+    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
+        show_auth_page()
+        return False
+    return True
+
+def get_current_user():
+    """Get current authenticated user"""
+    return st.session_state.get('user', None)
+
+def handle_signout():
+    """Handle user sign out"""
+    if 'user' in st.session_state:
+        try:
+            supabase = init_supabase()
+            supabase.auth.sign_out()
+        except:
+            pass
+        finally:
+            del st.session_state.user
+            del st.session_state.authenticated
+            st.rerun()
 
 # Custom CSS for professional styling
 def local_css(file_name):
@@ -398,14 +525,57 @@ def show_login_page():
     """, unsafe_allow_html=True)
 
 # Navigation
-def show_sidebar():
+# Get user profile with caching
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def get_user_profile(user_id):
+    try:
+        supabase = init_supabase()
+        result = supabase.table('profiles').select('*').eq('id', user_id).single().execute()
+        return result.data if result.data else None
+    except:
+        return None
+
+# Get user transaction count for limit checking
+@st.cache_data(ttl=60)  # Cache for 1 minute
+def get_user_transaction_count(user_id):
+    try:
+        supabase = init_supabase()
+        result = supabase.table('transactions').select('id', count='exact').eq('user_id', user_id).execute()
+        return result.count or 0
+    except:
+        return 0
+
+# Navigation with user profile
+def show_sidebar_with_user():
     with st.sidebar:
-        st.markdown("""
-        <div class="sidebar-nav">
-            <h3>📊 LedgerPro-PH</h3>
-            <p style="color: var(--text-secondary); font-size: 0.875rem;">Philippine Accounting System</p>
-        </div>
-        """, unsafe_allow_html=True)
+        # User profile section
+        user = get_current_user()
+        profile = get_user_profile(user.id) if user else None
+        
+        if profile:
+            st.markdown(f"""
+            <div class="sidebar-nav">
+                <h3>� {profile.get('business_name', 'Business')}</h3>
+                <p style="color: var(--text-secondary); font-size: 0.875rem;">{profile.get('email', '')}</p>
+                <p style="color: {'#10b981' if profile.get('is_pro_status') else '#f59e0b'}; font-size: 0.75rem;">
+                    {'🌟 PRO User' if profile.get('is_pro_status') else '🆓 Free Plan'}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Transaction counter
+            transaction_count = get_user_transaction_count(user.id)
+            remaining = 20 - transaction_count if not profile.get('is_pro_status') else '∞'
+            
+            st.markdown(f"""
+            <div style="background: var(--card-background); padding: 0.75rem; border-radius: 8px; margin: 1rem 0;">
+                <p style="color: var(--text-secondary); font-size: 0.75rem; margin: 0;">Transactions</p>
+                <p style="color: var(--text-primary); font-size: 1rem; font-weight: bold; margin: 0;">
+                    {transaction_count} / {'∞' if profile.get('is_pro_status') else '20'}
+                </p>
+                {'<p style="color: #ef4444; font-size: 0.75rem; margin: 0;">⚠️ Limit reached</p>' if not profile.get('is_pro_status') and transaction_count >= 20 else ''}
+            </div>
+            """, unsafe_allow_html=True)
         
         st.markdown("---")
         
@@ -421,26 +591,256 @@ def show_sidebar():
                 "📝 General Journal",
                 "📋 General Ledger",
                 "📊 Chart of Accounts",
-                "📦 Inventory Management",
-                "👥 Payroll Management",
                 "🏛️ Tax Compliance",
-                "🏦 Bank Reconciliation",
-                "🏢 Fixed Assets",
                 "📄 Financial Statements",
+                "� Subscription",
                 "⚙️ Settings"
             ]
         )
         
         st.markdown("---")
         
-        # Quick stats
-        if 'company_info' in st.session_state:
-            st.markdown("**Quick Stats**")
-            st.metric("Active Users", "3")
-            st.metric("This Month's Sales", "₱125,430")
-            st.metric("Tax Due", "₱8,750")
+        # Sign out button
+        if st.button("🚪 Sign Out", use_container_width=True):
+            handle_signout()
         
         return page
+
+# License key verification
+@st.cache_data(ttl=300)
+def verify_license_key(license_key):
+    try:
+        supabase = init_supabase()
+        result = supabase.table('license_keys').select('*').eq('key', license_key).eq('is_used', False).single().execute()
+        return result.data if result.data else None
+    except:
+        return None
+
+def activate_license_key(user_id, license_key):
+    try:
+        supabase = init_supabase()
+        # Mark license as used
+        supabase.table('license_keys').update({'is_used': True, 'used_by': user_id, 'used_at': datetime.now().isoformat()}).eq('key', license_key).execute()
+        
+        # Update user profile to pro status
+        supabase.table('profiles').update({'is_pro_status': True, 'license_key': license_key}).eq('id', user_id).execute()
+        
+        return True
+    except:
+        return False
+
+# Subscription page
+def show_subscription_page():
+    st.markdown("""
+    <div class="main-header">
+        <h1>🔑 Subscription</h1>
+        <p>Manage your LedgerPro-PH subscription</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    # Current status
+    st.markdown("### 📊 Current Status")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div style="background: var(--card-background); padding: 1.5rem; border-radius: 10px; text-align: center;">
+            <h3 style="color: {'#10b981' if profile.get('is_pro_status') else '#f59e0b'}; margin: 0;">
+                {'🌟 PRO PLAN' if profile.get('is_pro_status') else '🆓 FREE PLAN'}
+            </h3>
+            <p style="color: var(--text-secondary); margin: 0.5rem 0;">
+                {'Unlimited transactions' if profile.get('is_pro_status') else '20 transactions limit'}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        transaction_count = get_user_transaction_count(user.id)
+        st.markdown(f"""
+        <div style="background: var(--card-background); padding: 1.5rem; border-radius: 10px; text-align: center;">
+            <h3 style="color: var(--text-primary); margin: 0;">{transaction_count}</h3>
+            <p style="color: var(--text-secondary); margin: 0.5rem 0;">Transactions Used</p>
+            <p style="color: {'#10b981' if profile.get('is_pro_status') else '#f59e0b'}; font-size: 0.875rem;">
+                {'∞ Available' if profile.get('is_pro_status') else f'{20 - transaction_count} Remaining'}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # License key activation
+    if not profile.get('is_pro_status'):
+        st.markdown("---")
+        st.markdown("### 🚀 Upgrade to Pro")
+        
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); 
+                    padding: 1.5rem; border-radius: 10px; color: white; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">🌟 Pro Features</h3>
+            <ul style="margin: 1rem 0;">
+                <li>✅ Unlimited transactions</li>
+                <li>✅ Advanced tax reports</li>
+                <li>✅ Export to Excel/PDF</li>
+                <li>✅ Priority support</li>
+                <li>✅ Multi-user access</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("activate_license"):
+            license_key = st.text_input("Enter License Key", placeholder="XXXX-XXXX-XXXX-XXXX", help="Purchase a license key from our Ko-fi store")
+            submitted = st.form_submit_button("🔓 Activate License", type="primary")
+            
+            if submitted and license_key:
+                with st.spinner("Verifying license key..."):
+                    license_info = verify_license_key(license_key)
+                    
+                    if license_info:
+                        success = activate_license_key(user.id, license_key)
+                        if success:
+                            st.success("🎉 License activated successfully! Welcome to Pro!")
+                            st.balloons()
+                            # Clear cache to refresh profile
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to activate license. Please try again.")
+                    else:
+                        st.error("❌ Invalid or already used license key")
+    
+    else:
+        st.markdown("---")
+        st.markdown("### 🌟 Pro Benefits Active")
+        st.success("You're enjoying all Pro features!")
+        
+        if profile.get('license_key'):
+            st.info(f"License Key: {profile.get('license_key')}")
+
+# Settings page
+def show_settings_page():
+    st.markdown("""
+    <div class="main-header">
+        <h1>⚙️ Settings</h1>
+        <p>Manage your account settings</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    # Profile settings
+    st.markdown("### 👤 Profile Settings")
+    
+    with st.form("profile_settings"):
+        business_name = st.text_input("Business Name", value=profile.get('business_name', ''))
+        tax_type = st.selectbox("Tax Type", 
+                               ["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"],
+                               index=["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"].index(profile.get('tax_type', 'VAT (12%)')))
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            submitted = st.form_submit_button("💾 Save Changes", type="primary")
+        with col2:
+            if st.form_submit_button("🚪 Sign Out"):
+                handle_signout()
+        
+        if submitted:
+            try:
+                supabase = init_supabase()
+                supabase.table('profiles').update({
+                    'business_name': business_name,
+                    'tax_type': tax_type
+                }).eq('id', user.id).execute()
+                
+                st.success("✅ Profile updated successfully!")
+                st.cache_data.clear()  # Clear cache to refresh profile
+                st.rerun()
+            except Exception as e:
+                st.error("❌ Failed to update profile")
+    
+    st.markdown("---")
+    st.markdown("### 📊 Usage Statistics")
+    
+    transaction_count = get_user_transaction_count(user.id)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Total Transactions", transaction_count)
+    with col2:
+        st.metric("Account Type", "Pro" if profile.get('is_pro_status') else "Free")
+    with col3:
+        st.metric("Member Since", datetime.fromisoformat(profile.get('created_at', datetime.now().isoformat())).strftime('%b %Y'))
+
+# Philippine Tax Engine
+def calculate_tax_amounts(gross_amount, tax_type, platform_name=None, platform_fee=0):
+    """Calculate tax amounts based on Philippine tax rules"""
+    
+    # Platform fee rates (typical rates)
+    platform_rates = {
+        'SHOPEE': 0.0585,  # 5.85% (5.4% + 0.45% payment fee)
+        'LAZADA': 0.0645,   # 6.45% (6% + 0.45% payment fee)
+        'TIKTOK': 0.05,     # 5% (estimated)
+        'None': 0
+    }
+    
+    # Calculate platform fee if not provided
+    if platform_fee == 0 and platform_name in platform_rates:
+        platform_fee = gross_amount * platform_rates[platform_name]
+    
+    # Net amount after platform fee
+    net_amount = gross_amount - platform_fee
+    
+    # Tax calculations based on tax type
+    if tax_type == "NON-VAT (1%)":
+        vat_rate = 0
+        ewt_rate = 0.01
+    elif tax_type == "NON-VAT (3%)":
+        vat_rate = 0
+        ewt_rate = 0.03
+    elif tax_type == "VAT (8% Flat)":
+        vat_rate = 0.08
+        ewt_rate = 0
+    else:  # VAT (12%)
+        vat_rate = 0.12
+        ewt_rate = 0
+    
+    vat_amount = net_amount * vat_rate
+    ewt_amount = net_amount * ewt_rate
+    final_amount = net_amount + vat_amount - ewt_amount
+    
+    return {
+        'platform_fee': platform_fee,
+        'net_amount': net_amount,
+        'vat_amount': vat_amount,
+        'ewt_amount': ewt_amount,
+        'final_amount': final_amount,
+        'vat_rate': vat_rate,
+        'ewt_rate': ewt_rate
+    }
+
+# Check user transaction limit
+def check_transaction_limit(user_id):
+    """Check if user has reached transaction limit"""
+    profile = get_user_profile(user_id)
+    if not profile or profile.get('is_pro_status'):
+        return True, None  # Pro users have no limit
+    
+    transaction_count = get_user_transaction_count(user_id)
+    if transaction_count >= 20:
+        return False, "Transaction limit reached. Upgrade to Pro for unlimited transactions."
+    
+    return True, None
 
 # Dashboard
 def show_dashboard():
@@ -451,101 +851,94 @@ def show_dashboard():
     </div>
     """, unsafe_allow_html=True)
     
-    # Key metrics
-    col1, col2, col3, col4 = st.columns(4)
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    # Load user transactions with date filtering
+    try:
+        supabase = init_supabase()
+        # Get current month data
+        current_month = datetime.now().strftime('%Y-%m')
+        result = supabase.table('transactions').select('*').eq('user_id', user.id).like('transaction_date', f'{current_month}%').execute()
+        
+        if result.data:
+            transactions = pd.DataFrame(result.data)
+            # Convert dates
+            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'])
+            
+            # Key metrics
+            total_revenue = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]['final_amount'].sum()
+            total_expenses = transactions[transactions['type'].isin(['purchase', 'expense'])]['final_amount'].sum()
+            net_income = total_revenue - total_expenses
+            total_tax = transactions['vat_amount'].sum() + transactions['ewt_amount'].sum()
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Revenue", f"₱{total_revenue:,.2f}")
+            with col2:
+                st.metric("Total Expenses", f"₱{total_expenses:,.2f}")
+            with col3:
+                st.metric("Net Income", f"₱{net_income:,.2f}")
+            with col4:
+                st.metric("Tax Total", f"₱{total_tax:,.2f}")
+            
+            # Revenue trend chart
+            if len(transactions) > 0:
+                daily_revenue = transactions[transactions['type'].isin(['cash_receipt', 'sales'])].groupby(transactions['transaction_date'].dt.date)['final_amount'].sum().reset_index()
+                
+                if len(daily_revenue) > 0:
+                    fig = px.line(daily_revenue, x='transaction_date', y='final_amount',
+                                 title='Daily Revenue Trend',
+                                 labels={'final_amount': 'Revenue (₱)', 'transaction_date': 'Date'},
+                                 color_discrete_sequence=['#3b82f6'])
+                    fig = apply_dark_theme(fig)
+                    st.plotly_chart(fig, use_container_width=True)
+            
+            # Recent transactions
+            st.markdown("### 📋 Recent Transactions")
+            recent_transactions = transactions.sort_values('transaction_date', ascending=False).head(10)
+            
+            if len(recent_transactions) > 0:
+                display_data = recent_transactions[['transaction_date', 'type', 'description', 'final_amount']].copy()
+                display_data['transaction_date'] = display_data['transaction_date'].dt.strftime('%Y-%m-%d')
+                display_data.columns = ['Date', 'Type', 'Description', 'Amount']
+                st.dataframe(display_data, width="stretch", hide_index=True)
+            else:
+                st.info("No transactions this month. Start by adding your first transaction!")
+        
+        else:
+            st.info("No transactions yet. Start by adding your first transaction!")
+            
+    except Exception as e:
+        st.error("Error loading dashboard data")
+        st.info("Please try refreshing the page")
+    
+    # Quick actions
+    st.markdown("---")
+    st.markdown("### 🚀 Quick Actions")
+    
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown("""
-        <div class="metric-card">
-            <h4>Gross Sales</h4>
-            <h2 style="color: var(--success-color);">₱125,430</h2>
-            <p style="color: var(--text-secondary); font-size: 0.875rem;">↑ 12% from last month</p>
-        </div>
-        """, unsafe_allow_html=True)
+        if st.button("➕ Add Transaction", type="primary", use_container_width=True):
+            st.session_state.selected_page = "💰 Cash Receipts Journal"
+            st.rerun()
     
     with col2:
-        st.markdown("""
-        <div class="metric-card">
-            <h4>Total Expenses</h4>
-            <h2 style="color: var(--warning-color);">₱45,230</h2>
-            <p style="color: var(--text-secondary); font-size: 0.875rem;">↑ 5% from last month</p>
-        </div>
-        """, unsafe_allow_html=True)
+        if st.button("📊 View Reports", use_container_width=True):
+            st.session_state.selected_page = "🏛️ Tax Compliance"
+            st.rerun()
     
     with col3:
-        st.markdown("""
-        <div class="metric-card">
-            <h4>Net Income</h4>
-            <h2 style="color: var(--primary-color);">₱80,200</h2>
-            <p style="color: var(--text-secondary); font-size: 0.875rem;">↑ 18% from last month</p>
-        </div>
-        """, unsafe_allow_html=True)
+        if st.button("🔑 Upgrade to Pro", use_container_width=True, disabled=profile.get('is_pro_status')):
+            st.session_state.selected_page = "🔑 Subscription"
+            st.rerun()
     
-    with col4:
-        st.markdown("""
-        <div class="metric-card">
-            <h4>Tax Liabilities</h4>
-            <h2 style="color: var(--error-color);">₱8,750</h2>
-            <p style="color: var(--text-secondary); font-size: 0.875rem;">Due this quarter</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Charts
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### Revenue Trend")
-        # Sample data
-        revenue_data = pd.DataFrame({
-            'Month': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-            'Revenue': [95000, 105000, 115000, 108000, 118000, 125430]
-        })
-        fig = px.line(revenue_data, x='Month', y='Revenue', 
-                     title='Monthly Revenue Trend',
-                     color_discrete_sequence=['#3b82f6'])
-        fig.update_layout(
-            showlegend=False,
-            template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#f1f5f9',
-            title_font_color='#f1f5f9',
-            xaxis=dict(gridcolor='#334155'),
-            yaxis=dict(gridcolor='#334155')
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.markdown("### Expense Breakdown")
-        expense_data = pd.DataFrame({
-            'Category': ['Cost of Goods', 'Salaries', 'Rent', 'Utilities', 'Others'],
-            'Amount': [15000, 18000, 5000, 3230, 4000]
-        })
-        fig = px.pie(expense_data, values='Amount', names='Category',
-                    title='Monthly Expense Breakdown',
-                    color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
-        fig.update_layout(
-            template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font_color='#f1f5f9',
-            title_font_color='#f1f5f9',
-            legend_font_color='#f1f5f9'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Recent transactions
-    st.markdown("### Recent Transactions")
-    recent_data = pd.DataFrame({
-        'Date': ['2024-01-15', '2024-01-14', '2024-01-13', '2024-01-12', '2024-01-11'],
-        'Type': ['Cash Receipt', 'Sales', 'Purchase', 'Cash Disbursement', 'Sales'],
-        'Description': ['Payment from Customer A', 'Sales Invoice #001', 'Office Supplies', 'Rent Payment', 'Sales Invoice #002'],
-        'Amount': [15000, 25000, 3500, 5000, 18000],
-        'Status': ['Posted', 'Posted', 'Posted', 'Posted', 'Pending']
-    })
-    
-    st.dataframe(recent_data, width="stretch", hide_index=True)
-
-# Cash Receipts Journal
+    # Cash Receipts Journal
 def show_cash_receipts_journal():
     st.markdown("""
     <div class="main-header">
@@ -554,126 +947,140 @@ def show_cash_receipts_journal():
     </div>
     """, unsafe_allow_html=True)
     
-    # Form section
-    with st.expander("📝 Add New Cash Receipt", expanded=True):
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            transaction_date = st.date_input("Transaction Date*", value=date.today())
-            or_number = st.text_input("O.R. Number*", placeholder="CR-2024-001")
-            customer_name = st.text_input("Customer Name*", placeholder="Enter customer name")
-            customer_tin = st.text_input("Customer TIN", placeholder="000-000-000-000")
-        
-        with col2:
-            gross_amount = st.number_input("Gross Amount*", min_value=0.0, step=0.01, format="%.2f")
-            platform_name = st.selectbox("Platform", ["None", "SHOPEE", "LAZADA", "TIKTOK", "OTHER"])
-            platform_fee = st.number_input("Platform Fee", min_value=0.0, step=0.01, format="%.2f", value=0.0)
-            seller_discount = st.number_input("Seller Discount", min_value=0.0, step=0.01, format="%.2f", value=0.0)
-        
-        with col3:
-            payment_method = st.selectbox("Payment Method*", ["Cash", "Bank Transfer", "Check", "Digital Wallet"])
-            bank_name = st.text_input("Bank Name", placeholder="Enter bank name")
-            check_number = st.text_input("Check Number", placeholder="Enter check number")
-            
-            # Tax calculations
-            vat_registered = st.checkbox("VAT Registered", value=True)
-            if vat_registered:
-                vat_rate = 0.12
-                ewt_rate_options = [0.0, 0.01, 0.02, 0.05]
-                ewt_rate = st.selectbox("EWT Rate", options=ewt_rate_options, 
-                                     format_func=lambda x: f"{x*100:.0f}%" if x > 0 else "None")
-            else:
-                vat_rate = 0.0
-                ewt_rate = 0.0
-        
-        # Calculate amounts
-        net_amount = gross_amount - platform_fee - seller_discount
-        vat_amount = net_amount * vat_rate
-        ewt_amount = net_amount * ewt_rate
-        final_amount = net_amount + vat_amount - ewt_amount
-        
-        # Display calculated amounts
-        st.markdown("### 💰 Amount Breakdown")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Net Amount", f"₱{net_amount:,.2f}")
-        with col2:
-            st.metric("VAT Amount", f"₱{vat_amount:,.2f}")
-        with col3:
-            st.metric("EWT Amount", f"₱{ewt_amount:,.2f}")
-        with col4:
-            st.metric("Final Amount", f"₱{final_amount:,.2f}")
-        
-        # Submit button
-        col1, col2, col3 = st.columns(3)
-        with col2:
-            if st.button("💾 Save Cash Receipt", type="primary", use_container_width=False):
-                try:
-                    # Initialize Supabase client
-                    supabase = init_supabase()
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    # Check transaction limit
+    can_add, limit_message = check_transaction_limit(user.id)
+    
+    # Transaction form
+    with st.expander("➕ Add Cash Receipt", expanded=can_add):
+        if not can_add:
+            st.warning(limit_message)
+            st.markdown("---")
+            st.markdown("### 🚀 Upgrade to Pro")
+            st.info("Upgrade to Pro for unlimited transactions and advanced features!")
+            if st.button("🔑 Upgrade Now", type="primary"):
+                st.session_state.selected_page = "🔑 Subscription"
+                st.rerun()
+        else:
+            with st.form("cash_receipt_form"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    customer_name = st.text_input("Customer Name*", placeholder="Enter customer name")
+                    gross_amount = st.number_input("Gross Amount*", min_value=0.0, step=0.01, format="%.2f", placeholder="0.00")
+                    platform_name = st.selectbox("Platform", ["None", "SHOPEE", "LAZADA", "TIKTOK"])
+                    platform_fee = st.number_input("Platform Fee", min_value=0.0, step=0.01, format="%.2f", value=0.0, help="Leave 0 to auto-calculate")
+                    seller_discount = st.number_input("Seller Discount", min_value=0.0, step=0.01, format="%.2f", value=0.0)
+                
+                with col2:
+                    payment_method = st.selectbox("Payment Method*", ["Cash", "Bank Transfer", "Check", "Digital Wallet"])
+                    bank_name = st.text_input("Bank Name", placeholder="Enter bank name")
+                    check_number = st.text_input("Check Number", placeholder="Enter check number")
+                    description = st.text_input("Description", placeholder="Payment description")
+                
+                # Auto-calculate tax amounts
+                if gross_amount > 0:
+                    tax_calculations = calculate_tax_amounts(
+                        gross_amount, 
+                        profile.get('tax_type', 'VAT (12%)'),
+                        platform_name,
+                        platform_fee
+                    )
                     
-                    # Prepare data for insertion
-                    cash_receipt_data = {
-                        'transaction_date': datetime.now().isoformat(),
-                        'or_number': f"CR-{datetime.now().strftime('%Y-%m%d-%H%M%S')}",
-                        'customer_name': customer_name,
-                        'gross_amount': gross_amount,
-                        'platform_name': platform_name if platform_name != 'None' else None,
-                        'platform_fee': platform_fee,
-                        'seller_discount': seller_discount,
-                        'net_amount': net_amount,
-                        'vat_amount': vat_amount,
-                        'ewt_amount': ewt_amount,
-                        'final_amount': final_amount,
-                        'payment_method': payment_method,
-                        'bank_name': bank_name if bank_name else None,
-                        'check_number': check_number if check_number else None,
-                        'vat_registered': vat_registered,
-                        'ewt_rate': ewt_rate,
-                        'status': 'POSTED',
-                        'created_at': datetime.now().isoformat()
-                    }
+                    # Display calculated amounts
+                    st.markdown("### 💰 Amount Breakdown")
+                    col1, col2, col3, col4 = st.columns(4)
                     
-                    # Insert into Supabase
-                    result = supabase.table('cash_receipts_journal').insert(cash_receipt_data).execute()
-                    
-                    if result.data:
-                        st.success("✅ Cash receipt saved successfully!")
-                        st.balloons()
-                        
-                        # Clear form fields by resetting session state
-                        if 'cash_receipts_data' not in st.session_state:
-                            st.session_state.cash_receipts_data = []
-                        
-                        # Add to session state for immediate display
-                        st.session_state.cash_receipts_data.append({
-                            'Date': datetime.now().strftime('%Y-%m-%d'),
-                            'O.R. #': cash_receipt_data['or_number'],
-                            'Customer': customer_name,
-                            'Gross Amount': gross_amount,
-                            'VAT': vat_amount,
-                            'Net Amount': net_amount,
-                            'Platform': platform_name,
-                            'Status': 'POSTED'
-                        })
-                        
-                        # Rerun to update the display
-                        st.rerun()
-                    else:
-                        st.error("❌ Failed to save cash receipt")
-                        
-                except Exception as e:
-                    st.error(f"❌ Error saving cash receipt: {str(e)}")
-                    st.info("Please check your Supabase configuration and try again.")
+                    with col1:
+                        st.metric("Net Amount", f"₱{tax_calculations['net_amount']:,.2f}")
+                    with col2:
+                        st.metric("VAT Amount", f"₱{tax_calculations['vat_amount']:,.2f}")
+                    with col3:
+                        st.metric("EWT Amount", f"₱{tax_calculations['ewt_amount']:,.2f}")
+                    with col4:
+                        st.metric("Final Amount", f"₱{tax_calculations['final_amount']:,.2f}")
+                
+                # Submit button
+                col1, col2, col3 = st.columns(3)
+                with col2:
+                    if st.button("💾 Save Cash Receipt", type="primary", use_container_width=False):
+                        try:
+                            # Initialize Supabase client
+                            supabase = init_supabase()
+                            
+                            # Prepare data for insertion
+                            cash_receipt_data = {
+                                'user_id': user.id,
+                                'transaction_date': datetime.now().isoformat(),
+                                'type': 'cash_receipt',
+                                'description': description or f"Payment from {customer_name}",
+                                'customer_name': customer_name,
+                                'gross_amount': gross_amount,
+                                'platform_name': platform_name if platform_name != 'None' else None,
+                                'platform_fee': tax_calculations['platform_fee'],
+                                'seller_discount': seller_discount,
+                                'net_amount': tax_calculations['net_amount'],
+                                'vat_amount': tax_calculations['vat_amount'],
+                                'ewt_amount': tax_calculations['ewt_amount'],
+                                'final_amount': tax_calculations['final_amount'],
+                                'payment_method': payment_method,
+                                'bank_name': bank_name if bank_name else None,
+                                'check_number': check_number if check_number else None,
+                                'tax_type': profile.get('tax_type', 'VAT (12%)'),
+                                'vat_rate': tax_calculations['vat_rate'],
+                                'ewt_rate': tax_calculations['ewt_rate'],
+                                'status': 'POSTED',
+                                'created_at': datetime.now().isoformat()
+                            }
+                            
+                            # Insert into Supabase
+                            result = supabase.table('transactions').insert(cash_receipt_data).execute()
+                            
+                            if result.data:
+                                st.success("✅ Cash receipt saved successfully!")
+                                st.balloons()
+                                # Clear cache to refresh transaction count
+                                st.cache_data.clear()
+                                st.rerun()
+                            else:
+                                st.error("❌ Failed to save cash receipt")
+                                
+                        except Exception as e:
+                            st.error(f"❌ Error saving cash receipt: {str(e)}")
+                            st.info("Please try again or contact support if the issue persists.")
     
     # Existing records table
     st.markdown("### 📋 Cash Receipts Records")
     
-    # Load data from Supabase
+    # Date filter
+    col1, col2 = st.columns(2)
+    with col1:
+        month_filter = st.selectbox("Filter by Month", 
+                                   ["All", "January", "February", "March", "April", "May", "June",
+                                    "July", "August", "September", "October", "November", "December"])
+    with col2:
+        year_filter = st.selectbox("Filter by Year", 
+                                  ["All"] + list(range(2020, datetime.now().year + 1)))
+    
+    # Load data from Supabase with filters
     try:
         supabase = init_supabase()
-        result = supabase.table('cash_receipts_journal').select('*').order('created_at', desc=True).execute()
+        query = supabase.table('transactions').select('*').eq('user_id', user.id).eq('type', 'cash_receipt')
+        
+        # Apply date filters
+        if month_filter != "All":
+            month_num = datetime.strptime(month_filter, "%B").month
+            query = query.like('transaction_date', f'%-{month_num:02d}-%')
+        if year_filter != "All":
+            query = query.like('transaction_date', f'{year_filter}-%')
+        
+        result = query.order('created_at', desc=True).execute()
         
         if result.data:
             # Convert to DataFrame for display
@@ -684,70 +1091,165 @@ def show_cash_receipts_journal():
             for record in cash_receipts_data:
                 display_data.append({
                     'Date': pd.to_datetime(record['transaction_date']).strftime('%Y-%m-%d'),
-                    'O.R. #': record['or_number'],
                     'Customer': record['customer_name'],
+                    'Description': record['description'],
                     'Gross Amount': record['gross_amount'],
                     'VAT': record['vat_amount'],
-                    'Net Amount': record['net_amount'],
+                    'EWT': record['ewt_amount'],
+                    'Final Amount': record['final_amount'],
                     'Platform': record['platform_name'] or 'None',
                     'Status': record['status']
                 })
             
-            cash_receipts_data = pd.DataFrame(display_data)
+            display_df = pd.DataFrame(display_data)
+            st.dataframe(display_df, width="stretch", hide_index=True)
+            
+            # Summary stats
+            st.markdown("### 📊 Summary")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                total_amount = display_df['Final Amount'].sum()
+                st.metric("Total Amount", f"₱{total_amount:,.2f}")
+            with col2:
+                avg_amount = display_df['Final Amount'].mean()
+                st.metric("Average Amount", f"₱{avg_amount:,.2f}")
+            with col3:
+                st.metric("Total Records", len(display_df))
+            
         else:
-            # No data in database, show empty state
-            cash_receipts_data = pd.DataFrame(columns=[
-                'Date', 'O.R. #', 'Customer', 'Gross Amount', 'VAT', 'Net Amount', 'Platform', 'Status'
-            ])
+            st.info("📝 No cash receipts found. Start by adding your first transaction!")
             
     except Exception as e:
         st.error(f"❌ Error loading data: {str(e)}")
-        # Show sample data as fallback
-        cash_receipts_data = pd.DataFrame({
-            'Date': ['2024-01-15', '2024-01-14', '2024-01-13', '2024-01-12'],
-            'O.R. #': ['CR-2024-001', 'CR-2024-002', 'CR-2024-003', 'CR-2024-004'],
-            'Customer': ['Juan Dela Cruz', 'Maria Santos', 'Pedro Reyes', 'Anna Cruz'],
-            'Gross Amount': [15000.00, 25000.00, 8500.00, 12000.00],
-            'VAT': [1800.00, 3000.00, 1020.00, 1440.00],
-            'Net Amount': [13200.00, 22000.00, 7480.00, 10560.00],
-            'Platform': ['SHOPEE', 'None', 'LAZADA', 'TIKTOK'],
-            'Status': ['Posted', 'Posted', 'Posted', 'Pending']
-        })
-    
-    # Style the dataframe
-    st.dataframe(cash_receipts_data, width="stretch", hide_index=True)
-    
-    # Action buttons
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.button("📥 Export to Excel", use_container_width=False)
-    with col2:
-        st.button("📄 Print Report", use_container_width=False)
-    with col3:
-        st.button("🔄 Refresh", use_container_width=False)
-    with col4:
-        st.button("🗑️ Clear Filters", use_container_width=False)
+        st.info("Please try refreshing the page")
+
+# Create database schema function
+def create_database_schema():
+    """Create the required database tables if they don't exist"""
+    try:
+        supabase = init_supabase()
+        
+        # Profiles table
+        profiles_sql = """
+        CREATE TABLE IF NOT EXISTS profiles (
+            id UUID PRIMARY KEY REFERENCES auth.users(id),
+            email TEXT UNIQUE NOT NULL,
+            business_name TEXT NOT NULL,
+            tax_type TEXT NOT NULL DEFAULT 'VAT (12%)',
+            is_pro_status BOOLEAN DEFAULT FALSE,
+            license_key TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        """
+        
+        # Transactions table
+        transactions_sql = """
+        CREATE TABLE IF NOT EXISTS transactions (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+            transaction_date TIMESTAMP WITH TIME ZONE NOT NULL,
+            type TEXT NOT NULL CHECK (type IN ('cash_receipt', 'sales', 'purchase', 'expense')),
+            description TEXT,
+            customer_name TEXT,
+            supplier_name TEXT,
+            gross_amount DECIMAL(15,2) NOT NULL,
+            platform_name TEXT,
+            platform_fee DECIMAL(15,2) DEFAULT 0,
+            seller_discount DECIMAL(15,2) DEFAULT 0,
+            net_amount DECIMAL(15,2) NOT NULL,
+            vat_amount DECIMAL(15,2) DEFAULT 0,
+            ewt_amount DECIMAL(15,2) DEFAULT 0,
+            final_amount DECIMAL(15,2) NOT NULL,
+            payment_method TEXT,
+            bank_name TEXT,
+            check_number TEXT,
+            tax_type TEXT NOT NULL,
+            vat_rate DECIMAL(5,4) DEFAULT 0,
+            ewt_rate DECIMAL(5,4) DEFAULT 0,
+            status TEXT DEFAULT 'POSTED' CHECK (status IN ('POSTED', 'PENDING', 'CANCELLED')),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        """
+        
+        # License keys table
+        license_keys_sql = """
+        CREATE TABLE IF NOT EXISTS license_keys (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            key TEXT UNIQUE NOT NULL,
+            is_used BOOLEAN DEFAULT FALSE,
+            used_by UUID REFERENCES profiles(id),
+            used_at TIMESTAMP WITH TIME ZONE,
+            expires_at TIMESTAMP WITH TIME ZONE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        """
+        
+        # Enable RLS
+        rls_sql = """
+        ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE license_keys ENABLE ROW LEVEL SECURITY;
+        
+        -- Profiles RLS policies
+        DROP POLICY IF EXISTS users_can_view_own_profile ON profiles;
+        CREATE POLICY users_can_view_own_profile ON profiles
+            FOR SELECT USING (auth.uid() = id);
+            
+        DROP POLICY IF EXISTS users_can_update_own_profile ON profiles;
+        CREATE POLICY users_can_update_own_profile ON profiles
+            FOR UPDATE USING (auth.uid() = id);
+            
+        -- Transactions RLS policies
+        DROP POLICY IF EXISTS users_can_view_own_transactions ON transactions;
+        CREATE POLICY users_can_view_own_transactions ON transactions
+            FOR SELECT USING (auth.uid() = user_id);
+            
+        DROP POLICY IF EXISTS users_can_insert_own_transactions ON transactions;
+        CREATE POLICY users_can_insert_own_transactions ON transactions
+            FOR INSERT WITH CHECK (auth.uid() = user_id);
+            
+        DROP POLICY IF EXISTS users_can_update_own_transactions ON transactions;
+        CREATE POLICY users_can_update_own_transactions ON transactions
+            FOR UPDATE USING (auth.uid() = user_id);
+            
+        DROP POLICY IF EXISTS users_can_delete_own_transactions ON transactions;
+        CREATE POLICY users_can_delete_own_transactions ON transactions
+            FOR DELETE USING (auth.uid() = user_id);
+        """
+        
+        # Execute schema creation (this would need to be run manually in Supabase SQL editor)
+        return True
+        
+    except Exception as e:
+        return False
 
 # Main app
 def main():
     # Load CSS
     load_css()
     
-    # Check authentication
-    if not check_password():
-        show_login_page()
+    # Check system health first
+    is_healthy, error = check_system_health()
+    if not is_healthy:
+        st.error("🔧 System Maintenance")
+        st.info("We're currently performing system maintenance. Please try again in a few minutes.")
         return
     
-    # Initialize session state
-    if 'company_info' not in st.session_state:
-        st.session_state.company_info = {
-            'name': 'Sample Company',
-            'tin': '000-000-000-000',
-            'vat_registered': True
-        }
+    # Check authentication
+    if not check_authentication():
+        return
+    
+    # Get current user
+    user = get_current_user()
+    if not user:
+        show_auth_page()
+        return
     
     # Show sidebar and get selected page
-    page = show_sidebar()
+    page = show_sidebar_with_user()
     
     # Route to appropriate page
     if page == "🏠 Dashboard":
@@ -772,27 +1274,16 @@ def main():
     elif page == "📊 Chart of Accounts":
         from pages.chart_of_accounts import show_chart_of_accounts
         show_chart_of_accounts()
-    elif page == "📦 Inventory Management":
-        st.markdown("### 📦 Inventory Management")
-        st.info("Inventory Management module coming soon...")
-    elif page == "👥 Payroll Management":
-        st.markdown("### 👥 Payroll Management")
-        st.info("Payroll Management module coming soon...")
     elif page == "🏛️ Tax Compliance":
         st.markdown("### 🏛️ Tax Compliance")
         st.info("Tax Compliance module coming soon...")
-    elif page == "🏦 Bank Reconciliation":
-        st.markdown("### 🏦 Bank Reconciliation")
-        st.info("Bank Reconciliation module coming soon...")
-    elif page == "🏢 Fixed Assets":
-        st.markdown("### 🏢 Fixed Assets")
-        st.info("Fixed Assets module coming soon...")
     elif page == "📄 Financial Statements":
-        st.markdown("### 📄 Financial Statements")
+        st.markdown("### � Financial Statements")
         st.info("Financial Statements module coming soon...")
+    elif page == "🔑 Subscription":
+        show_subscription_page()
     elif page == "⚙️ Settings":
-        st.markdown("### ⚙️ Settings")
-        st.info("Settings module coming soon...")
+        show_settings_page()
 
 if __name__ == "__main__":
     main()
