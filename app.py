@@ -2625,6 +2625,23 @@ def create_database_schema():
         DROP POLICY IF EXISTS users_can_delete_own_transactions ON transactions;
         CREATE POLICY users_can_delete_own_transactions ON transactions
             FOR DELETE USING (auth.uid() = user_id);
+            
+        -- License Keys RLS policies
+        DROP POLICY IF EXISTS users_can_view_license_keys ON license_keys;
+        CREATE POLICY users_can_view_license_keys ON license_keys
+            FOR SELECT USING (true);  -- Anyone can view license keys
+            
+        DROP POLICY IF EXISTS users_can_insert_license_keys ON license_keys;
+        CREATE POLICY users_can_insert_license_keys ON license_keys
+            FOR INSERT WITH CHECK (true);  -- Anyone can insert license keys
+            
+        DROP POLICY IF EXISTS users_can_update_license_keys ON license_keys;
+        CREATE POLICY users_can_update_license_keys ON license_keys
+            FOR UPDATE USING (true);  -- Anyone can update license keys
+            
+        DROP POLICY IF EXISTS users_can_delete_license_keys ON license_keys;
+        CREATE POLICY users_can_delete_license_keys ON license_keys
+            FOR DELETE USING (true);  -- Anyone can delete license keys
         """
         
         # Execute schema creation (this would need to be run manually in Supabase SQL editor)
