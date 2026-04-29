@@ -2498,7 +2498,7 @@ def create_database_schema():
     except Exception as e:
         return False
 
-# Sales Journal (placeholder - to be implemented)
+# Sales Journal
 def show_sales_journal():
     st.markdown("""
     <div class="main-header">
@@ -2514,14 +2514,138 @@ def show_sales_journal():
         st.error("Unable to load user profile")
         return
     
-    st.info("📝 Sales Journal module is coming soon!")
-    st.write("This module will include:")
-    st.write("- Customer sales recording")
-    st.write("- Accounts receivable management")
-    st.write("- Invoice tracking")
-    st.write("- Sales reporting")
+    # Check transaction limits
+    transaction_count = get_user_transaction_count(user.id)
+    can_add = profile.get('is_pro_status') or transaction_count < 20
+    limit_msg = "You've reached your free plan limit. Upgrade to Pro for unlimited transactions."
+    
+    if not can_add:
+        st.error(limit_msg)
+        st.info("🔑 Upgrade to Pro for unlimited transactions")
+        st.session_state.selected_page = "🔑 Subscription"
+        st.rerun()
+    else:
+        with st.form("sales_journal_form"):
+            st.markdown("### 📝 Sales Entry Details")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                transaction_date = st.date_input("Transaction Date*", datetime.now().date())
+                invoice_no = st.text_input("Invoice No.*", placeholder="Enter invoice number")
+                
+            with col2:
+                customer_name = st.text_input("Customer Name*", placeholder="Enter customer name")
+                payment_method = st.selectbox("Payment Method*", ["Cash", "Bank Transfer", "Credit Card", "Check"])
+                
+            st.markdown("### 💰 Sales Details")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                amount = st.number_input("Amount*", min_value=0.0, step=0.01, placeholder="0.00")
+                
+            with col2:
+                vat_rate = st.selectbox("VAT Rate", [0, 12]) / 100
+                vat_amount = amount * vat_rate
+                
+            with col3:
+                ewt_rate = st.selectbox("EWT Rate", [0, 1, 2]) / 100
+                ewt_amount = amount * ewt_rate
+                
+            final_amount = amount - vat_amount - ewt_amount
+            
+            st.markdown("### 📋 Summary")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Gross Amount", f"₱{amount:,.2f}")
+                
+            with col2:
+                st.metric("VAT", f"₱{vat_amount:,.2f}")
+                
+            with col3:
+                st.metric("Net Amount", f"₱{final_amount:,.2f}")
+            
+            # Submit button
+            col1, col2, col3 = st.columns(3)
+            with col2:
+                submitted = st.form_submit_button("💾 Save Sales Entry", type="primary", use_container_width=False)
+                
+                if submitted:
+                    try:
+                        supabase = init_supabase()
+                        
+                        # Insert sales transaction
+                        sales_data = {
+                            'user_id': user.id,
+                            'transaction_date': transaction_date.strftime('%Y-%m-%d'),
+                            'invoice_no': invoice_no,
+                            'customer_name': customer_name,
+                            'payment_method': payment_method,
+                            'amount': amount,
+                            'vat_rate': vat_rate,
+                            'vat_amount': vat_amount,
+                            'ewt_rate': ewt_rate,
+                            'ewt_amount': ewt_amount,
+                            'final_amount': final_amount,
+                            'transaction_type': 'Sales',
+                            'status': 'Active',
+                            'tax_type': profile.get('tax_type', 'VAT (12%)')
+                        }
+                        
+                        result = supabase.table('transactions').insert(sales_data).execute()
+                        
+                        if result.data:
+                            st.success("✅ Sales entry saved successfully!")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save sales entry")
+                            
+                    except Exception as e:
+                        st.error(f"❌ Error saving sales entry: {str(e)}")
+                        st.info("Please try again or contact support if the issue persists.")
+    
+    # Recent sales entries
+    st.markdown("### 📋 Recent Sales Entries")
+    
+    try:
+        supabase = init_supabase()
+        result = supabase.table('transactions').select('*').eq('user_id', user.id).eq('transaction_type', 'Sales').order('created_at', desc=True).limit(10).execute()
+        
+        if result.data:
+            for entry in result.data:
+                with st.expander(f"Sales Entry - {entry['invoice_no']} ({entry['transaction_date'][:10]})"):
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.write(f"**Customer:** {entry['customer_name']}")
+                        st.write(f"**Amount:** ₱{entry['amount']:,.2f}")
+                        
+                    with col2:
+                        st.write(f"**VAT:** ₱{entry['vat_amount']:,.2f}")
+                        st.write(f"**Net:** ₱{entry['final_amount']:,.2f}")
+                        
+                    with col3:
+                        st.write(f"**Method:** {entry['payment_method']}")
+                        st.write(f"**Status:** {entry['status']}")
+                        
+                    with col4:
+                        if st.button("🗑️ Delete", key=f"delete_sales_{entry['id']}"):
+                            try:
+                                supabase.table('transactions').delete().eq('id', entry['id']).execute()
+                                st.rerun()
+                            except:
+                                st.error("Failed to delete entry")
+        else:
+            st.info("No sales entries found.")
+            
+    except Exception as e:
+        st.error(f"❌ Error loading sales entries: {str(e)}")
+        st.info("Please try refreshing the page")
 
-# Purchase Journal (placeholder - to be implemented)
+# Purchase Journal
 def show_purchase_journal():
     st.markdown("""
     <div class="main-header">
@@ -2537,14 +2661,138 @@ def show_purchase_journal():
         st.error("Unable to load user profile")
         return
     
-    st.info("📝 Purchase Journal module is coming soon!")
-    st.write("This module will include:")
-    st.write("- Supplier purchase recording")
-    st.write("- Accounts payable management")
-    st.write("- Purchase order tracking")
-    st.write("- Purchase reporting")
+    # Check transaction limits
+    transaction_count = get_user_transaction_count(user.id)
+    can_add = profile.get('is_pro_status') or transaction_count < 20
+    limit_msg = "You've reached your free plan limit. Upgrade to Pro for unlimited transactions."
+    
+    if not can_add:
+        st.error(limit_msg)
+        st.info("🔑 Upgrade to Pro for unlimited transactions")
+        st.session_state.selected_page = "🔑 Subscription"
+        st.rerun()
+    else:
+        with st.form("purchase_journal_form"):
+            st.markdown("### 📝 Purchase Entry Details")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                transaction_date = st.date_input("Transaction Date*", datetime.now().date())
+                receipt_no = st.text_input("Receipt No.*", placeholder="Enter receipt number")
+                
+            with col2:
+                supplier_name = st.text_input("Supplier Name*", placeholder="Enter supplier name")
+                expense_category = st.selectbox("Expense Category*", ["Office Supplies", "Equipment", "Utilities", "Rent", "Marketing", "Professional Services", "Other"])
+                
+            st.markdown("### 💰 Purchase Details")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                amount = st.number_input("Amount*", min_value=0.0, step=0.01, placeholder="0.00")
+                
+            with col2:
+                vat_rate = st.selectbox("VAT Rate", [0, 12]) / 100
+                vat_amount = amount * vat_rate
+                
+            with col3:
+                ewt_rate = st.selectbox("EWT Rate", [0, 1, 2]) / 100
+                ewt_amount = amount * ewt_rate
+                
+            final_amount = amount - vat_amount - ewt_amount
+            
+            st.markdown("### 📋 Summary")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Gross Amount", f"₱{amount:,.2f}")
+                
+            with col2:
+                st.metric("VAT", f"₱{vat_amount:,.2f}")
+                
+            with col3:
+                st.metric("Net Amount", f"₱{final_amount:,.2f}")
+            
+            # Submit button
+            col1, col2, col3 = st.columns(3)
+            with col2:
+                submitted = st.form_submit_button("💾 Save Purchase Entry", type="primary", use_container_width=False)
+                
+                if submitted:
+                    try:
+                        supabase = init_supabase()
+                        
+                        # Insert purchase transaction
+                        purchase_data = {
+                            'user_id': user.id,
+                            'transaction_date': transaction_date.strftime('%Y-%m-%d'),
+                            'receipt_no': receipt_no,
+                            'supplier_name': supplier_name,
+                            'expense_category': expense_category,
+                            'amount': amount,
+                            'vat_rate': vat_rate,
+                            'vat_amount': vat_amount,
+                            'ewt_rate': ewt_rate,
+                            'ewt_amount': ewt_amount,
+                            'final_amount': final_amount,
+                            'transaction_type': 'Purchase',
+                            'status': 'Active',
+                            'tax_type': profile.get('tax_type', 'VAT (12%)')
+                        }
+                        
+                        result = supabase.table('transactions').insert(purchase_data).execute()
+                        
+                        if result.data:
+                            st.success("✅ Purchase entry saved successfully!")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save purchase entry")
+                            
+                    except Exception as e:
+                        st.error(f"❌ Error saving purchase entry: {str(e)}")
+                        st.info("Please try again or contact support if the issue persists.")
+    
+    # Recent purchase entries
+    st.markdown("### 📋 Recent Purchase Entries")
+    
+    try:
+        supabase = init_supabase()
+        result = supabase.table('transactions').select('*').eq('user_id', user.id).eq('transaction_type', 'Purchase').order('created_at', desc=True).limit(10).execute()
+        
+        if result.data:
+            for entry in result.data:
+                with st.expander(f"Purchase Entry - {entry['receipt_no']} ({entry['transaction_date'][:10]})"):
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.write(f"**Supplier:** {entry['supplier_name']}")
+                        st.write(f"**Amount:** ₱{entry['amount']:,.2f}")
+                        
+                    with col2:
+                        st.write(f"**Category:** {entry['expense_category']}")
+                        st.write(f"**VAT:** ₱{entry['vat_amount']:,.2f}")
+                        
+                    with col3:
+                        st.write(f"**Net:** ₱{entry['final_amount']:,.2f}")
+                        st.write(f"**Status:** {entry['status']}")
+                        
+                    with col4:
+                        if st.button("🗑️ Delete", key=f"delete_purchase_{entry['id']}"):
+                            try:
+                                supabase.table('transactions').delete().eq('id', entry['id']).execute()
+                                st.rerun()
+                            except:
+                                st.error("Failed to delete entry")
+        else:
+            st.info("No purchase entries found.")
+            
+    except Exception as e:
+        st.error(f"❌ Error loading purchase entries: {str(e)}")
+        st.info("Please try refreshing the page")
 
-# Chart of Accounts (placeholder - to be implemented)
+# Chart of Accounts
 def show_chart_of_accounts():
     st.markdown("""
     <div class="main-header">
@@ -2560,12 +2808,176 @@ def show_chart_of_accounts():
         st.error("Unable to load user profile")
         return
     
-    st.info("📝 Chart of Accounts module is coming soon!")
-    st.write("This module will include:")
-    st.write("- Philippine standard COA")
-    st.write("- Account management")
-    st.write("- Account classification")
-    st.write("- Financial reporting structure")
+    # Philippine Standard Chart of Accounts
+    st.markdown("### 📋 Philippine Standard Chart of Accounts")
+    
+    # Assets
+    with st.expander("💰 Assets (1000-1999)"):
+        st.markdown("""
+        **Current Assets (1000-1499)**
+        - 1010 Cash and Cash Equivalents
+        - 1020 Accounts Receivable
+        - 1030 Inventories
+        - 1040 Prepaid Expenses
+        - 1050 Other Current Assets
+        
+        **Non-Current Assets (1500-1999)**
+        - 1510 Property, Plant and Equipment
+        - 1520 Accumulated Depreciation
+        - 1530 Investment Property
+        - 1540 Intangible Assets
+        - 1550 Long-term Investments
+        """)
+    
+    # Liabilities
+    with st.expander("💳 Liabilities (2000-2999)"):
+        st.markdown("""
+        **Current Liabilities (2000-2499)**
+        - 2010 Accounts Payable
+        - 2020 Short-term Loans
+        - 2030 Tax Payable
+        - 2040 Accrued Expenses
+        - 2050 Other Current Liabilities
+        
+        **Non-Current Liabilities (2500-2999)**
+        - 2510 Long-term Loans
+        - 2520 Deferred Tax Liabilities
+        - 2530 Lease Liabilities
+        - 2540 Other Non-Current Liabilities
+        """)
+    
+    # Equity
+    with st.expander("👥 Equity (3000-3999)"):
+        st.markdown("""
+        **Share Capital (3000-3099)**
+        - 3010 Common Stock
+        - 3020 Preferred Stock
+        - 3030 Additional Paid-in Capital
+        
+        **Retained Earnings (3100-3199)**
+        - 3110 Retained Earnings
+        - 3120 Appropriations
+        
+        **Other Equity (3200-3999)**
+        - 3210 Treasury Stock
+        - 3220 Other Comprehensive Income
+        """)
+    
+    # Revenue
+    with st.expander("📈 Revenue (4000-4999)"):
+        st.markdown("""
+        **Sales Revenue (4000-4099)**
+        - 4010 Sales of Goods
+        - 4020 Sales of Services
+        - 4030 Sales Returns and Allowances
+        
+        **Other Revenue (4100-4999)**
+        - 4110 Interest Income
+        - 4120 Rental Income
+        - 4130 Dividend Income
+        - 4140 Other Operating Income
+        """)
+    
+    # Expenses
+    with st.expander("💸 Expenses (5000-5999)"):
+        st.markdown("""
+        **Cost of Sales (5000-5099)**
+        - 5010 Cost of Goods Sold
+        - 5020 Direct Labor
+        - 5030 Direct Materials
+        - 5040 Manufacturing Overhead
+        
+        **Operating Expenses (5100-5999)**
+        - 5110 Salaries and Wages
+        - 5120 Rent Expense
+        - 5130 Utilities Expense
+        - 5140 Marketing Expense
+        - 5150 Depreciation Expense
+        - 5160 Interest Expense
+        - 5170 Tax Expense
+        """)
+    
+    st.markdown("---")
+    
+    # Account Management
+    st.markdown("### ⚙️ Account Management")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 📊 Account Summary")
+        
+        # Create sample account summary
+        account_data = {
+            'Account': ['Cash', 'Accounts Receivable', 'Inventory', 'Equipment', 'Accounts Payable', 'Loans Payable'],
+            'Type': ['Asset', 'Asset', 'Asset', 'Asset', 'Liability', 'Liability'],
+            'Balance': [50000, 25000, 15000, 100000, 20000, 50000]
+        }
+        
+        df_accounts = pd.DataFrame(account_data)
+        st.dataframe(df_accounts, use_container_width=True)
+        
+        st.markdown("#### 📈 Account Balances")
+        
+        # Simple bar chart
+        fig = px.bar(df_accounts, x='Account', y='Balance', color='Type',
+                    title='Account Balance Distribution')
+        fig.update_layout(xaxis_tickangle=-45)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("#### 📋 Account Categories")
+        
+        categories = {
+            'Current Assets': 90000,
+            'Non-Current Assets': 100000,
+            'Current Liabilities': 20000,
+            'Non-Current Liabilities': 50000,
+            'Equity': 120000
+        }
+        
+        for category, amount in categories.items():
+            st.metric(category, f"₱{amount:,.2f}")
+        
+        st.markdown("#### 🔧 Account Actions")
+        
+        if st.button("📥 Import Chart of Accounts", type="secondary"):
+            st.info("Import functionality coming soon!")
+        
+        if st.button("📤 Export Chart of Accounts", type="secondary"):
+            st.info("Export functionality coming soon!")
+        
+        if st.button("➕ Add New Account", type="primary"):
+            st.info("Account creation coming soon!")
+    
+    st.markdown("---")
+    
+    # Account Setup Tips
+    st.markdown("### 💡 Account Setup Tips")
+    
+    tips = [
+        "Follow Philippine Accounting Standards (PAS)",
+        "Use proper account codes for easy identification",
+        "Maintain consistent naming conventions",
+        "Regularly reconcile account balances",
+        "Keep supporting documents for all transactions"
+    ]
+    
+    for i, tip in enumerate(tips, 1):
+        st.write(f"{i}. {tip}")
+    
+    st.markdown("---")
+    
+    # Tax Compliance Notes
+    st.markdown("### 🏛️ Tax Compliance Notes")
+    
+    st.info("""
+    **Important for Philippine Businesses:**
+    - Maintain separate accounts for VAT and non-VAT transactions
+    - Track input and output VAT separately
+    - Keep records for at least 5 years
+    - Use BIR-prescribed account classifications
+    """)
 
 # Main app
 def main():
