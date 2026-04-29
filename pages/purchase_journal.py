@@ -348,7 +348,7 @@ def show_purchase_summary_report():
                      labels={'final_amount': 'Purchase Amount (₱)', 'month': 'Month'},
                      color_discrete_sequence=['#3b82f6'])
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, width="100%")
+        st.plotly_chart(fig, use_container_width=True)
         
         # Top suppliers
         supplier_purchases = df.groupby('supplier_name')['final_amount'].sum().sort_values(ascending=False).head(10)
@@ -359,7 +359,7 @@ def show_purchase_summary_report():
                     color_discrete_sequence=['#3b82f6'])
         fig.update_xaxis(tickangle=45)
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, width="100%")
+        st.plotly_chart(fig, use_container_width=True)
 
 def show_supplier_aging_report():
     st.markdown("#### 🏢 Supplier Aging Report")
@@ -403,7 +403,7 @@ def show_supplier_aging_report():
                     title='Payables Aging Breakdown',
                     color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, width="100%")
+        st.plotly_chart(fig, use_container_width=True)
         
         # Detailed aging table
         st.dataframe(df, width="stretch", hide_index=True)
@@ -426,7 +426,7 @@ def show_category_analysis_report():
                 color_discrete_sequence=['#3b82f6'])
     fig.update_xaxis(tickangle=45)
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, width="100%")
+    st.plotly_chart(fig, use_container_width=True)
     
     # Purchase type breakdown
     type_purchases = df.groupby('purchase_type')['final_amount'].sum().reset_index()
@@ -435,7 +435,7 @@ def show_category_analysis_report():
                 title='Purchases by Type',
                 color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, width="100%")
+    st.plotly_chart(fig, use_container_width=True)
 
 def show_purchase_tax_summary_report():
     st.markdown("#### 🏛️ Purchase Tax Summary Report")
@@ -474,7 +474,7 @@ def show_purchase_tax_summary_report():
                 labels={'value': 'Amount (₱)', 'month': 'Month', 'variable': 'Tax Type'},
                 color_discrete_map={'vat_amount': '#3b82f6', 'ewt_amount': '#60a5fa'})
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, width="100%")
+    st.plotly_chart(fig, use_container_width=True)
 
 def show_purchase_settings():
     st.markdown("### ⚙️ Purchase Journal Settings")

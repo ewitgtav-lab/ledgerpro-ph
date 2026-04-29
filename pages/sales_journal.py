@@ -339,7 +339,7 @@ def show_sales_summary_report():
                      labels={'final_amount': 'Sales Amount (₱)', 'month': 'Month'},
                      color_discrete_sequence=['#3b82f6'])
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, width="100%")
+        st.plotly_chart(fig, use_container_width=True)
         
         # Top customers
         customer_sales = df.groupby('customer_name')['final_amount'].sum().sort_values(ascending=False).head(10)
@@ -350,7 +350,7 @@ def show_sales_summary_report():
                     color_discrete_sequence=['#3b82f6'])
         fig.update_xaxis(tickangle=45)
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, width="100%")
+        st.plotly_chart(fig, use_container_width=True)
 
 def show_customer_aging_report():
     st.markdown("#### 👥 Customer Aging Report")
@@ -395,7 +395,7 @@ def show_customer_aging_report():
                     title='Aging Breakdown',
                     color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, width="100%")
+        st.plotly_chart(fig, use_container_width=True)
         
         # Detailed aging table
         st.dataframe(df, width="stretch", hide_index=True)
@@ -417,7 +417,7 @@ def show_platform_analysis_report():
                 labels={'final_amount': 'Sales Amount (₱)', 'platform_name': 'Platform'},
                 color_discrete_sequence=['#3b82f6'])
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, width="100%")
+    st.plotly_chart(fig, use_container_width=True)
     
     # Platform fees analysis
     platform_fees = df.groupby('platform_name')['platform_fee'].sum().reset_index()
@@ -426,7 +426,7 @@ def show_platform_analysis_report():
                 title='Platform Fees Distribution',
                 color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, width="100%")
+    st.plotly_chart(fig, use_container_width=True)
 
 def show_tax_summary_report():
     st.markdown("#### 🏛️ Tax Summary Report")
@@ -465,7 +465,7 @@ def show_tax_summary_report():
                 labels={'value': 'Amount (₱)', 'month': 'Month', 'variable': 'Tax Type'},
                 color_discrete_map={'vat_amount': '#3b82f6', 'ewt_amount': '#60a5fa'})
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, width="100%")
+    st.plotly_chart(fig, use_container_width=True)
 
 def show_sales_settings():
     st.markdown("### ⚙️ Sales Journal Settings")

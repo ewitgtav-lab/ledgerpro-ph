@@ -513,7 +513,7 @@ def show_dashboard():
             xaxis=dict(gridcolor='#334155'),
             yaxis=dict(gridcolor='#334155')
         )
-        st.plotly_chart(fig, width="100%")
+        st.plotly_chart(fig, use_container_width=True)
     
     with col2:
         st.markdown("### Expense Breakdown")
@@ -531,7 +531,7 @@ def show_dashboard():
             title_font_color='#f1f5f9',
             legend_font_color='#f1f5f9'
         )
-        st.plotly_chart(fig, width="100%")
+        st.plotly_chart(fig, use_container_width=True)
     
     # Recent transactions
     st.markdown("### Recent Transactions")
