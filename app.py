@@ -543,7 +543,7 @@ def show_dashboard():
         'Status': ['Posted', 'Posted', 'Posted', 'Posted', 'Pending']
     })
     
-    st.dataframe(recent_data, width="100%", hide_index=True)
+    st.dataframe(recent_data, width="stretch", hide_index=True)
 
 # Cash Receipts Journal
 def show_cash_receipts_journal():
@@ -628,7 +628,7 @@ def show_cash_receipts_journal():
     })
     
     # Style the dataframe
-    st.dataframe(cash_receipts_data, width="100%", hide_index=True)
+    st.dataframe(cash_receipts_data, width="stretch", hide_index=True)
     
     # Action buttons
     col1, col2, col3, col4 = st.columns(4)

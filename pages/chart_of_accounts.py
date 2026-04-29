@@ -187,7 +187,7 @@ def show_accounts_view():
             display_df = df[['account_code', 'account_name', 'account_subtype', 'normal_balance', 'is_active']].copy()
             display_df['is_active'] = display_df['is_active'].map({True: '✅ Active', False: '❌ Inactive'})
             
-            st.dataframe(display_df, width="100%", hide_index=True)
+            st.dataframe(display_df, width="stretch", hide_index=True)
     
     # Summary statistics
     st.markdown("### 📈 Account Summary")
@@ -272,7 +272,7 @@ def show_import_export():
                 st.success(f"✅ File loaded successfully! Found {len(df)} accounts.")
                 
                 # Display preview
-                st.dataframe(df.head(), width="100%")
+                st.dataframe(df.head(), width="stretch")
                 
                 if st.button("📥 Import Accounts", type="primary"):
                     # Convert DataFrame to COA format

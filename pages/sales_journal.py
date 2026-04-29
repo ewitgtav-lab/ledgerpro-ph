@@ -253,7 +253,7 @@ def show_sales_records():
                 return ''
             
             styled_df = display_df.style.map(style_status, subset=['status'])
-            st.dataframe(styled_df, width="100%", hide_index=True)
+            st.dataframe(styled_df, width="stretch", hide_index=True)
             
             # Action buttons
             st.markdown("### 🔧 Actions")
@@ -398,7 +398,7 @@ def show_customer_aging_report():
         st.plotly_chart(fig, width="100%")
         
         # Detailed aging table
-        st.dataframe(df, width="100%", hide_index=True)
+        st.dataframe(df, width="stretch", hide_index=True)
 
 def show_platform_analysis_report():
     st.markdown("#### 📱 Platform Analysis Report")
