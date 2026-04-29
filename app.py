@@ -1,6 +1,13 @@
 import streamlit as st
 
-st.write("DEBUG: App file loaded")
+try:
+    st.write("DEBUG: App file loaded")
+    st.markdown("<h1 style='color: red; font-size: 24px;'>TEST: File is loading</h1>", unsafe_allow_html=True)
+except Exception as e:
+    st.error(f"ERROR loading file: {str(e)}")
+    st.write(f"Error type: {type(e).__name__}")
+    import traceback
+    st.code(traceback.format_exc())
 import pandas as pd
 import numpy as np
 from datetime import datetime, date
