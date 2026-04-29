@@ -634,29 +634,36 @@ def show_navigation():
 def verify_license_key(license_key):
     try:
         supabase = init_supabase()
+        st.write(f"DEBUG: Verifying license key: {license_key}")
         result = supabase.table('license_keys').select('*').eq('key', license_key).eq('is_used', False).single().execute()
+        st.write(f"DEBUG: Query result: {result.data}")
         return result.data if result.data else None
-    except:
+    except Exception as e:
+        st.write(f"DEBUG: License verification error: {str(e)}")
         return None
 
 def activate_license_key(user_id, license_key):
     try:
         supabase = init_supabase()
+        st.write(f"DEBUG: Activating license key: {license_key} for user: {user_id}")
         # Mark license as used and link to user
         result = supabase.table('license_keys').update({
             'is_used': True,
             'used_by': user_id,
             'used_at': datetime.now().isoformat()
         }).eq('key', license_key).execute()
+        st.write(f"DEBUG: License update result: {result.data}")
         
         # Update user profile to pro status
-        supabase.table('profiles').update({
+        profile_result = supabase.table('profiles').update({
             'is_pro_status': True,
             'license_key': license_key
         }).eq('id', user_id).execute()
+        st.write(f"DEBUG: Profile update result: {profile_result.data}")
         
         return True
-    except:
+    except Exception as e:
+        st.write(f"DEBUG: License activation error: {str(e)}")
         return False
 
 # Admin license generation
