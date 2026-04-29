@@ -145,10 +145,29 @@ def show_auth_page():
 
 def check_authentication():
     """Check if user is authenticated"""
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        show_auth_page()
-        return False
-    return True
+    # First, check if there's an existing Supabase session
+    try:
+        supabase = init_supabase()
+        session = supabase.auth.get_session()
+        
+        if session and session.user:
+            # Restore session state from Supabase session
+            st.session_state.user = session.user
+            st.session_state.authenticated = True
+            return True
+        else:
+            # No existing session, check session state
+            if 'authenticated' not in st.session_state or not st.session_state.authenticated:
+                show_auth_page()
+                return False
+            return True
+            
+    except Exception as e:
+        # If there's an error checking the session, fall back to session state
+        if 'authenticated' not in st.session_state or not st.session_state.authenticated:
+            show_auth_page()
+            return False
+        return True
 
 def get_current_user():
     """Get current authenticated user"""
@@ -156,16 +175,25 @@ def get_current_user():
 
 def handle_signout():
     """Handle user sign out"""
-    if 'user' in st.session_state:
-        try:
-            supabase = init_supabase()
-            supabase.auth.sign_out()
-        except:
-            pass
-        finally:
+    try:
+        supabase = init_supabase()
+        supabase.auth.sign_out()
+    except:
+        pass
+    finally:
+        # Clear all session state
+        if 'user' in st.session_state:
             del st.session_state.user
+        if 'authenticated' in st.session_state:
             del st.session_state.authenticated
-            st.rerun()
+        
+        # Clear any other session data that might exist
+        keys_to_clear = ['sales_journal_data', 'purchase_journal_data', 'cash_receipts_data']
+        for key in keys_to_clear:
+            if key in st.session_state:
+                del st.session_state[key]
+        
+        st.rerun()
 
 # Custom CSS for professional styling
 def local_css(file_name):

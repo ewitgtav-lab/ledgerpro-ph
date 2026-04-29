@@ -357,7 +357,7 @@ def show_purchase_summary_report():
                     title='Top 10 Suppliers by Purchase Amount',
                     labels={'x': 'Supplier', 'y': 'Purchase Amount (₱)'},
                     color_discrete_sequence=['#3b82f6'])
-        fig.update_xaxis(tickangle=45)
+        fig.update_layout(xaxis_tickangle=-45)
         fig = apply_dark_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -424,7 +424,7 @@ def show_category_analysis_report():
                 title='Purchases by Category',
                 labels={'final_amount': 'Purchase Amount (₱)', 'expense_category': 'Category'},
                 color_discrete_sequence=['#3b82f6'])
-    fig.update_xaxis(tickangle=45)
+    fig.update_layout(xaxis_tickangle=-45)
     fig = apply_dark_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
     

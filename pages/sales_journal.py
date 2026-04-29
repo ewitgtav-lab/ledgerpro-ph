@@ -348,7 +348,7 @@ def show_sales_summary_report():
                     title='Top 10 Customers by Sales',
                     labels={'x': 'Customer', 'y': 'Sales Amount (₱)'},
                     color_discrete_sequence=['#3b82f6'])
-        fig.update_xaxis(tickangle=45)
+        fig.update_layout(xaxis_tickangle=-45)
         fig = apply_dark_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
 
