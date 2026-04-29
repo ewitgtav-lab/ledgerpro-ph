@@ -17,11 +17,6 @@ def init_supabase():
         SUPABASE_URL = st.secrets.get("SUPABASE_URL")
         SUPABASE_KEY = st.secrets.get("SUPABASE_KEY")
         
-        # Debug: Show what we're trying to load
-        st.sidebar.write("🔍 Debug Info:")
-        st.sidebar.write(f"URL found: {bool(SUPABASE_URL)}")
-        st.sidebar.write(f"Key found: {bool(SUPABASE_KEY)}")
-        
         if not SUPABASE_URL:
             st.error("❌ Missing SUPABASE_URL in secrets")
             st.stop()
@@ -37,15 +32,14 @@ def init_supabase():
 
 # Check system health
 def check_system_health():
+    """Check if Supabase connection is working"""
     try:
         supabase = init_supabase()
         # Test connection with a simple query
         result = supabase.table('profiles').select('id').limit(1).execute()
-        st.sidebar.write("✅ Database connection successful")
         return True, None
     except Exception as e:
         error_msg = f"Database connection failed: {str(e)}"
-        st.sidebar.write(f"❌ {error_msg}")
         return False, error_msg
 
 # Authentication functions
