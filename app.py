@@ -608,6 +608,11 @@ def show_navigation():
     if 'selected_page' not in st.session_state:
         st.session_state.selected_page = "🏠 Dashboard"
     
+    # Check if force navigation flag is set
+    if st.session_state.get('force_navigation', False):
+        st.write("DEBUG: Force navigation detected, clearing flag")
+        st.session_state.force_navigation = False
+    
     pages = [
         "🏠 Dashboard",
         "💰 Cash Receipts Journal",
@@ -2346,6 +2351,7 @@ def show_dashboard():
             st.write("DEBUG: Add Transaction button clicked")
             st.session_state.selected_page = "💰 Cash Receipts Journal"
             st.write(f"DEBUG: Set selected_page to: {st.session_state.selected_page}")
+            st.session_state.force_navigation = True
             st.rerun()
     
     with col2:
@@ -2354,6 +2360,7 @@ def show_dashboard():
             st.write("DEBUG: View Reports button clicked")
             st.session_state.selected_page = "🏛️ Tax Compliance"
             st.write(f"DEBUG: Set selected_page to: {st.session_state.selected_page}")
+            st.session_state.force_navigation = True
             st.rerun()
     
     with col3:
@@ -2362,6 +2369,7 @@ def show_dashboard():
             st.write("DEBUG: Upgrade to Pro button clicked")
             st.session_state.selected_page = "🔑 Subscription"
             st.write(f"DEBUG: Set selected_page to: {st.session_state.selected_page}")
+            st.session_state.force_navigation = True
             st.rerun()
     
     st.write("DEBUG: Buttons section completed.")
