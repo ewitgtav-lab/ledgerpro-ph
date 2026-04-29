@@ -1032,7 +1032,7 @@ def show_cash_receipts_journal():
                 # Submit button
                 col1, col2, col3 = st.columns(3)
                 with col2:
-                    if st.button("💾 Save Cash Receipt", type="primary", use_container_width=False):
+                    if st.form_submit_button("💾 Save Cash Receipt", type="primary", use_container_width=False):
                         try:
                             # Initialize Supabase client
                             supabase = init_supabase()
