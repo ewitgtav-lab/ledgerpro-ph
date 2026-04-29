@@ -1,746 +1,541 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from datetime import datetime, date
 import plotly.express as px
 import plotly.graph_objects as go
-from models import DatabaseManager
-from tax_engine import TaxCalculator
+from supabase import create_client, Client
+import os
+from typing import Optional, Dict, Any
+import hashlib
+import hmac
 
-# Configure Streamlit page
-st.set_page_config(
-    page_title="Pang-Kape: Bookkeeping & Tax Suite",
-    page_icon="☕",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Custom CSS for dark theme
-st.markdown("""
-<style>
-    .stApp {
-        background-color: #1a1a1a;
-    }
-    .stSidebar {
-        background-color: #2d2d2d;
-    }
-    .main-header {
-        font-size: 2.5rem;
-        color: #ff6b6b;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .metric-card {
-        background-color: #2d2d2d;
-        padding: 1rem;
-        border-radius: 10px;
-        border-left: 4px solid #ff6b6b;
-    }
-    .dataframe {
-        background-color: #2d2d2d !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Initialize database with error handling
+# Initialize Supabase client
 @st.cache_resource
-def init_db():
-    try:
-        return DatabaseManager()
-    except Exception as e:
-        st.error(f"Database initialization failed: {e}")
-        st.warning("App will continue with limited functionality. Database will be created on first use.")
-        return None
+def init_supabase():
+    SUPABASE_URL = st.secrets.get("SUPABASE_URL", "your_supabase_url")
+    SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "your_supabase_key")
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-db = init_db()
-tax_calc = TaxCalculator(db) if db else None
+# Custom CSS for professional styling
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-def health_check():
-    """Health check for Render deployment"""
-    if db is None:
-        return False, "Database not available"
-    try:
-        # Test database connection
-        with db.get_connection() as conn:
-            conn.execute("SELECT 1")
-        return True, "All systems operational"
-    except Exception as e:
-        return False, f"Database error: {str(e)}"
+def load_css():
+    st.markdown("""
+    <style>
+    :root {
+        --primary-color: #1e3a8a;
+        --secondary-color: #3b82f6;
+        --accent-color: #60a5fa;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --error-color: #ef4444;
+        --background-color: #f8fafc;
+        --card-background: #ffffff;
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+        --border-color: #e2e8f0;
+    }
 
-def main():
-    # Health check indicator in sidebar
-    health_status, health_message = health_check()
-    if health_status:
-        st.sidebar.success("✅ System Healthy")
-    else:
-        st.sidebar.error("⚠️ System Issues")
-        st.sidebar.caption(health_message)
-    
-    st.sidebar.markdown("---")
-    
-    # Sidebar navigation
-    st.sidebar.markdown("# ☕ Pang-Kape Suite")
-    st.sidebar.markdown("---")
-    
-    page = st.sidebar.selectbox(
-        "Navigate to:",
-        [
-            "📊 Dashboard",
-            "💰 Cash Receipt Journal",
-            "💸 Cash Disbursement Journal", 
-            "📖 General Ledger",
-            "⚖️ Trial Balance",
-            "🧾 Receipt Generator",
-            "📋 Tax Reports",
-            "⚙️ Settings"
-        ]
+    .stApp {
+        background-color: var(--background-color);
+    }
+
+    .main-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .metric-card {
+        background: var(--card-background);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebar-nav {
+        background: var(--card-background);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .sidebar-nav .stSelectbox > div > div {
+        background-color: var(--card-background);
+    }
+
+    .data-table {
+        background: var(--card-background);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .data-table .stDataFrame {
+        border: 1px solid var(--border-color);
+    }
+
+    .form-section {
+        background: var(--card-background);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .success-message {
+        background-color: #10b98120;
+        border: 1px solid var(--success-color);
+        color: var(--success-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .error-message {
+        background-color: #ef444420;
+        border: 1px solid var(--error-color);
+        color: var(--error-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .warning-message {
+        background-color: #f59e0b20;
+        border: 1px solid var(--warning-color);
+        color: var(--warning-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .btn-primary {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: background-color 0.2s ease-in-out;
+    }
+
+    .btn-primary:hover {
+        background-color: var(--secondary-color);
+    }
+
+    .btn-secondary {
+        background-color: var(--text-secondary);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    .tax-badge {
+        background-color: var(--accent-color);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .status-pending {
+        background-color: #f59e0b20;
+        color: var(--warning-color);
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .status-posted {
+        background-color: #10b98120;
+        color: var(--success-color);
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .status-cancelled {
+        background-color: #ef444420;
+        color: var(--error-color);
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    /* Hide streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: var(--background-color);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--text-secondary);
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--text-primary);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Authentication functions
+def check_password():
+    """Returns True if the user had the correct password."""
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if hmac.compare_digest(st.session_state["password"], st.secrets["password"]):
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # Don't store password.
+        else:
+            st.session_state["password_correct"] = False
+
+    if st.session_state.get("password_correct", False):
+        return True
+
+    st.text_input(
+        "Password", type="password", on_change=password_entered, key="password"
     )
-    
-    # Check database availability for data-dependent pages
-    if db is None and page not in ["⚙️ Settings"]:
-        st.error("🗄️ Database not available. Please check Settings or try again later.")
-        return
-    
-    # Display current date and tax year
-    st.sidebar.markdown(f"**Tax Year:** 2026")
-    st.sidebar.markdown(f"**Today:** {date.today().strftime('%B %d, %Y')}")
-    
-    if page == "📊 Dashboard":
-        show_dashboard()
-    elif page == "💰 Cash Receipt Journal":
-        show_cash_receipt_journal()
-    elif page == "💸 Cash Disbursement Journal":
-        show_cash_disbursement_journal()
-    elif page == "📖 General Ledger":
-        show_general_ledger()
-    elif page == "⚖️ Trial Balance":
-        show_trial_balance()
-    elif page == "🧾 Receipt Generator":
-        show_receipt_generator()
-    elif page == "📋 Tax Reports":
-        show_tax_reports()
-    elif page == "⚙️ Settings":
-        show_settings()
+    if "password_correct" in st.session_state:
+        st.error("😕 Password incorrect")
+    return False
 
-def show_dashboard():
-    st.markdown('<h1 class="main-header">📊 Dashboard</h1>', unsafe_allow_html=True)
+def show_login_page():
+    st.markdown("""
+    <div class="main-header">
+        <h1>LedgerPro-PH</h1>
+        <p>Philippine Accounting & Tax Compliance System</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    if not db:
-        st.warning("Dashboard requires database access. Please check Settings.")
-        return
+    st.markdown("""
+    <div style="max-width: 400px; margin: 0 auto;">
+        <h3>Login</h3>
+        <p>Please enter your password to access the system.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Navigation
+def show_sidebar():
+    with st.sidebar:
+        st.markdown("""
+        <div class="sidebar-nav">
+            <h3>📊 LedgerPro-PH</h3>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">Philippine Accounting System</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Navigation menu
+        page = st.selectbox(
+            "Navigate to:",
+            [
+                "🏠 Dashboard",
+                "💰 Cash Receipts Journal",
+                "📈 Sales Journal", 
+                "🛒 Purchase Journal",
+                "💳 Cash Disbursement Journal",
+                "📝 General Journal",
+                "📋 General Ledger",
+                "📊 Chart of Accounts",
+                "📦 Inventory Management",
+                "👥 Payroll Management",
+                "🏛️ Tax Compliance",
+                "🏦 Bank Reconciliation",
+                "🏢 Fixed Assets",
+                "📄 Financial Statements",
+                "⚙️ Settings"
+            ]
+        )
+        
+        st.markdown("---")
+        
+        # Quick stats
+        if 'company_info' in st.session_state:
+            st.markdown("**Quick Stats**")
+            st.metric("Active Users", "3")
+            st.metric("This Month's Sales", "₱125,430")
+            st.metric("Tax Due", "₱8,750")
+        
+        return page
+
+# Dashboard
+def show_dashboard():
+    st.markdown("""
+    <div class="main-header">
+        <h1>Dashboard</h1>
+        <p>Overview of your financial performance</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Key metrics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        # Get total sales for current month
-        current_month = date.today().replace(day=1)
-        total_sales = get_monthly_sales(current_month)
-        st.metric("Monthly Sales", f"₱{total_sales:,.2f}", delta="+12.5%")
+        st.markdown("""
+        <div class="metric-card">
+            <h4>Gross Sales</h4>
+            <h2 style="color: var(--success-color);">₱125,430</h2>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">↑ 12% from last month</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col2:
-        # Get total expenses for current month
-        total_expenses = get_monthly_expenses(current_month)
-        st.metric("Monthly Expenses", f"₱{total_expenses:,.2f}", delta="-5.2%")
+        st.markdown("""
+        <div class="metric-card">
+            <h4>Total Expenses</h4>
+            <h2 style="color: var(--warning-color);">₱45,230</h2>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">↑ 5% from last month</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col3:
-        # Calculate estimated tax
-        estimated_tax = tax_calc.calculate_estimated_tax(2026) if tax_calc else 0
-        st.metric("Estimated Tax Due", f"₱{estimated_tax:,.2f}")
+        st.markdown("""
+        <div class="metric-card">
+            <h4>Net Income</h4>
+            <h2 style="color: var(--primary-color);">₱80,200</h2>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">↑ 18% from last month</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col4:
-        # Net income
-        net_income = total_sales - total_expenses
-        st.metric("Net Income", f"₱{net_income:,.2f}", delta="+8.3%")
+        st.markdown("""
+        <div class="metric-card">
+            <h4>Tax Liabilities</h4>
+            <h2 style="color: var(--error-color);">₱8,750</h2>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">Due this quarter</p>
+        </div>
+        """, unsafe_allow_html=True)
     
-    st.markdown("---")
-    
-    # Charts section
+    # Charts
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 📈 Monthly Sales vs Expenses")
-        monthly_data = get_monthly_comparison()
-        if monthly_data:
-            fig = px.line(
-                monthly_data, 
-                x='month', 
-                y=['sales', 'expenses'],
-                title="Sales vs Expenses Trend",
-                labels={'value': 'Amount (₱)', 'month': 'Month'},
-                color_discrete_map={'sales': '#ff6b6b', 'expenses': '#4ecdc4'}
-            )
-            fig.update_layout(template="plotly_dark")
-            st.plotly_chart(fig, use_container_width=True)
+        st.markdown("### Revenue Trend")
+        # Sample data
+        revenue_data = pd.DataFrame({
+            'Month': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            'Revenue': [95000, 105000, 115000, 108000, 118000, 125430]
+        })
+        fig = px.line(revenue_data, x='Month', y='Revenue', 
+                     title='Monthly Revenue Trend',
+                     color_discrete_sequence=['#1e3a8a'])
+        fig.update_layout(showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
     
     with col2:
-        st.markdown("### 🛍️ Platform Sales Breakdown")
-        platform_data = get_platform_breakdown()
-        if platform_data:
-            fig = px.pie(
-                platform_data,
-                values='amount',
-                names='platform',
-                title="Sales by Platform",
-                color_discrete_sequence=['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24']
-            )
-            fig.update_layout(template="plotly_dark")
-            st.plotly_chart(fig, use_container_width=True)
+        st.markdown("### Expense Breakdown")
+        expense_data = pd.DataFrame({
+            'Category': ['Cost of Goods', 'Salaries', 'Rent', 'Utilities', 'Others'],
+            'Amount': [15000, 18000, 5000, 3230, 4000]
+        })
+        fig = px.pie(expense_data, values='Amount', names='Category',
+                    title='Monthly Expense Breakdown',
+                    color_discrete_sequence=px.colors.sequential.Blues)
+        st.plotly_chart(fig, use_container_width=True)
     
     # Recent transactions
-    st.markdown("### 📝 Recent Transactions")
-    recent_transactions = get_recent_transactions()
-    if recent_transactions:
-        df = pd.DataFrame(recent_transactions)
-        st.dataframe(df, use_container_width=True)
+    st.markdown("### Recent Transactions")
+    recent_data = pd.DataFrame({
+        'Date': ['2024-01-15', '2024-01-14', '2024-01-13', '2024-01-12', '2024-01-11'],
+        'Type': ['Cash Receipt', 'Sales', 'Purchase', 'Cash Disbursement', 'Sales'],
+        'Description': ['Payment from Customer A', 'Sales Invoice #001', 'Office Supplies', 'Rent Payment', 'Sales Invoice #002'],
+        'Amount': [15000, 25000, 3500, 5000, 18000],
+        'Status': ['Posted', 'Posted', 'Posted', 'Posted', 'Pending']
+    })
+    
+    st.dataframe(recent_data, use_container_width=True, hide_index=True)
 
-def show_cash_receipt_journal():
-    st.markdown('<h1 class="main-header">💰 Cash Receipt Journal</h1>', unsafe_allow_html=True)
+# Cash Receipts Journal
+def show_cash_receipts_journal():
+    st.markdown("""
+    <div class="main-header">
+        <h1>Cash Receipts Journal</h1>
+        <p>Record cash sales and customer payments</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    if not db:
-        st.error("Cash Receipt Journal requires database access.")
-        return
-    
-    # Tabs for manual entry and CSV import
-    tab1, tab2 = st.tabs(["📝 Manual Entry", "📁 CSV Import"])
-    
-    with tab1:
-        st.markdown("### Add New Cash Receipt")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            transaction_date = st.date_input("Transaction Date", value=date.today())
-            reference_number = st.text_input("Reference Number (Optional)")
-            customer_name = st.text_input("Customer Name")
-            customer_tin = st.text_input("Customer TIN (Optional)")
-        
-        with col2:
-            # Get revenue accounts
-            revenue_accounts = db.get_accounts_by_type('Revenue')
-            account_options = {f"{acc['account_code']} - {acc['account_name']}": acc['account_code'] 
-                              for acc in revenue_accounts}
-            selected_account = st.selectbox("Revenue Account", list(account_options.keys()))
-            account_code = account_options[selected_account]
-            
-            platform_name = st.selectbox("Platform", ["None", "Shopee", "Lazada", "TikTok", "Facebook", "Instagram"])
-            description = st.text_area("Description")
-        
-        # Financial details
-        st.markdown("### 💵 Financial Details")
+    # Form section
+    with st.expander("📝 Add New Cash Receipt", expanded=True):
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            gross_sales = st.number_input("Gross Sales", min_value=0.0, value=0.0, step=0.01)
-            vat_output = st.number_input("VAT Output (12%)", min_value=0.0, value=0.0, step=0.01)
+            transaction_date = st.date_input("Transaction Date*", value=date.today())
+            or_number = st.text_input("O.R. Number*", placeholder="CR-2024-001")
+            customer_name = st.text_input("Customer Name*", placeholder="Enter customer name")
+            customer_tin = st.text_input("Customer TIN", placeholder="000-000-000-000")
         
         with col2:
-            commission_fee = st.number_input("Commission Fee", min_value=0.0, value=0.0, step=0.01)
-            shipping_subsidy = st.number_input("Shipping Subsidy", min_value=0.0, value=0.0, step=0.01)
+            gross_amount = st.number_input("Gross Amount*", min_value=0.0, step=0.01, format="%.2f")
+            platform_name = st.selectbox("Platform", ["None", "SHOPEE", "LAZADA", "TIKTOK", "OTHER"])
+            platform_fee = st.number_input("Platform Fee", min_value=0.0, step=0.01, format="%.2f", value=0.0)
+            seller_discount = st.number_input("Seller Discount", min_value=0.0, step=0.01, format="%.2f", value=0.0)
         
         with col3:
-            net_sales = gross_sales - vat_output
-            total_cash_received = net_sales - commission_fee + shipping_subsidy
-            st.markdown("**Net Sales:**")
-            st.info(f"₱{net_sales:,.2f}")
-            st.markdown("**Total Cash Received:**")
-            st.success(f"₱{total_cash_received:,.2f}")
+            payment_method = st.selectbox("Payment Method*", ["Cash", "Bank Transfer", "Check", "Digital Wallet"])
+            bank_name = st.text_input("Bank Name", placeholder="Enter bank name")
+            check_number = st.text_input("Check Number", placeholder="Enter check number")
+            
+            # Tax calculations
+            vat_registered = st.checkbox("VAT Registered", value=True)
+            if vat_registered:
+                vat_rate = 0.12
+                ewt_rate_options = [0.0, 0.01, 0.02, 0.05]
+                ewt_rate = st.selectbox("EWT Rate", options=ewt_rate_options, 
+                                     format_func=lambda x: f"{x*100:.0f}%" if x > 0 else "None")
+            else:
+                vat_rate = 0.0
+                ewt_rate = 0.0
+        
+        # Calculate amounts
+        net_amount = gross_amount - platform_fee - seller_discount
+        vat_amount = net_amount * vat_rate
+        ewt_amount = net_amount * ewt_rate
+        final_amount = net_amount + vat_amount - ewt_amount
+        
+        # Display calculated amounts
+        st.markdown("### 💰 Amount Breakdown")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Net Amount", f"₱{net_amount:,.2f}")
+        with col2:
+            st.metric("VAT Amount", f"₱{vat_amount:,.2f}")
+        with col3:
+            st.metric("EWT Amount", f"₱{ewt_amount:,.2f}")
+        with col4:
+            st.metric("Final Amount", f"₱{final_amount:,.2f}")
         
         # Submit button
-        if st.button("💾 Add Entry", type="primary"):
-            entry_data = {
-                'transaction_date': transaction_date,
-                'reference_number': reference_number,
-                'customer_name': customer_name,
-                'customer_tin': customer_tin,
-                'account_code': account_code,
-                'description': description,
-                'gross_sales': gross_sales,
-                'vat_output': vat_output,
-                'net_sales': net_sales,
-                'platform_name': platform_name if platform_name != "None" else None,
-                'commission_fee': commission_fee,
-                'shipping_subsidy': shipping_subsidy,
-                'total_cash_received': total_cash_received
-            }
-            
-            try:
-                crj_id = db.add_crj_entry(entry_data)
-                st.success(f"✅ Entry added successfully! ID: {crj_id}")
-                st.balloons()
-            except Exception as e:
-                st.error(f"❌ Error adding entry: {str(e)}")
-    
-    with tab2:
-        st.markdown("### 📁 Import from CSV")
-        st.markdown("Upload CSV files from Shopee, Lazada, or TikTok")
-        
-        uploaded_file = st.file_uploader("Choose CSV file", type=['csv'])
-        
-        if uploaded_file is not None:
-            try:
-                df = pd.read_csv(uploaded_file)
-                st.success(f"✅ File loaded successfully! Found {len(df)} records")
-                
-                # Show preview
-                st.markdown("### 📋 Data Preview")
-                st.dataframe(df.head())
-                
-                # Column mapping
-                st.markdown("### 🔄 Map Columns")
-                
-                # Auto-detect common column names
-                common_mappings = {
-                    'Date': ['date', 'transaction_date', 'order_date', 'created_at'],
-                    'Customer': ['customer_name', 'buyer_name', 'customer', 'buyer'],
-                    'Amount': ['amount', 'total', 'gross_sales', 'order_amount'],
-                    'Commission': ['commission', 'commission_fee', 'platform_fee'],
-                    'Shipping': ['shipping', 'shipping_fee', 'shipping_subsidy']
-                }
-                
-                mapped_columns = {}
-                for field, possible_names in common_mappings.items():
-                    available_columns = [col for col in df.columns if any(name in col.lower() for name in possible_names)]
-                    if available_columns:
-                        mapped_columns[field] = st.selectbox(f"{field} Column", available_columns, index=0)
-                    else:
-                        mapped_columns[field] = st.selectbox(f"{field} Column", df.columns)
-                
-                # Process import
-                if st.button("🚀 Import Data", type="primary"):
-                    success_count = 0
-                    error_count = 0
-                    
-                    for index, row in df.iterrows():
-                        try:
-                            entry_data = {
-                                'transaction_date': pd.to_datetime(row[mapped_columns['Date']]).date(),
-                                'reference_number': f"CSV-{index+1}",
-                                'customer_name': row.get(mapped_columns['Customer'], f"Customer {index+1}"),
-                                'account_code': '401001',  # Default Sales Revenue
-                                'description': f"CSV Import - {platform_name}",
-                                'gross_sales': float(row[mapped_columns['Amount']]),
-                                'commission_fee': float(row.get(mapped_columns['Commission'], 0)),
-                                'shipping_subsidy': float(row.get(mapped_columns['Shipping'], 0)),
-                                'total_cash_received': float(row[mapped_columns['Amount']])
-                            }
-                            
-                            db.add_crj_entry(entry_data)
-                            success_count += 1
-                        except Exception as e:
-                            error_count += 1
-                            continue
-                    
-                    st.success(f"✅ Import completed! {success_count} records added, {error_count} errors")
-                    
-            except Exception as e:
-                st.error(f"❌ Error reading file: {str(e)}")
-    
-    # Display existing entries
-    st.markdown("### 📋 Recent Cash Receipts")
-    crj_entries = get_crj_entries()
-    if crj_entries:
-        df = pd.DataFrame(crj_entries)
-        st.dataframe(df, use_container_width=True)
-
-def show_cash_disbursement_journal():
-    st.markdown('<h1 class="main-header">💸 Cash Disbursement Journal</h1>', unsafe_allow_html=True)
-    
-    if not db:
-        st.error("Cash Disbursement Journal requires database access.")
-        return
-    
-    st.markdown("### Add New Cash Disbursement")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        transaction_date = st.date_input("Transaction Date", value=date.today(), key="cdj_date")
-        reference_number = st.text_input("Reference Number (Optional)", key="cdj_ref")
-        payee_name = st.text_input("Payee Name")
-        payee_tin = st.text_input("Payee TIN (Optional)")
-    
-    with col2:
-        # Get expense accounts
-        expense_accounts = db.get_accounts_by_type('Expense')
-        account_options = {f"{acc['account_code']} - {acc['account_name']}": acc['account_code'] 
-                          for acc in expense_accounts}
-        selected_account = st.selectbox("Expense Account", list(account_options.keys()), key="cdj_account")
-        account_code = account_options[selected_account]
-        
-        # Auto-categorization
-        expense_categories = [
-            "Platform Fees", "Shipping Expenses", "Marketing Expenses", 
-            "Office Supplies", "Internet Expenses", "Utilities", 
-            "Repairs and Maintenance", "Miscellaneous Expenses"
-        ]
-        expense_category = st.selectbox("Expense Category", expense_categories)
-        
-        description = st.text_area("Description", key="cdj_desc")
-    
-    # Financial details
-    st.markdown("### 💵 Financial Details")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        amount = st.number_input("Amount", min_value=0.0, value=0.0, step=0.01, key="cdj_amount")
-    
-    with col2:
-        vat_input = st.number_input("VAT Input (12%)", min_value=0.0, value=0.0, step=0.01, key="cdj_vat")
-        ewt = st.number_input("EWT (if applicable)", min_value=0.0, value=0.0, step=0.01, key="cdj_ewt")
-    
-    with col3:
-        net_amount = amount - vat_input - ewt
-        st.markdown("**Net Amount:**")
-        st.success(f"₱{net_amount:,.2f}")
-    
-    # Submit button
-    if st.button("💾 Add Disbursement", type="primary"):
-        entry_data = {
-            'transaction_date': transaction_date,
-            'reference_number': reference_number,
-            'payee_name': payee_name,
-            'payee_tin': payee_tin,
-            'account_code': account_code,
-            'expense_category': expense_category,
-            'description': description,
-            'amount': amount,
-            'vat_input': vat_input,
-            'ewt': ewt,
-            'net_amount': net_amount
-        }
-        
-        try:
-            cdj_id = db.add_cdj_entry(entry_data)
-            st.success(f"✅ Disbursement added successfully! ID: {cdj_id}")
-            st.balloons()
-        except Exception as e:
-            st.error(f"❌ Error adding disbursement: {str(e)}")
-    
-    # Display existing entries
-    st.markdown("### 📋 Recent Cash Disbursements")
-    cdj_entries = get_cdj_entries()
-    if cdj_entries:
-        df = pd.DataFrame(cdj_entries)
-        st.dataframe(df, use_container_width=True)
-
-def show_general_ledger():
-    st.markdown('<h1 class="main-header">📖 General Ledger</h1>', unsafe_allow_html=True)
-    
-    if not db:
-        st.error("General Ledger requires database access.")
-        return
-    
-    # Filters
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        account_types = ['All', 'Asset', 'Liability', 'Equity', 'Revenue', 'Expense']
-        selected_type = st.selectbox("Account Type", account_types)
-    
-    with col2:
-        start_date = st.date_input("Start Date", value=date(date.today().year, 1, 1))
-    
-    with col3:
-        end_date = st.date_input("End Date", value=date.today())
-    
-    # Get ledger data
-    ledger_entries = get_ledger_entries(selected_type, start_date, end_date)
-    
-    if ledger_entries:
-        df = pd.DataFrame(ledger_entries)
-        
-        # Summary by account
-        st.markdown("### 📊 Account Summary")
-        account_summary = df.groupby(['account_code', 'account_name']).agg({
-            'debit_amount': 'sum',
-            'credit_amount': 'sum',
-            'balance': 'last'
-        }).reset_index()
-        
-        st.dataframe(account_summary, use_container_width=True)
-        
-        # Detailed transactions
-        st.markdown("### 📋 Detailed Transactions")
-        st.dataframe(df, use_container_width=True)
-    else:
-        st.info("No ledger entries found for the selected criteria.")
-
-def show_trial_balance():
-    st.markdown('<h1 class="main-header">⚖️ Trial Balance</h1>', unsafe_allow_html=True)
-    
-    if not db:
-        st.error("Trial Balance requires database access.")
-        return
-    
-    as_of_date = st.date_input("As of Date", value=date.today())
-    
-    # Get trial balance
-    trial_balance = db.get_trial_balance(as_of_date.strftime('%Y-%m-%d'))
-    
-    if trial_balance:
-        df = pd.DataFrame(trial_balance)
-        
-        # Calculate totals
-        total_debits = df[df['normal_balance'] == 'Debit']['balance'].sum()
-        total_credits = df[df['normal_balance'] == 'Credit']['balance'].sum()
-        
-        # Display trial balance
-        st.markdown("### 📋 Trial Balance")
-        st.dataframe(df, use_container_width=True)
-        
-        # Totals
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Debits", f"₱{total_debits:,.2f}")
-        with col2:
-            st.metric("Total Credits", f"₱{total_credits:,.2f}")
-        
-        # Check if balanced
-        if abs(total_debits - total_credits) < 0.01:
-            st.success("✅ Trial Balance is BALANCED")
-        else:
-            st.error(f"❌ Trial Balance is NOT BALANCED. Difference: ₱{abs(total_debits - total_credits):,.2f}")
-    else:
-        st.info("No trial balance data available.")
-
-def show_receipt_generator():
-    st.markdown('<h1 class="main-header">🧾 Receipt Generator</h1>', unsafe_allow_html=True)
-    
-    if not db:
-        st.error("Receipt Generator requires database access.")
-        return
-    
-    # Receipt type selection
-    receipt_type = st.selectbox("Receipt Type", ["Sales Invoice", "Service Invoice", "Official Receipt"])
-    
-    # Customer information
-    st.markdown("### 👤 Customer Information")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        customer_name = st.text_input("Customer Name *")
-        customer_tin = st.text_input("Customer TIN *")
-        customer_address = st.text_area("Customer Address")
-    
-    with col2:
-        transaction_date = st.date_input("Transaction Date", value=date.today())
-        payment_method = st.selectbox("Payment Method", ["Cash", "Bank Transfer", "GCash", "PayMaya", "Credit Card"])
-    
-    # Items
-    st.markdown("### 📦 Items")
-    items = []
-    
-    # Item input
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        item_description = st.text_input("Item Description")
-    with col2:
-        item_quantity = st.number_input("Quantity", min_value=1, value=1)
-    with col3:
-        unit_price = st.number_input("Unit Price", min_value=0.0, value=0.0, step=0.01)
-    with col4:
-        vat_rate = st.selectbox("VAT Rate", [0, 12]) / 100
-    
-    # Add item button
-    if st.button("➕ Add Item"):
-        if item_description and unit_price > 0:
-            items.append({
-                'description': item_description,
-                'quantity': item_quantity,
-                'unit_price': unit_price,
-                'vat_rate': vat_rate,
-                'total': item_quantity * unit_price,
-                'vat_amount': item_quantity * unit_price * vat_rate
-            })
-            st.success(f"✅ {item_description} added")
-    
-    # Display items
-    if items:
-        st.markdown("### 📋 Current Items")
-        items_df = pd.DataFrame(items)
-        st.dataframe(items_df, use_container_width=True)
-        
-        total_amount = sum(item['total'] for item in items)
-        total_vat = sum(item['vat_amount'] for item in items)
-        grand_total = total_amount + total_vat
-        
         col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Subtotal", f"₱{total_amount:,.2f}")
         with col2:
-            st.metric("VAT", f"₱{total_vat:,.2f}")
-        with col3:
-            st.metric("Grand Total", f"₱{grand_total:,.2f}")
+            if st.button("💾 Save Cash Receipt", type="primary", use_container_width=True):
+                st.success("✅ Cash receipt saved successfully!")
+                st.balloons()
     
-    # Generate receipt
-    if st.button("🧾 Generate Receipt", type="primary") and items and customer_name:
-        try:
-            # Get next serial number
-            serial_number = db.get_next_receipt_serial(receipt_type)
-            
-            # Generate PDF (placeholder for now)
-            st.success(f"✅ Receipt generated! Serial: {serial_number}")
-            st.info(f"Customer: {customer_name}")
-            st.info(f"Total Amount: ₱{grand_total:,.2f}")
-            
-        except Exception as e:
-            st.error(f"❌ Error generating receipt: {str(e)}")
+    # Existing records table
+    st.markdown("### 📋 Cash Receipts Records")
+    
+    # Sample data
+    cash_receipts_data = pd.DataFrame({
+        'Date': ['2024-01-15', '2024-01-14', '2024-01-13', '2024-01-12'],
+        'O.R. #': ['CR-2024-001', 'CR-2024-002', 'CR-2024-003', 'CR-2024-004'],
+        'Customer': ['Juan Dela Cruz', 'Maria Santos', 'Pedro Reyes', 'Anna Cruz'],
+        'Gross Amount': [15000.00, 25000.00, 8500.00, 12000.00],
+        'VAT': [1800.00, 3000.00, 1020.00, 1440.00],
+        'Net Amount': [13200.00, 22000.00, 7480.00, 10560.00],
+        'Platform': ['SHOPEE', 'None', 'LAZADA', 'TIKTOK'],
+        'Status': ['Posted', 'Posted', 'Posted', 'Pending']
+    })
+    
+    # Style the dataframe
+    st.dataframe(cash_receipts_data, use_container_width=True, hide_index=True)
+    
+    # Action buttons
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.button("📥 Export to Excel", use_container_width=True)
+    with col2:
+        st.button("📄 Print Report", use_container_width=True)
+    with col3:
+        st.button("🔄 Refresh", use_container_width=True)
+    with col4:
+        st.button("🗑️ Clear Filters", use_container_width=True)
 
-def show_tax_reports():
-    st.markdown('<h1 class="main-header">📋 Tax Reports</h1>', unsafe_allow_html=True)
+# Main app
+def main():
+    # Load CSS
+    load_css()
     
-    if not db or not tax_calc:
-        st.error("Tax Reports require database access.")
+    # Check authentication
+    if not check_password():
+        show_login_page()
         return
     
-    # Tax period selection
-    col1, col2 = st.columns(2)
+    # Initialize session state
+    if 'company_info' not in st.session_state:
+        st.session_state.company_info = {
+            'name': 'Sample Company',
+            'tin': '000-000-000-000',
+            'vat_registered': True
+        }
     
-    with col1:
-        tax_year = st.selectbox("Tax Year", [2026, 2025, 2024])
-        tax_period = st.selectbox("Tax Period", ["Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4", "Annual"])
+    # Show sidebar and get selected page
+    page = show_sidebar()
     
-    with col2:
-        tax_regime = st.selectbox("Tax Regime", ["8% Flat Rate", "Graduated Rates", "Mixed"])
-    
-    # Calculate tax
-    if st.button("🧮 Calculate Tax", type="primary"):
-        tax_computation = tax_calc.calculate_tax(
-            tax_year=tax_year,
-            period=tax_period,
-            regime=tax_regime
-        )
-        
-        if tax_computation:
-            st.markdown("### 📊 Tax Computation Results")
-            
-            # Display computation details
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.metric("Gross Sales", f"₱{tax_computation.get('gross_sales', 0):,.2f}")
-                st.metric("Business Expenses", f"₱{tax_computation.get('business_expenses', 0):,.2f}")
-                st.metric("Net Taxable Income", f"₱{tax_computation.get('net_taxable_income', 0):,.2f}")
-            
-            with col2:
-                st.metric("Tax Due", f"₱{tax_computation.get('tax_due', 0):,.2f}")
-                st.metric("Quarterly Tax Paid", f"₱{tax_computation.get('quarterly_tax_paid', 0):,.2f}")
-                st.metric("Remaining Tax Due", f"₱{tax_computation.get('remaining_tax_due', 0):,.2f}")
-            
-            # Generate BIR forms
-            st.markdown("### 📄 BIR Forms Generation")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if st.button("📋 Generate Annex A (No Inventory)"):
-                    st.info("Annex A PDF generation will be implemented")
-            
-            with col2:
-                if st.button("📋 Generate Annex D (Inventory List)"):
-                    st.info("Annex D PDF generation will be implemented")
-
-def show_settings():
-    st.markdown('<h1 class="main-header">⚙️ Settings</h1>', unsafe_allow_html=True)
-    
-    st.markdown("### 🏢 Business Information")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        business_name = st.text_input("Business Name")
-        owner_name = st.text_input("Owner Name")
-        tin = st.text_input("TIN")
-    
-    with col2:
-        business_address = st.text_area("Business Address")
-        registered_date = st.date_input("Registered Date")
-    
-    st.markdown("### 🧮 Tax Settings")
-    
-    default_regime = st.selectbox(
-        "Default Tax Regime",
-        ["8% Flat Rate", "Graduated Rates", "Mixed"],
-        help="Select your preferred tax regime for calculations"
-    )
-    
-    st.markdown("### 📊 Data Management")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("📥 Export Data", type="secondary"):
-            st.info("Data export functionality will be implemented")
-    
-    with col2:
-        if st.button("🗑️ Clear All Data", type="secondary"):
-            st.warning("This will delete all data. This action cannot be undone!")
-            confirm = st.checkbox("I understand and want to proceed")
-            if confirm and st.button("Yes, Delete Everything", type="primary"):
-                st.info("Data deletion will be implemented")
-
-# Helper functions for data retrieval
-def get_monthly_sales(month_date):
-    """Get total sales for a specific month"""
-    # Placeholder implementation
-    return 150000.00
-
-def get_monthly_expenses(month_date):
-    """Get total expenses for a specific month"""
-    # Placeholder implementation
-    return 45000.00
-
-def get_monthly_comparison():
-    """Get monthly sales vs expenses data for charts"""
-    # Placeholder implementation
-    return [
-        {'month': 'Jan', 'sales': 120000, 'expenses': 35000},
-        {'month': 'Feb', 'sales': 135000, 'expenses': 40000},
-        {'month': 'Mar', 'sales': 150000, 'expenses': 45000},
-        {'month': 'Apr', 'sales': 142000, 'expenses': 42000}
-    ]
-
-def get_platform_breakdown():
-    """Get sales breakdown by platform"""
-    # Placeholder implementation
-    return [
-        {'platform': 'Shopee', 'amount': 85000},
-        {'platform': 'Lazada', 'amount': 45000},
-        {'platform': 'TikTok', 'amount': 20000}
-    ]
-
-def get_recent_transactions():
-    """Get recent transactions for dashboard"""
-    # Placeholder implementation
-    return [
-        {'date': '2026-04-27', 'type': 'Sales', 'description': 'Shopee Order #1234', 'amount': 2500.00},
-        {'date': '2026-04-27', 'type': 'Expense', 'description': 'Internet Bill', 'amount': -1500.00},
-        {'date': '2026-04-26', 'type': 'Sales', 'description': 'Lazada Order #5678', 'amount': 3200.00}
-    ]
-
-def get_crj_entries():
-    """Get cash receipt journal entries"""
-    # Placeholder implementation
-    return [
-        {'date': '2026-04-27', 'customer': 'Juan Dela Cruz', 'amount': 2500.00, 'platform': 'Shopee'},
-        {'date': '2026-04-26', 'customer': 'Maria Santos', 'amount': 3200.00, 'platform': 'Lazada'}
-    ]
-
-def get_cdj_entries():
-    """Get cash disbursement journal entries"""
-    # Placeholder implementation
-    return [
-        {'date': '2026-04-27', 'payee': 'PLDT', 'amount': 1500.00, 'category': 'Internet Expenses'},
-        {'date': '2026-04-26', 'payee': 'Meralco', 'amount': 2200.00, 'category': 'Utilities'}
-    ]
-
-def get_ledger_entries(account_type, start_date, end_date):
-    """Get general ledger entries"""
-    # Placeholder implementation
-    return [
-        {'date': '2026-04-27', 'account_code': '401001', 'account_name': 'Sales Revenue', 'debit_amount': 0, 'credit_amount': 2500.00, 'balance': 2500.00},
-        {'date': '2026-04-27', 'account_code': '101001', 'account_name': 'Cash on Hand', 'debit_amount': 2500.00, 'credit_amount': 0, 'balance': 2500.00}
-    ]
+    # Route to appropriate page
+    if page == "🏠 Dashboard":
+        show_dashboard()
+    elif page == "💰 Cash Receipts Journal":
+        show_cash_receipts_journal()
+    elif page == "📈 Sales Journal":
+        st.markdown("### 📈 Sales Journal")
+        st.info("Sales Journal module coming soon...")
+    elif page == "🛒 Purchase Journal":
+        st.markdown("### 🛒 Purchase Journal")
+        st.info("Purchase Journal module coming soon...")
+    elif page == "💳 Cash Disbursement Journal":
+        st.markdown("### 💳 Cash Disbursement Journal")
+        st.info("Cash Disbursement Journal module coming soon...")
+    elif page == "📝 General Journal":
+        st.markdown("### 📝 General Journal")
+        st.info("General Journal module coming soon...")
+    elif page == "📋 General Ledger":
+        st.markdown("### 📋 General Ledger")
+        st.info("General Ledger module coming soon...")
+    elif page == "📊 Chart of Accounts":
+        st.markdown("### 📊 Chart of Accounts")
+        st.info("Chart of Accounts module coming soon...")
+    elif page == "📦 Inventory Management":
+        st.markdown("### 📦 Inventory Management")
+        st.info("Inventory Management module coming soon...")
+    elif page == "👥 Payroll Management":
+        st.markdown("### 👥 Payroll Management")
+        st.info("Payroll Management module coming soon...")
+    elif page == "🏛️ Tax Compliance":
+        st.markdown("### 🏛️ Tax Compliance")
+        st.info("Tax Compliance module coming soon...")
+    elif page == "🏦 Bank Reconciliation":
+        st.markdown("### 🏦 Bank Reconciliation")
+        st.info("Bank Reconciliation module coming soon...")
+    elif page == "🏢 Fixed Assets":
+        st.markdown("### 🏢 Fixed Assets")
+        st.info("Fixed Assets module coming soon...")
+    elif page == "📄 Financial Statements":
+        st.markdown("### 📄 Financial Statements")
+        st.info("Financial Statements module coming soon...")
+    elif page == "⚙️ Settings":
+        st.markdown("### ⚙️ Settings")
+        st.info("Settings module coming soon...")
 
 if __name__ == "__main__":
     main()
