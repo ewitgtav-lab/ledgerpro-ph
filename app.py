@@ -2550,6 +2550,75 @@ def create_database_schema():
     except Exception as e:
         return False
 
+# Sales Journal (placeholder - to be implemented)
+def show_sales_journal():
+    st.markdown("""
+    <div class="main-header">
+        <h1>📈 Sales Journal</h1>
+        <p>Record sales transactions and accounts receivable</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    st.info("📝 Sales Journal module is coming soon!")
+    st.write("This module will include:")
+    st.write("- Customer sales recording")
+    st.write("- Accounts receivable management")
+    st.write("- Invoice tracking")
+    st.write("- Sales reporting")
+
+# Purchase Journal (placeholder - to be implemented)
+def show_purchase_journal():
+    st.markdown("""
+    <div class="main-header">
+        <h1>🛒 Purchase Journal</h1>
+        <p>Record purchase transactions and accounts payable</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    st.info("📝 Purchase Journal module is coming soon!")
+    st.write("This module will include:")
+    st.write("- Supplier purchase recording")
+    st.write("- Accounts payable management")
+    st.write("- Purchase order tracking")
+    st.write("- Purchase reporting")
+
+# Chart of Accounts (placeholder - to be implemented)
+def show_chart_of_accounts():
+    st.markdown("""
+    <div class="main-header">
+        <h1>📊 Chart of Accounts</h1>
+        <p>Philippine Chart of Accounts management</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    st.info("📝 Chart of Accounts module is coming soon!")
+    st.write("This module will include:")
+    st.write("- Philippine standard COA")
+    st.write("- Account management")
+    st.write("- Account classification")
+    st.write("- Financial reporting structure")
+
 # Main app
 def main():
     # Load CSS
@@ -2582,10 +2651,8 @@ def main():
     elif page == "💰 Cash Receipts Journal":
         show_cash_receipts_journal()
     elif page == "📈 Sales Journal":
-        from pages.sales_journal import show_sales_journal
         show_sales_journal()
     elif page == "🛒 Purchase Journal":
-        from pages.purchase_journal import show_purchase_journal
         show_purchase_journal()
     elif page == "💳 Cash Disbursement Journal":
         show_cash_disbursement_journal()
@@ -2594,7 +2661,6 @@ def main():
     elif page == "📋 General Ledger":
         show_general_ledger()
     elif page == "📊 Chart of Accounts":
-        from pages.chart_of_accounts import show_chart_of_accounts
         show_chart_of_accounts()
     elif page == "🏛️ Tax Compliance":
         show_tax_compliance()
