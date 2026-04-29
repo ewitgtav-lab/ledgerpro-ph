@@ -253,22 +253,22 @@ def show_sales_records():
                 return ''
             
             styled_df = display_df.style.map(style_status, subset=['status'])
-            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+            st.dataframe(styled_df, width="100%", hide_index=True)
             
             # Action buttons
             st.markdown("### 🔧 Actions")
             col1, col2, col3, col4, col5 = st.columns(5)
             
             with col1:
-                st.button("📥 Export to Excel", use_container_width=True)
+                st.button("📥 Export to Excel", use_container_width=False)
             with col2:
-                st.button("📄 Print Report", use_container_width=True)
+                st.button("📄 Print Report", use_container_width=False)
             with col3:
-                st.button("📧 Send Email", use_container_width=True)
+                st.button("📧 Send Email", use_container_width=False)
             with col4:
-                st.button("🔄 Refresh", use_container_width=True)
+                st.button("🔄 Refresh", use_container_width=False)
             with col5:
-                st.button("🗑️ Clear Filters", use_container_width=True)
+                st.button("🗑️ Clear Filters", use_container_width=False)
         else:
             st.info("📝 No sales records found. Create your first sales entry!")
     else:
@@ -339,7 +339,7 @@ def show_sales_summary_report():
                      labels={'final_amount': 'Sales Amount (₱)', 'month': 'Month'},
                      color_discrete_sequence=['#3b82f6'])
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="100%")
         
         # Top customers
         customer_sales = df.groupby('customer_name')['final_amount'].sum().sort_values(ascending=False).head(10)
@@ -350,7 +350,7 @@ def show_sales_summary_report():
                     color_discrete_sequence=['#3b82f6'])
         fig.update_xaxis(tickangle=45)
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="100%")
 
 def show_customer_aging_report():
     st.markdown("#### 👥 Customer Aging Report")
@@ -395,10 +395,10 @@ def show_customer_aging_report():
                     title='Aging Breakdown',
                     color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="100%")
         
         # Detailed aging table
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width="100%", hide_index=True)
 
 def show_platform_analysis_report():
     st.markdown("#### 📱 Platform Analysis Report")
@@ -417,7 +417,7 @@ def show_platform_analysis_report():
                 labels={'final_amount': 'Sales Amount (₱)', 'platform_name': 'Platform'},
                 color_discrete_sequence=['#3b82f6'])
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="100%")
     
     # Platform fees analysis
     platform_fees = df.groupby('platform_name')['platform_fee'].sum().reset_index()
@@ -426,7 +426,7 @@ def show_platform_analysis_report():
                 title='Platform Fees Distribution',
                 color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="100%")
 
 def show_tax_summary_report():
     st.markdown("#### 🏛️ Tax Summary Report")
@@ -465,7 +465,7 @@ def show_tax_summary_report():
                 labels={'value': 'Amount (₱)', 'month': 'Month', 'variable': 'Tax Type'},
                 color_discrete_map={'vat_amount': '#3b82f6', 'ewt_amount': '#60a5fa'})
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="100%")
 
 def show_sales_settings():
     st.markdown("### ⚙️ Sales Journal Settings")

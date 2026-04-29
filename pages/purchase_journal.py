@@ -262,22 +262,22 @@ def show_purchase_records():
                 return ''
             
             styled_df = display_df.style.map(style_status, subset=['status'])
-            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+            st.dataframe(styled_df, width="100%", hide_index=True)
             
             # Action buttons
             st.markdown("### 🔧 Actions")
             col1, col2, col3, col4, col5 = st.columns(5)
             
             with col1:
-                st.button("📥 Export to Excel", use_container_width=True)
+                st.button("📥 Export to Excel", use_container_width=False)
             with col2:
-                st.button("📄 Print Report", use_container_width=True)
+                st.button("📄 Print Report", use_container_width=False)
             with col3:
-                st.button("📧 Send Email", use_container_width=True)
+                st.button("📧 Send Email", use_container_width=False)
             with col4:
-                st.button("🔄 Refresh", use_container_width=True)
+                st.button("🔄 Refresh", use_container_width=False)
             with col5:
-                st.button("🗑️ Clear Filters", use_container_width=True)
+                st.button("🗑️ Clear Filters", use_container_width=False)
         else:
             st.info("📝 No purchase records found. Create your first purchase entry!")
     else:
@@ -348,7 +348,7 @@ def show_purchase_summary_report():
                      labels={'final_amount': 'Purchase Amount (₱)', 'month': 'Month'},
                      color_discrete_sequence=['#3b82f6'])
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="100%")
         
         # Top suppliers
         supplier_purchases = df.groupby('supplier_name')['final_amount'].sum().sort_values(ascending=False).head(10)
@@ -359,7 +359,7 @@ def show_purchase_summary_report():
                     color_discrete_sequence=['#3b82f6'])
         fig.update_xaxis(tickangle=45)
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="100%")
 
 def show_supplier_aging_report():
     st.markdown("#### 🏢 Supplier Aging Report")
@@ -403,10 +403,10 @@ def show_supplier_aging_report():
                     title='Payables Aging Breakdown',
                     color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
         fig = apply_dark_theme(fig)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="100%")
         
         # Detailed aging table
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width="100%", hide_index=True)
 
 def show_category_analysis_report():
     st.markdown("#### 📂 Purchase Category Analysis")
@@ -426,7 +426,7 @@ def show_category_analysis_report():
                 color_discrete_sequence=['#3b82f6'])
     fig.update_xaxis(tickangle=45)
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="100%")
     
     # Purchase type breakdown
     type_purchases = df.groupby('purchase_type')['final_amount'].sum().reset_index()
@@ -435,7 +435,7 @@ def show_category_analysis_report():
                 title='Purchases by Type',
                 color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="100%")
 
 def show_purchase_tax_summary_report():
     st.markdown("#### 🏛️ Purchase Tax Summary Report")
@@ -474,7 +474,7 @@ def show_purchase_tax_summary_report():
                 labels={'value': 'Amount (₱)', 'month': 'Month', 'variable': 'Tax Type'},
                 color_discrete_map={'vat_amount': '#3b82f6', 'ewt_amount': '#60a5fa'})
     fig = apply_dark_theme(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="100%")
 
 def show_purchase_settings():
     st.markdown("### ⚙️ Purchase Journal Settings")

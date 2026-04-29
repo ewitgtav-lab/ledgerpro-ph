@@ -513,7 +513,7 @@ def show_dashboard():
             xaxis=dict(gridcolor='#334155'),
             yaxis=dict(gridcolor='#334155')
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="100%")
     
     with col2:
         st.markdown("### Expense Breakdown")
@@ -531,7 +531,7 @@ def show_dashboard():
             title_font_color='#f1f5f9',
             legend_font_color='#f1f5f9'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="100%")
     
     # Recent transactions
     st.markdown("### Recent Transactions")
@@ -543,7 +543,7 @@ def show_dashboard():
         'Status': ['Posted', 'Posted', 'Posted', 'Posted', 'Pending']
     })
     
-    st.dataframe(recent_data, use_container_width=True, hide_index=True)
+    st.dataframe(recent_data, width="100%", hide_index=True)
 
 # Cash Receipts Journal
 def show_cash_receipts_journal():
@@ -608,7 +608,7 @@ def show_cash_receipts_journal():
         # Submit button
         col1, col2, col3 = st.columns(3)
         with col2:
-            if st.button("💾 Save Cash Receipt", type="primary", use_container_width=True):
+            if st.button("💾 Save Cash Receipt", type="primary", use_container_width=False):
                 st.success("✅ Cash receipt saved successfully!")
                 st.balloons()
     
@@ -628,18 +628,18 @@ def show_cash_receipts_journal():
     })
     
     # Style the dataframe
-    st.dataframe(cash_receipts_data, use_container_width=True, hide_index=True)
+    st.dataframe(cash_receipts_data, width="100%", hide_index=True)
     
     # Action buttons
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.button("📥 Export to Excel", use_container_width=True)
+        st.button("📥 Export to Excel", use_container_width=False)
     with col2:
-        st.button("📄 Print Report", use_container_width=True)
+        st.button("📄 Print Report", use_container_width=False)
     with col3:
-        st.button("🔄 Refresh", use_container_width=True)
+        st.button("🔄 Refresh", use_container_width=False)
     with col4:
-        st.button("🗑️ Clear Filters", use_container_width=True)
+        st.button("🗑️ Clear Filters", use_container_width=False)
 
 # Main app
 def main():
