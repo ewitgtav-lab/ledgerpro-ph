@@ -128,7 +128,18 @@ def show_auth_page():
                         else:
                             st.error("❌ Account creation failed")
                     except Exception as e:
-                        st.error("❌ Sign up failed. Email might already be registered.")
+                        error_msg = str(e).lower()
+                        if "already registered" in error_msg or "user_already_exists" in error_msg:
+                            st.error("❌ This email is already registered. Try signing in instead.")
+                        elif "weak_password" in error_msg:
+                            st.error("❌ Password is too weak. Use at least 6 characters.")
+                        elif "invalid_email" in error_msg:
+                            st.error("❌ Invalid email format.")
+                        elif "database" in error_msg or "connection" in error_msg:
+                            st.error("❌ Database connection error. Please try again.")
+                        else:
+                            st.error(f"❌ Signup failed: {str(e)}")
+                            st.info("💡 Try checking if the email is already registered or use a different email.")
                 else:
                     st.error("Please fill in all fields")
 
