@@ -978,8 +978,20 @@ def show_dashboard():
             st.info("No transactions yet. Start by adding your first transaction!")
             
     except Exception as e:
-        st.error("Error loading dashboard data")
+        st.error(f"Error loading dashboard data: {str(e)}")
         st.info("Please try refreshing the page")
+        
+        # Additional debug info
+        import traceback
+        st.error("Full error details:")
+        st.code(traceback.format_exc())
+        
+        # Try to get basic user info
+        try:
+            user = get_current_user()
+            st.write("Current user:", user.id if user else "No user")
+        except:
+            st.write("Could not get user info")
     
     # Quick actions
     st.markdown("---")
