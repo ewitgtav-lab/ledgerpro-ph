@@ -26,17 +26,17 @@ def load_css():
     st.markdown("""
     <style>
     :root {
-        --primary-color: #1e3a8a;
-        --secondary-color: #3b82f6;
-        --accent-color: #60a5fa;
+        --primary-color: #3b82f6;
+        --secondary-color: #60a5fa;
+        --accent-color: #93c5fd;
         --success-color: #10b981;
         --warning-color: #f59e0b;
         --error-color: #ef4444;
-        --background-color: #f8fafc;
-        --card-background: #ffffff;
-        --text-primary: #1e293b;
-        --text-secondary: #64748b;
-        --border-color: #e2e8f0;
+        --background-color: #0f172a;
+        --card-background: #1e293b;
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --border-color: #334155;
     }
 
     .stApp {
@@ -203,6 +203,160 @@ def load_css():
     ::-webkit-scrollbar-thumb:hover {
         background: var(--text-primary);
     }
+
+    /* Dark mode for Streamlit components */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stSelectbox > div > div > select,
+    .stDateInput > div > div > input,
+    .stTextArea > div > div > textarea {
+        background-color: var(--card-background) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--border-color) !important;
+    }
+
+    .stButton > button {
+        background-color: var(--primary-color) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: background-color 0.2s ease-in-out !important;
+    }
+
+    .stButton > button:hover {
+        background-color: var(--secondary-color) !important;
+    }
+
+    .stDataFrame {
+        background-color: var(--card-background) !important;
+        color: var(--text-primary) !important;
+    }
+
+    .stDataTable {
+        background-color: var(--card-background) !important;
+    }
+
+    .stTable {
+        background-color: var(--card-background) !important;
+        color: var(--text-primary) !important;
+    }
+
+    .stMetric {
+        background-color: var(--card-background) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+        padding: 1rem !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: var(--card-background) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        color: var(--text-secondary) !important;
+        background-color: transparent !important;
+        border-radius: 6px !important;
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: var(--text-primary) !important;
+        background-color: var(--primary-color) !important;
+    }
+
+    .stExpander {
+        background-color: var(--card-background) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+    }
+
+    .stAlert {
+        background-color: var(--card-background) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+    }
+
+    .stSidebar {
+        background-color: var(--card-background) !important;
+        border-right: 1px solid var(--border-color) !important;
+    }
+
+    .stSelectbox > div > div {
+        background-color: var(--card-background) !important;
+        color: var(--text-primary) !important;
+    }
+
+    .stMultiSelect > div > div {
+        background-color: var(--card-background) !important;
+        color: var(--text-primary) !important;
+    }
+
+    .stCheckbox > div > label {
+        color: var(--text-primary) !important;
+    }
+
+    .stRadio > div > label {
+        color: var(--text-primary) !important;
+    }
+
+    .stSlider > div > div > div {
+        background-color: var(--primary-color) !important;
+    }
+
+    .stProgress > div > div > div > div {
+        background-color: var(--primary-color) !important;
+    }
+
+    /* Plotly dark mode */
+    .js-plotly-plot .plotly .modebar {
+        background-color: var(--card-background) !important;
+        border: 1px solid var(--border-color) !important;
+    }
+
+    .js-plotly-plot .plotly .modebar-btn {
+        background-color: var(--card-background) !important;
+        color: var(--text-primary) !important;
+    }
+
+    /* Form sections */
+    .form-section {
+        background: var(--card-background);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Success, error, warning messages */
+    .success-message {
+        background-color: rgba(16, 185, 129, 0.1);
+        border: 1px solid var(--success-color);
+        color: var(--success-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .error-message {
+        background-color: rgba(239, 68, 68, 0.1);
+        border: 1px solid var(--error-color);
+        color: var(--error-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .warning-message {
+        background-color: rgba(245, 158, 11, 0.1);
+        border: 1px solid var(--warning-color);
+        color: var(--warning-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -348,8 +502,17 @@ def show_dashboard():
         })
         fig = px.line(revenue_data, x='Month', y='Revenue', 
                      title='Monthly Revenue Trend',
-                     color_discrete_sequence=['#1e3a8a'])
-        fig.update_layout(showlegend=False)
+                     color_discrete_sequence=['#3b82f6'])
+        fig.update_layout(
+            showlegend=False,
+            template='plotly_dark',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font_color='#f1f5f9',
+            title_font_color='#f1f5f9',
+            xaxis=dict(gridcolor='#334155'),
+            yaxis=dict(gridcolor='#334155')
+        )
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
@@ -360,7 +523,14 @@ def show_dashboard():
         })
         fig = px.pie(expense_data, values='Amount', names='Category',
                     title='Monthly Expense Breakdown',
-                    color_discrete_sequence=px.colors.sequential.Blues)
+                    color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
+        fig.update_layout(
+            template='plotly_dark',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='#f1f5f9',
+            title_font_color='#f1f5f9',
+            legend_font_color='#f1f5f9'
+        )
         st.plotly_chart(fig, use_container_width=True)
     
     # Recent transactions

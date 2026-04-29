@@ -6,6 +6,20 @@ import plotly.express as px
 from supabase import create_client
 import json
 
+# Dark mode chart helper
+def apply_dark_theme(fig):
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font_color='#f1f5f9',
+        title_font_color='#f1f5f9',
+        legend_font_color='#f1f5f9',
+        xaxis=dict(gridcolor='#334155'),
+        yaxis=dict(gridcolor='#334155')
+    )
+    return fig
+
 # Initialize Supabase
 @st.cache_resource
 def init_supabase():
@@ -322,7 +336,9 @@ def show_sales_summary_report():
         
         fig = px.line(monthly_sales, x='month', y='final_amount', 
                      title='Monthly Sales Trend',
-                     labels={'final_amount': 'Sales Amount (₱)', 'month': 'Month'})
+                     labels={'final_amount': 'Sales Amount (₱)', 'month': 'Month'},
+                     color_discrete_sequence=['#3b82f6'])
+        fig = apply_dark_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
         
         # Top customers
@@ -330,8 +346,10 @@ def show_sales_summary_report():
         
         fig = px.bar(x=customer_sales.index, y=customer_sales.values,
                     title='Top 10 Customers by Sales',
-                    labels={'x': 'Customer', 'y': 'Sales Amount (₱)'})
+                    labels={'x': 'Customer', 'y': 'Sales Amount (₱)'},
+                    color_discrete_sequence=['#3b82f6'])
         fig.update_xaxis(tickangle=45)
+        fig = apply_dark_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
 
 def show_customer_aging_report():
@@ -374,7 +392,9 @@ def show_customer_aging_report():
         aging_summary = aging_summary.reindex([0, 1, 2, 3, 4])  # Reorder buckets
         
         fig = px.pie(aging_summary, values='amount', names='bucket',
-                    title='Aging Breakdown')
+                    title='Aging Breakdown',
+                    color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
+        fig = apply_dark_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
         
         # Detailed aging table
@@ -394,14 +414,18 @@ def show_platform_analysis_report():
     
     fig = px.bar(platform_sales, x='platform_name', y='final_amount',
                 title='Sales by Platform',
-                labels={'final_amount': 'Sales Amount (₱)', 'platform_name': 'Platform'})
+                labels={'final_amount': 'Sales Amount (₱)', 'platform_name': 'Platform'},
+                color_discrete_sequence=['#3b82f6'])
+    fig = apply_dark_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
     
     # Platform fees analysis
     platform_fees = df.groupby('platform_name')['platform_fee'].sum().reset_index()
     
     fig = px.pie(platform_fees, values='platform_fee', names='platform_name',
-                title='Platform Fees Distribution')
+                title='Platform Fees Distribution',
+                color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
+    fig = apply_dark_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
 
 def show_tax_summary_report():
@@ -438,7 +462,9 @@ def show_tax_summary_report():
     
     fig = px.bar(monthly_tax, x='month', y=['vat_amount', 'ewt_amount'],
                 title='Monthly Tax Collections',
-                labels={'value': 'Amount (₱)', 'month': 'Month', 'variable': 'Tax Type'})
+                labels={'value': 'Amount (₱)', 'month': 'Month', 'variable': 'Tax Type'},
+                color_discrete_map={'vat_amount': '#3b82f6', 'ewt_amount': '#60a5fa'})
+    fig = apply_dark_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
 
 def show_sales_settings():

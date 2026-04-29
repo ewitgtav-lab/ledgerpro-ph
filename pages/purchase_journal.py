@@ -6,6 +6,20 @@ import plotly.express as px
 from supabase import create_client
 import json
 
+# Dark mode chart helper
+def apply_dark_theme(fig):
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font_color='#f1f5f9',
+        title_font_color='#f1f5f9',
+        legend_font_color='#f1f5f9',
+        xaxis=dict(gridcolor='#334155'),
+        yaxis=dict(gridcolor='#334155')
+    )
+    return fig
+
 # Initialize Supabase
 @st.cache_resource
 def init_supabase():
@@ -331,7 +345,9 @@ def show_purchase_summary_report():
         
         fig = px.line(monthly_purchases, x='month', y='final_amount', 
                      title='Monthly Purchase Trend',
-                     labels={'final_amount': 'Purchase Amount (₱)', 'month': 'Month'})
+                     labels={'final_amount': 'Purchase Amount (₱)', 'month': 'Month'},
+                     color_discrete_sequence=['#3b82f6'])
+        fig = apply_dark_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
         
         # Top suppliers
@@ -339,8 +355,10 @@ def show_purchase_summary_report():
         
         fig = px.bar(x=supplier_purchases.index, y=supplier_purchases.values,
                     title='Top 10 Suppliers by Purchase Amount',
-                    labels={'x': 'Supplier', 'y': 'Purchase Amount (₱)'})
+                    labels={'x': 'Supplier', 'y': 'Purchase Amount (₱)'},
+                    color_discrete_sequence=['#3b82f6'])
         fig.update_xaxis(tickangle=45)
+        fig = apply_dark_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
 
 def show_supplier_aging_report():
@@ -382,7 +400,9 @@ def show_supplier_aging_report():
         aging_summary = df.groupby('bucket')['amount'].sum().reset_index()
         
         fig = px.pie(aging_summary, values='amount', names='bucket',
-                    title='Payables Aging Breakdown')
+                    title='Payables Aging Breakdown',
+                    color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
+        fig = apply_dark_theme(fig)
         st.plotly_chart(fig, use_container_width=True)
         
         # Detailed aging table
@@ -402,15 +422,19 @@ def show_category_analysis_report():
     
     fig = px.bar(category_purchases, x='expense_category', y='final_amount',
                 title='Purchases by Category',
-                labels={'final_amount': 'Purchase Amount (₱)', 'expense_category': 'Category'})
+                labels={'final_amount': 'Purchase Amount (₱)', 'expense_category': 'Category'},
+                color_discrete_sequence=['#3b82f6'])
     fig.update_xaxis(tickangle=45)
+    fig = apply_dark_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
     
     # Purchase type breakdown
     type_purchases = df.groupby('purchase_type')['final_amount'].sum().reset_index()
     
     fig = px.pie(type_purchases, values='final_amount', names='purchase_type',
-                title='Purchases by Type')
+                title='Purchases by Type',
+                color_discrete_sequence=['#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#eff6ff'])
+    fig = apply_dark_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
 
 def show_purchase_tax_summary_report():
@@ -447,7 +471,9 @@ def show_purchase_tax_summary_report():
     
     fig = px.bar(monthly_tax, x='month', y=['vat_amount', 'ewt_amount'],
                 title='Monthly Tax Benefits',
-                labels={'value': 'Amount (₱)', 'month': 'Month', 'variable': 'Tax Type'})
+                labels={'value': 'Amount (₱)', 'month': 'Month', 'variable': 'Tax Type'},
+                color_discrete_map={'vat_amount': '#3b82f6', 'ewt_amount': '#60a5fa'})
+    fig = apply_dark_theme(fig)
     st.plotly_chart(fig, use_container_width=True)
 
 def show_purchase_settings():
