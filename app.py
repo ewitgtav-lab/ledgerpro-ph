@@ -628,6 +628,10 @@ def show_sidebar_with_user():
             </div>
             """, unsafe_allow_html=True)
         
+        # Sign out button (always visible for logged-in users)
+        if st.button("🚪 Sign Out", use_container_width=True):
+            handle_signout()
+        
         st.markdown("---")
         
         # Navigation menu
@@ -674,10 +678,6 @@ def show_sidebar_with_user():
         )
         
         st.markdown("---")
-        
-        # Sign out button
-        if st.button("🚪 Sign Out", use_container_width=True):
-            handle_signout()
         
         return page
 
