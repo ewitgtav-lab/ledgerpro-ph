@@ -886,7 +886,12 @@ def show_dashboard():
         supabase = init_supabase()
         # Get current month data
         current_month = datetime.now().strftime('%Y-%m')
-        result = supabase.table('transactions').select('*').eq('user_id', user.id).like('transaction_date', f'{current_month}%').execute()
+        # Use date range filter instead of LIKE on timestamp
+        from dateutil.relativedelta import relativedelta
+        start_date = datetime.now().replace(day=1)
+        end_date = start_date + relativedelta(months=1)
+        
+        result = supabase.table('transactions').select('*').eq('user_id', user.id).gte('transaction_date', start_date.strftime('%Y-%m-%d')).lt('transaction_date', end_date.strftime('%Y-%m-%d')).execute()
         
         st.write("Debug - Result type:", type(result))
         st.write("Debug - Has data attribute:", hasattr(result, 'data'))
@@ -1149,12 +1154,21 @@ def show_cash_receipts_journal():
         supabase = init_supabase()
         query = supabase.table('transactions').select('*').eq('user_id', user.id).eq('type', 'cash_receipt')
         
-        # Apply date filters
+        # Apply date filters using proper date range comparisons
         if month_filter != "All":
             month_num = datetime.strptime(month_filter, "%B").month
-            query = query.like('transaction_date', f'%-{month_num:02d}-%')
+            current_year = datetime.now().year
+            start_date = datetime(current_year, month_num, 1)
+            if month_num == 12:
+                end_date = datetime(current_year + 1, 1, 1)
+            else:
+                end_date = datetime(current_year, month_num + 1, 1)
+            query = query.gte('transaction_date', start_date.strftime('%Y-%m-%d')).lt('transaction_date', end_date.strftime('%Y-%m-%d'))
+        
         if year_filter != "All":
-            query = query.like('transaction_date', f'{year_filter}-%')
+            start_date = datetime(year_filter, 1, 1)
+            end_date = datetime(year_filter + 1, 1, 1)
+            query = query.gte('transaction_date', start_date.strftime('%Y-%m-%d')).lt('transaction_date', end_date.strftime('%Y-%m-%d'))
         
         result = query.order('created_at', desc=True).execute()
         
