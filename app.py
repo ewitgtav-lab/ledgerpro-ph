@@ -608,36 +608,31 @@ def show_navigation():
     if 'selected_page' not in st.session_state:
         st.session_state.selected_page = "🏠 Dashboard"
     
+    pages = [
+        "🏠 Dashboard",
+        "💰 Cash Receipts Journal",
+        "📈 Sales Journal", 
+        "🛒 Purchase Journal",
+        "💳 Cash Disbursement Journal",
+        "📝 General Journal",
+        "📋 General Ledger",
+        "📊 Chart of Accounts",
+        "🏛️ Tax Compliance",
+        "📄 Financial Statements",
+        "🔑 Subscription",
+        "⚙️ Settings"
+    ]
+    
+    try:
+        current_index = pages.index(st.session_state.selected_page)
+    except ValueError:
+        current_index = 0
+    
     page = st.selectbox(
         "Navigate to:",
-        [
-            "🏠 Dashboard",
-            "💰 Cash Receipts Journal",
-            "📈 Sales Journal", 
-            "🛒 Purchase Journal",
-            "💳 Cash Disbursement Journal",
-            "📝 General Journal",
-            "📋 General Ledger",
-            "📊 Chart of Accounts",
-            "🏛️ Tax Compliance",
-            "📄 Financial Statements",
-            "🔑 Subscription",
-            "⚙️ Settings"
-        ],
-        index=[
-            "🏠 Dashboard",
-            "💰 Cash Receipts Journal",
-            "📈 Sales Journal", 
-            "🛒 Purchase Journal",
-            "💳 Cash Disbursement Journal",
-            "📝 General Journal",
-            "📋 General Ledger",
-            "📊 Chart of Accounts",
-            "🏛️ Tax Compliance",
-            "📄 Financial Statements",
-            "🔑 Subscription",
-            "⚙️ Settings"
-        ].index(st.session_state.selected_page)
+        pages,
+        index=current_index,
+        key="navigation_selectbox"
     )
     
     # Update session state to match selectbox selection
