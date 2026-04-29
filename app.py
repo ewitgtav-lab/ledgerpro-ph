@@ -745,6 +745,879 @@ def show_subscription_page():
         if profile.get('license_key'):
             st.info(f"License Key: {profile.get('license_key')}")
 
+# Cash Disbursement Journal
+def show_cash_disbursement_journal():
+    st.markdown("""
+    <div class="main-header">
+        <h1>Cash Disbursement Journal</h1>
+        <p>Record cash payments, expenses, and disbursements</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    # Check transaction limit
+    can_add, limit_msg = check_transaction_limit(user.id)
+    if not can_add:
+        st.error(limit_msg)
+        st.info("🔑 Upgrade to Pro for unlimited transactions")
+        st.session_state.selected_page = "🔑 Subscription"
+        st.rerun()
+    else:
+        with st.form("cash_disbursement_form"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                payee_name = st.text_input("Payee Name*", placeholder="Enter payee name")
+                gross_amount = st.number_input("Amount*", min_value=0.0, step=0.01, format="%.2f", value=0.0)
+                expense_type = st.selectbox("Expense Type*", ["Office Supplies", "Rent", "Utilities", "Salaries", "Marketing", "Professional Fees", "Equipment", "Travel", "Insurance", "Taxes", "Other Expenses"])
+                description = st.text_input("Description", placeholder="Payment description")
+                
+            with col2:
+                payment_method = st.selectbox("Payment Method*", ["Cash", "Bank Transfer", "Check", "Credit Card", "Digital Wallet"])
+                bank_name = st.text_input("Bank Name", placeholder="Enter bank name")
+                check_number = st.text_input("Check Number", placeholder="Enter check number")
+                expense_category = st.selectbox("Expense Category", ["Operating Expenses", "Cost of Goods Sold", "Capital Expenses", "Financial Expenses"])
+            
+            # Auto-calculate tax amounts (initialize with default values)
+            tax_calculations = calculate_tax_amounts(
+                gross_amount, 
+                profile.get('tax_type', 'VAT (12%)'),
+                None,  # No platform for expenses
+                0.0
+            )
+            
+            # Display calculated amounts if gross_amount > 0
+            if gross_amount > 0:
+                st.markdown("### 💰 Amount Breakdown")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Net Amount", f"₱{tax_calculations['net_amount']:,.2f}")
+                with col2:
+                    st.metric("Input VAT", f"₱{tax_calculations['vat_amount']:,.2f}")
+                with col3:
+                    st.metric("EWT Amount", f"₱{tax_calculations['ewt_amount']:,.2f}")
+                with col4:
+                    st.metric("Final Amount", f"₱{tax_calculations['final_amount']:,.2f}")
+            
+            # Submit button
+            col1, col2, col3 = st.columns(3)
+            with col2:
+                if st.form_submit_button("💾 Save Cash Disbursement", type="primary", use_container_width=False):
+                    try:
+                        # Initialize Supabase client
+                        supabase = init_supabase()
+                        
+                        # Prepare data for insertion
+                        cash_disbursement_data = {
+                            'user_id': user.id,
+                            'transaction_date': datetime.now().isoformat(),
+                            'type': 'expense',
+                            'description': description or f"Payment to {payee_name}",
+                            'customer_name': None,
+                            'supplier_name': payee_name,
+                            'gross_amount': gross_amount,
+                            'platform_name': None,
+                            'platform_fee': tax_calculations['platform_fee'],
+                            'seller_discount': 0.0,
+                            'net_amount': tax_calculations['net_amount'],
+                            'vat_amount': tax_calculations['vat_amount'],
+                            'ewt_amount': tax_calculations['ewt_amount'],
+                            'final_amount': tax_calculations['final_amount'],
+                            'payment_method': payment_method,
+                            'bank_name': bank_name if bank_name else None,
+                            'check_number': check_number if check_number else None,
+                            'tax_type': profile.get('tax_type', 'VAT (12%)'),
+                            'vat_rate': tax_calculations['vat_rate'],
+                            'ewt_rate': tax_calculations['ewt_rate'],
+                            'status': 'POSTED',
+                            'created_at': datetime.now().isoformat()
+                        }
+                        
+                        # Insert data
+                        result = supabase.table('transactions').insert(cash_disbursement_data).execute()
+                        
+                        if result.data:
+                            st.success("✅ Cash disbursement saved successfully!")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save cash disbursement")
+                            
+                    except Exception as e:
+                        st.error(f"❌ Error saving cash disbursement: {str(e)}")
+                        st.info("Please try again or contact support if the issue persists.")
+    
+    # Existing records table
+    st.markdown("### 📋 Cash Disbursement Records")
+    
+    # Date filter
+    col1, col2 = st.columns(2)
+    with col1:
+        month_filter = st.selectbox("Filter by Month", 
+                                   ["All", "January", "February", "March", "April", "May", "June",
+                                    "July", "August", "September", "October", "November", "December"])
+    with col2:
+        year_filter = st.selectbox("Filter by Year", 
+                                  ["All"] + list(range(2020, datetime.now().year + 1)))
+    
+    # Load data from Supabase with filters
+    try:
+        supabase = init_supabase()
+        query = supabase.table('transactions').select('*').eq('user_id', user.id).eq('type', 'expense')
+        
+        # Apply date filters using proper date range comparisons
+        if month_filter != "All":
+            month_num = datetime.strptime(month_filter, "%B").month
+            current_year = datetime.now().year
+            start_date = datetime(current_year, month_num, 1)
+            if month_num == 12:
+                end_date = datetime(current_year + 1, 1, 1)
+            else:
+                end_date = datetime(current_year, month_num + 1, 1)
+            query = query.gte('transaction_date', start_date.strftime('%Y-%m-%d')).lt('transaction_date', end_date.strftime('%Y-%m-%d'))
+        
+        if year_filter != "All":
+            start_date = datetime(year_filter, 1, 1)
+            end_date = datetime(year_filter + 1, 1, 1)
+            query = query.gte('transaction_date', start_date.strftime('%Y-%m-%d')).lt('transaction_date', end_date.strftime('%Y-%m-%d'))
+        
+        result = query.order('created_at', desc=True).execute()
+        
+        if result.data:
+            # Convert to DataFrame for display
+            cash_disbursements_data = pd.DataFrame(result.data)
+            
+            # Format for display
+            display_data = []
+            for _, record in cash_disbursements_data.iterrows():
+                display_data.append({
+                    'Date': pd.to_datetime(record['transaction_date']).strftime('%Y-%m-%d'),
+                    'Payee': record['supplier_name'],
+                    'Description': record['description'],
+                    'Gross Amount': record['gross_amount'],
+                    'Input VAT': record['vat_amount'],
+                    'EWT': record['ewt_amount'],
+                    'Final Amount': record['final_amount'],
+                    'Payment Method': record['payment_method'],
+                    'Status': record['status']
+                })
+            
+            display_df = pd.DataFrame(display_data)
+            st.dataframe(display_df, width="stretch", hide_index=True)
+        else:
+            st.info("No cash disbursements found for the selected period.")
+            
+    except Exception as e:
+        st.error(f"❌ Error loading data: {str(e)}")
+        st.info("Please try refreshing the page")
+
+# General Journal
+def show_general_journal():
+    st.markdown("""
+    <div class="main-header">
+        <h1>General Journal</h1>
+        <p>Manual journal entries and adjustments</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    # Check transaction limit
+    can_add, limit_msg = check_transaction_limit(user.id)
+    if not can_add:
+        st.error(limit_msg)
+        st.info("🔑 Upgrade to Pro for unlimited transactions")
+        st.session_state.selected_page = "🔑 Subscription"
+        st.rerun()
+    else:
+        with st.form("general_journal_form"):
+            st.markdown("### 📝 Journal Entry Details")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                entry_date = st.date_input("Entry Date*", value=datetime.now().date())
+                entry_type = st.selectbox("Entry Type*", ["Adjusting Entry", "Correcting Entry", "Closing Entry", "Reversing Entry", "Other"])
+                reference_no = st.text_input("Reference No.", placeholder="Enter reference number")
+                
+            with col2:
+                explanation = st.text_area("Explanation*", placeholder="Detailed explanation of the journal entry", height=100)
+                
+            st.markdown("### 💰 Account Entries")
+            
+            # Dynamic entry lines
+            num_entries = st.number_input("Number of entry lines", min_value=2, max_value=10, value=2, step=1)
+            
+            entries = []
+            total_debit = 0
+            total_credit = 0
+            
+            for i in range(num_entries):
+                with st.expander(f"Entry Line {i+1}", expanded=True):
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        account = st.selectbox(f"Account*", [
+                            "Cash", "Accounts Receivable", "Inventory", "Prepaid Expenses",
+                            "Equipment", "Accumulated Depreciation", "Accounts Payable",
+                            "Accrued Expenses", "Notes Payable", "Owner's Equity",
+                            "Revenue", "Sales Revenue", "Service Revenue", "Cost of Goods Sold",
+                            "Operating Expenses", "Salaries Expense", "Rent Expense",
+                            "Utilities Expense", "Depreciation Expense", "Interest Expense",
+                            "Tax Expense"
+                        ], key=f"account_{i}")
+                    
+                    with col2:
+                        debit = st.number_input(f"Debit", min_value=0.0, step=0.01, format="%.2f", key=f"debit_{i}")
+                    
+                    with col3:
+                        credit = st.number_input(f"Credit", min_value=0.0, step=0.01, format="%.2f", key=f"credit_{i}")
+                    
+                    with col4:
+                        description = st.text_input(f"Description", placeholder="Line description", key=f"desc_{i}")
+                    
+                    total_debit += debit
+                    total_credit += credit
+                    
+                    entries.append({
+                        'account': account,
+                        'debit': debit,
+                        'credit': credit,
+                        'description': description
+                    })
+            
+            # Show totals
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Debit", f"₱{total_debit:,.2f}")
+            with col2:
+                st.metric("Total Credit", f"₱{total_credit:,.2f}")
+            with col3:
+                balance = total_debit - total_credit
+                st.metric("Balance", f"₱{balance:,.2f}", delta=f"{'Balanced' if abs(balance) < 0.01 else 'Out of Balance'}")
+            
+            # Validation
+            if abs(total_debit - total_credit) > 0.01:
+                st.error("⚠️ Journal entry must balance (Total Debit = Total Credit)")
+            
+            # Submit button
+            col1, col2, col3 = st.columns(3)
+            with col2:
+                submitted = st.form_submit_button("💾 Save Journal Entry", type="primary", use_container_width=False)
+                
+                if submitted:
+                    if abs(total_debit - total_credit) > 0.01:
+                        st.error("❌ Journal entry must balance before saving")
+                    else:
+                        try:
+                            supabase = init_supabase()
+                            
+                            # Create summary description
+                            summary = f"{entry_type}: {explanation}"
+                            
+                            # Save each entry line as a separate transaction
+                            for entry in entries:
+                                if entry['debit'] > 0:
+                                    # Debit entry
+                                    transaction_data = {
+                                        'user_id': user.id,
+                                        'transaction_date': entry_date.isoformat(),
+                                        'type': 'expense',  # Debits are expenses
+                                        'description': f"{summary} - {entry['description']}",
+                                        'customer_name': None,
+                                        'supplier_name': entry['account'],
+                                        'gross_amount': entry['debit'],
+                                        'platform_name': None,
+                                        'platform_fee': 0.0,
+                                        'seller_discount': 0.0,
+                                        'net_amount': entry['debit'],
+                                        'vat_amount': 0.0,
+                                        'ewt_amount': 0.0,
+                                        'final_amount': entry['debit'],
+                                        'payment_method': 'Journal Entry',
+                                        'bank_name': None,
+                                        'check_number': reference_no,
+                                        'tax_type': profile.get('tax_type', 'VAT (12%)'),
+                                        'vat_rate': 0.0,
+                                        'ewt_rate': 0.0,
+                                        'status': 'POSTED',
+                                        'created_at': datetime.now().isoformat()
+                                    }
+                                    
+                                    result = supabase.table('transactions').insert(transaction_data).execute()
+                                    if not result.data:
+                                        st.error("❌ Failed to save debit entry")
+                                        raise Exception("Debit entry failed")
+                                
+                                if entry['credit'] > 0:
+                                    # Credit entry
+                                    transaction_data = {
+                                        'user_id': user.id,
+                                        'transaction_date': entry_date.isoformat(),
+                                        'type': 'cash_receipt',  # Credits are receipts
+                                        'description': f"{summary} - {entry['description']}",
+                                        'customer_name': entry['account'],
+                                        'supplier_name': None,
+                                        'gross_amount': entry['credit'],
+                                        'platform_name': None,
+                                        'platform_fee': 0.0,
+                                        'seller_discount': 0.0,
+                                        'net_amount': entry['credit'],
+                                        'vat_amount': 0.0,
+                                        'ewt_amount': 0.0,
+                                        'final_amount': entry['credit'],
+                                        'payment_method': 'Journal Entry',
+                                        'bank_name': None,
+                                        'check_number': reference_no,
+                                        'tax_type': profile.get('tax_type', 'VAT (12%)'),
+                                        'vat_rate': 0.0,
+                                        'ewt_rate': 0.0,
+                                        'status': 'POSTED',
+                                        'created_at': datetime.now().isoformat()
+                                    }
+                                    
+                                    result = supabase.table('transactions').insert(transaction_data).execute()
+                                    if not result.data:
+                                        st.error("❌ Failed to save credit entry")
+                                        raise Exception("Credit entry failed")
+                            
+                            st.success("✅ Journal entry saved successfully!")
+                            st.balloons()
+                            st.rerun()
+                            
+                        except Exception as e:
+                            st.error(f"❌ Error saving journal entry: {str(e)}")
+                            st.info("Please try again or contact support if the issue persists.")
+    
+    # Existing entries table
+    st.markdown("### 📋 Recent Journal Entries")
+    
+    # Load recent journal entries
+    try:
+        supabase = init_supabase()
+        # Get entries with "Journal Entry" payment method
+        result = supabase.table('transactions').select('*').eq('user_id', user.id).eq('payment_method', 'Journal Entry').order('created_at', desc=True).limit(50).execute()
+        
+        if result.data:
+            # Group by reference number
+            entries_by_ref = {}
+            for record in result.data:
+                ref = record.get('check_number', 'No Ref')
+                if ref not in entries_by_ref:
+                    entries_by_ref[ref] = []
+                entries_by_ref[ref].append(record)
+            
+            # Display grouped entries
+            for ref, entries in entries_by_ref.items():
+                with st.expander(f"Journal Entry - {ref} ({entries[0]['transaction_date'][:10]})"):
+                    for entry in entries:
+                        col1, col2, col3, col4 = st.columns(4)
+                        
+                        with col1:
+                            if entry['type'] == 'expense':
+                                st.write(f"**Debit**: {entry['supplier_name']}")
+                            else:
+                                st.write(f"**Credit**: {entry['customer_name']}")
+                        
+                        with col2:
+                            st.write(f"₱{entry['final_amount']:,.2f}")
+                        
+                        with col3:
+                            st.write(entry['description'])
+                        
+                        with col4:
+                            st.write(entry['status'])
+        else:
+            st.info("No journal entries found.")
+            
+    except Exception as e:
+        st.error(f"❌ Error loading journal entries: {str(e)}")
+        st.info("Please try refreshing the page")
+
+# General Ledger
+def show_general_ledger():
+    st.markdown("""
+    <div class="main-header">
+        <h1>General Ledger</h1>
+        <p>Complete ledger of all financial transactions</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    # Load all transactions
+    try:
+        supabase = init_supabase()
+        result = supabase.table('transactions').select('*').eq('user_id', user.id).order('transaction_date', desc=True).execute()
+        
+        if result.data and len(result.data) > 0:
+            transactions = pd.DataFrame(result.data)
+            
+            # Convert dates
+            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'])
+            
+            # Account mapping
+            account_mapping = {
+                'cash_receipt': {
+                    'Cash': 'Cash',
+                    'Accounts Receivable': 'Accounts Receivable',
+                    'Revenue': 'Revenue',
+                    'Sales Revenue': 'Sales Revenue',
+                    'Service Revenue': 'Service Revenue'
+                },
+                'sales': {
+                    'Accounts Receivable': 'Accounts Receivable',
+                    'Revenue': 'Revenue',
+                    'Sales Revenue': 'Sales Revenue'
+                },
+                'purchase': {
+                    'Inventory': 'Inventory',
+                    'Equipment': 'Equipment',
+                    'Accounts Payable': 'Accounts Payable'
+                },
+                'expense': {
+                    'Cash': 'Cash',
+                    'Bank': 'Cash',
+                    'Operating Expenses': 'Operating Expenses',
+                    'Salaries Expense': 'Salaries Expense',
+                    'Rent Expense': 'Rent Expense',
+                    'Utilities Expense': 'Utilities Expense',
+                    'Marketing': 'Marketing Expense',
+                    'Professional Fees': 'Professional Fees',
+                    'Equipment': 'Equipment',
+                    'Insurance': 'Insurance Expense',
+                    'Taxes': 'Tax Expense'
+                }
+            }
+            
+            # Create ledger entries
+            ledger_entries = []
+            
+            for _, transaction in transactions.iterrows():
+                trans_date = transaction['transaction_date']
+                trans_type = transaction['type']
+                description = transaction['description']
+                amount = transaction['final_amount']
+                
+                # Determine debit and credit accounts based on transaction type
+                if trans_type == 'cash_receipt':
+                    # Cash receipts: Debit Cash, Credit Revenue
+                    ledger_entries.append({
+                        'Date': trans_date,
+                        'Account': 'Cash',
+                        'Description': description,
+                        'Debit': amount,
+                        'Credit': 0.0,
+                        'Balance': 0.0,
+                        'Type': 'Asset'
+                    })
+                    ledger_entries.append({
+                        'Date': trans_date,
+                        'Account': 'Revenue',
+                        'Description': description,
+                        'Debit': 0.0,
+                        'Credit': amount,
+                        'Balance': 0.0,
+                        'Type': 'Revenue'
+                    })
+                
+                elif trans_type == 'sales':
+                    # Sales: Debit Accounts Receivable, Credit Revenue
+                    ledger_entries.append({
+                        'Date': trans_date,
+                        'Account': 'Accounts Receivable',
+                        'Description': description,
+                        'Debit': amount,
+                        'Credit': 0.0,
+                        'Balance': 0.0,
+                        'Type': 'Asset'
+                    })
+                    ledger_entries.append({
+                        'Date': trans_date,
+                        'Account': 'Revenue',
+                        'Description': description,
+                        'Debit': 0.0,
+                        'Credit': amount,
+                        'Balance': 0.0,
+                        'Type': 'Revenue'
+                    })
+                
+                elif trans_type == 'purchase':
+                    # Purchases: Debit Expense/Asset, Credit Cash/Accounts Payable
+                    if transaction.get('payment_method') == 'Cash':
+                        debit_account = 'Equipment' if 'Equipment' in description else 'Inventory'
+                        ledger_entries.append({
+                            'Date': trans_date,
+                            'Account': debit_account,
+                            'Description': description,
+                            'Debit': amount,
+                            'Credit': 0.0,
+                            'Balance': 0.0,
+                            'Type': 'Asset'
+                        })
+                        ledger_entries.append({
+                            'Date': trans_date,
+                            'Account': 'Cash',
+                            'Description': description,
+                            'Debit': 0.0,
+                            'Credit': amount,
+                            'Balance': 0.0,
+                            'Type': 'Asset'
+                        })
+                    else:
+                        debit_account = 'Equipment' if 'Equipment' in description else 'Inventory'
+                        ledger_entries.append({
+                            'Date': trans_date,
+                            'Account': debit_account,
+                            'Description': description,
+                            'Debit': amount,
+                            'Credit': 0.0,
+                            'Balance': 0.0,
+                            'Type': 'Asset'
+                        })
+                        ledger_entries.append({
+                            'Date': trans_date,
+                            'Account': 'Accounts Payable',
+                            'Description': description,
+                            'Debit': 0.0,
+                            'Credit': amount,
+                            'Balance': 0.0,
+                            'Type': 'Liability'
+                        })
+                
+                elif trans_type == 'expense':
+                    # Expenses: Debit Expense Account, Credit Cash
+                    expense_account = 'Operating Expenses'  # Default
+                    if 'Salaries' in description:
+                        expense_account = 'Salaries Expense'
+                    elif 'Rent' in description:
+                        expense_account = 'Rent Expense'
+                    elif 'Utilities' in description:
+                        expense_account = 'Utilities Expense'
+                    elif 'Marketing' in description:
+                        expense_account = 'Marketing Expense'
+                    elif 'Professional' in description:
+                        expense_account = 'Professional Fees'
+                    elif 'Equipment' in description:
+                        expense_account = 'Equipment'
+                    elif 'Insurance' in description:
+                        expense_account = 'Insurance Expense'
+                    elif 'Tax' in description:
+                        expense_account = 'Tax Expense'
+                    
+                    ledger_entries.append({
+                        'Date': trans_date,
+                        'Account': expense_account,
+                        'Description': description,
+                        'Debit': amount,
+                        'Credit': 0.0,
+                        'Balance': 0.0,
+                        'Type': 'Expense'
+                    })
+                    ledger_entries.append({
+                        'Date': trans_date,
+                        'Account': 'Cash',
+                        'Description': description,
+                        'Debit': 0.0,
+                        'Credit': amount,
+                        'Balance': 0.0,
+                        'Type': 'Asset'
+                    })
+            
+            if ledger_entries:
+                ledger_df = pd.DataFrame(ledger_entries)
+                ledger_df = ledger_df.sort_values('Date')
+                
+                # Calculate running balances for each account
+                account_balances = {}
+                for idx, row in ledger_df.iterrows():
+                    account = row['Account']
+                    if account not in account_balances:
+                        account_balances[account] = 0
+                    
+                    # Update balance based on account type
+                    if row['Type'] in ['Asset', 'Expense']:
+                        account_balances[account] += row['Debit'] - row['Credit']
+                    else:  # Liability, Equity, Revenue
+                        account_balances[account] += row['Credit'] - row['Debit']
+                    
+                    ledger_df.at[idx, 'Balance'] = account_balances[account]
+                
+                # Account filter
+                all_accounts = sorted(ledger_df['Account'].unique())
+                selected_account = st.selectbox("Filter by Account", ["All Accounts"] + all_accounts)
+                
+                if selected_account != "All Accounts":
+                    filtered_ledger = ledger_df[ledger_df['Account'] == selected_account]
+                else:
+                    filtered_ledger = ledger_df
+                
+                # Display ledger
+                st.markdown(f"### 📋 Ledger Entries ({len(filtered_ledger)} records)")
+                
+                # Format for display
+                display_df = filtered_ledger.copy()
+                display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
+                display_df['Debit'] = display_df['Debit'].apply(lambda x: f"₱{x:,.2f}" if x > 0 else "")
+                display_df['Credit'] = display_df['Credit'].apply(lambda x: f"₱{x:,.2f}" if x > 0 else "")
+                display_df['Balance'] = display_df['Balance'].apply(lambda x: f"₱{x:,.2f}")
+                
+                display_df = display_df[['Date', 'Account', 'Description', 'Debit', 'Credit', 'Balance', 'Type']]
+                
+                st.dataframe(display_df, width="stretch", hide_index=True)
+                
+                # Trial Balance
+                st.markdown("---")
+                st.markdown("### ⚖️ Trial Balance")
+                
+                trial_balance = []
+                for account in all_accounts:
+                    account_transactions = ledger_df[ledger_df['Account'] == account]
+                    total_debits = account_transactions['Debit'].sum()
+                    total_credits = account_transactions['Credit'].sum()
+                    
+                    if total_debits > 0 or total_credits > 0:
+                        balance = account_balances[account]
+                        trial_balance.append({
+                            'Account': account,
+                            'Type': account_transactions['Type'].iloc[0],
+                            'Debit': balance if balance > 0 and account_transactions['Type'].iloc[0] in ['Asset', 'Expense'] else 0,
+                            'Credit': abs(balance) if balance < 0 or account_transactions['Type'].iloc[0] not in ['Asset', 'Expense'] else 0
+                        })
+                
+                trial_balance_df = pd.DataFrame(trial_balance)
+                trial_balance_df['Debit'] = trial_balance_df['Debit'].apply(lambda x: f"₱{x:,.2f}" if x > 0 else "")
+                trial_balance_df['Credit'] = trial_balance_df['Credit'].apply(lambda x: f"₱{x:,.2f}" if x > 0 else "")
+                
+                st.dataframe(trial_balance_df, width="stretch", hide_index=True)
+                
+                # Summary
+                total_debits = trial_balance_df['Debit'].apply(lambda x: float(x.replace('₱', '').replace(',', '')) if x else 0).sum()
+                total_credits = trial_balance_df['Credit'].apply(lambda x: float(x.replace('₱', '').replace(',', '')) if x else 0).sum()
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Debits", f"₱{total_debits:,.2f}")
+                with col2:
+                    st.metric("Total Credits", f"₱{total_credits:,.2f}")
+                with col3:
+                    difference = total_debits - total_credits
+                    st.metric("Difference", f"₱{abs(difference):,.2f}", delta=f"{'Balanced' if abs(difference) < 0.01 else 'Out of Balance'}")
+                
+            else:
+                st.info("No transactions found to display in the ledger.")
+                
+        else:
+            st.info("No transactions found. Add transactions through the journal modules to see them here.")
+            
+    except Exception as e:
+        st.error(f"❌ Error loading ledger data: {str(e)}")
+        st.info("Please try refreshing the page")
+
+# Tax Compliance
+def show_tax_compliance():
+    st.markdown("""
+    <div class="main-header">
+        <h1>🏛️ Tax Compliance</h1>
+        <p>Philippine tax forms and compliance reports</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user = get_current_user()
+    profile = get_user_profile(user.id) if user else None
+    
+    if not profile:
+        st.error("Unable to load user profile")
+        return
+    
+    # Load transactions for tax calculations
+    try:
+        supabase = init_supabase()
+        current_year = datetime.now().year
+        result = supabase.table('transactions').select('*').eq('user_id', user.id).like('transaction_date', f'{current_year}%').execute()
+        
+        if result.data:
+            transactions = pd.DataFrame(result.data)
+            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'])
+            
+            # Tax calculations
+            total_revenue = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]['final_amount'].sum()
+            total_expenses = transactions[transactions['type'] == 'expense']['final_amount'].sum()
+            total_vat_input = transactions['vat_amount'].sum()
+            total_ewt = transactions[transactions['ewt_amount'] > 0]['ewt_amount'].sum()
+            
+            # Quarterly breakdown
+            transactions['quarter'] = transactions['transaction_date'].dt.quarter
+            quarterly_data = []
+            
+            for quarter in range(1, 5):
+                quarter_data = transactions[transactions['quarter'] == quarter]
+                q_revenue = quarter_data[quarter_data['type'].isin(['cash_receipt', 'sales'])]['final_amount'].sum()
+                q_expenses = quarter_data[quarter_data['type'] == 'expense']['final_amount'].sum()
+                q_vat = quarter_data['vat_amount'].sum()
+                q_ewt = quarter_data[quarter_data['ewt_amount'] > 0]['ewt_amount'].sum()
+                
+                quarterly_data.append({
+                    'Quarter': f'Q{quarter}',
+                    'Revenue': q_revenue,
+                    'Expenses': q_expenses,
+                    'Net Income': q_revenue - q_expenses,
+                    'VAT': q_vat,
+                    'EWT': q_ewt
+                })
+            
+            quarterly_df = pd.DataFrame(quarterly_data)
+            
+            # Display summary
+            st.markdown("### 📊 Tax Summary")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Total Revenue", f"₱{total_revenue:,.2f}")
+            with col2:
+                st.metric("Total Expenses", f"₱{total_expenses:,.2f}")
+            with col3:
+                st.metric("Total VAT", f"₱{total_vat_input:,.2f}")
+            with col4:
+                st.metric("Total EWT", f"₱{total_ewt:,.2f}")
+            
+            # Quarterly breakdown
+            st.markdown("### 📈 Quarterly Breakdown")
+            display_q_df = quarterly_df.copy()
+            for col in ['Revenue', 'Expenses', 'Net Income', 'VAT', 'EWT']:
+                display_q_df[col] = display_q_df[col].apply(lambda x: f"₱{x:,.2f}")
+            
+            st.dataframe(display_q_df, width="stretch", hide_index=True)
+            
+            # BIR Forms Section
+            st.markdown("---")
+            st.markdown("### 📋 BIR Forms")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### 📄 Form 2307 - BIR Form No. 2307")
+                st.info("Certificate of Creditable Tax Withheld at Source")
+                
+                if total_ewt > 0:
+                    st.write("**Summary of Creditable Withholding Tax:**")
+                    ewt_transactions = transactions[transactions['ewt_amount'] > 0]
+                    
+                    for _, trans in ewt_transactions.iterrows():
+                        st.write(f"- {trans['description']}: ₱{trans['ewt_amount']:,.2f}")
+                    
+                    st.success(f"Total Creditable EWT: ₱{total_ewt:,.2f}")
+                    
+                    if st.button("📥 Generate Form 2307", type="primary"):
+                        st.info("Form 2307 generation would be implemented here")
+                else:
+                    st.write("No EWT transactions found for this period.")
+            
+            with col2:
+                st.markdown("#### 📄 Form 1601C - Monthly Withholding Tax Return")
+                st.info("Creditable Withholding Tax Expanded")
+                
+                # Get current month data
+                current_month = datetime.now().month
+                month_data = transactions[transactions['transaction_date'].dt.month == current_month]
+                month_ewt = month_data[month_data['ewt_amount'] > 0]['ewt_amount'].sum()
+                
+                if month_ewt > 0:
+                    st.write(f"**Current Month ({datetime.now().strftime('%B')}):**")
+                    st.write(f"- Total EWT Withheld: ₱{month_ewt:,.2f}")
+                    st.write(f"- Tax Type: Expanded")
+                    st.write(f"- Period: {datetime.now().strftime('%B %Y')}")
+                    
+                    if st.button("📥 Generate Form 1601C", type="primary"):
+                        st.info("Form 1601C generation would be implemented here")
+                else:
+                    st.write("No EWT transactions for current month.")
+            
+            # VAT Returns
+            st.markdown("---")
+            st.markdown("### 📊 VAT Returns")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### 📄 Form 2550Q - Quarterly VAT Return")
+                
+                for _, quarter in quarterly_df.iterrows():
+                    quarter_num = quarter['Quarter'].replace('Q', '')
+                    with st.expander(f"{quarter['Quarter']} VAT Return"):
+                        st.write(f"**Period:** {quarter_num} {current_year}")
+                        st.write(f"**Output VAT:** ₱{quarter['VAT']:,.2f}")
+                        st.write(f"**Input VAT:** ₱{quarter['VAT']:,.2f}")  # Simplified
+                        st.write(f"**VAT Payable:** ₱{quarter['VAT']:,.2f}")  # Simplified
+                        
+                        if st.button(f"📥 Generate {quarter['Quarter']} VAT Return", key=f"vat_{quarter_num}"):
+                            st.info(f"{quarter['Quarter']} VAT return generation would be implemented here")
+            
+            with col2:
+                st.markdown("#### 📄 Annual Income Tax")
+                
+                annual_income = total_revenue - total_expenses
+                tax_type = profile.get('tax_type', 'VAT (12%)')
+                
+                st.write(f"**Tax Type:** {tax_type}")
+                st.write(f"**Gup Income:** ₱{annual_income:,.2f}")
+                
+                # Simplified tax calculation
+                if 'NON-VAT' in tax_type:
+                    if '1%' in tax_type:
+                        income_tax = annual_income * 0.01
+                    elif '3%' in tax_type:
+                        income_tax = annual_income * 0.03
+                    else:
+                        income_tax = annual_income * 0.08
+                else:
+                    # Simplified VAT calculation
+                    income_tax = annual_income * 0.12
+                
+                st.write(f"**Estimated Income Tax:** ₱{income_tax:,.2f}")
+                
+                if st.button("📥 Generate Annual Tax Return", type="primary"):
+                    st.info("Annual tax return generation would be implemented here")
+            
+            # Tax Calendar
+            st.markdown("---")
+            st.markdown("### 📅 Tax Calendar")
+            
+            tax_deadlines = [
+                {"Date": "Monthly 20th", "Form": "Form 1601C", "Description": "Monthly Withholding Tax"},
+                {"Date": "Quarterly 20th", "Form": "Form 2550Q", "Description": "Quarterly VAT Return"},
+                {"Date": "Quarterly 20th", "Form": "Form 1701Q", "Description": "Quarterly Income Tax"},
+                {"Date": "April 15", "Form": "Form 1701", "Description": "Annual Income Tax"},
+                {"Date": "Monthly 20th", "Form": "Form 2307", "Description": "Certificate of EWT"}
+            ]
+            
+            deadlines_df = pd.DataFrame(tax_deadlines)
+            st.dataframe(deadlines_df, width="stretch", hide_index=True)
+            
+        else:
+            st.info("No transactions found for the current year. Add transactions to generate tax reports.")
+            
+    except Exception as e:
+        st.error(f"❌ Error loading tax data: {str(e)}")
+        st.info("Please try refreshing the page")
+
 # Settings page
 def show_settings_page():
     st.markdown("""
@@ -1345,20 +2218,16 @@ def main():
         from pages.purchase_journal import show_purchase_journal
         show_purchase_journal()
     elif page == "💳 Cash Disbursement Journal":
-        st.markdown("### 💳 Cash Disbursement Journal")
-        st.info("Cash Disbursement Journal module coming soon...")
+        show_cash_disbursement_journal()
     elif page == "📝 General Journal":
-        st.markdown("### 📝 General Journal")
-        st.info("General Journal module coming soon...")
+        show_general_journal()
     elif page == "📋 General Ledger":
-        st.markdown("### 📋 General Ledger")
-        st.info("General Ledger module coming soon...")
+        show_general_ledger()
     elif page == "📊 Chart of Accounts":
         from pages.chart_of_accounts import show_chart_of_accounts
         show_chart_of_accounts()
     elif page == "🏛️ Tax Compliance":
-        st.markdown("### 🏛️ Tax Compliance")
-        st.info("Tax Compliance module coming soon...")
+        show_tax_compliance()
     elif page == "📄 Financial Statements":
         st.markdown("### � Financial Statements")
         st.info("Financial Statements module coming soon...")
