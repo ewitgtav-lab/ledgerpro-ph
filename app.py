@@ -592,43 +592,42 @@ def get_user_transaction_count(user_id):
     except:
         return 0
 
-# Simple sidebar function
-def show_sidebar():
-    with st.sidebar:
-        st.title("LedgerPro-PH")
-        st.markdown("---")
-        
-        user = get_current_user()
-        if user:
-            st.write(f"Logged in as: {user.email}")
-        
-        st.markdown("---")
-        
-        # Simple navigation
-        page = st.selectbox(
-            "Navigate to:",
-            [
-                "🏠 Dashboard",
-                "💰 Cash Receipts Journal",
-                "📈 Sales Journal", 
-                "🛒 Purchase Journal",
-                "💳 Cash Disbursement Journal",
-                "📝 General Journal",
-                "📋 General Ledger",
-                "📊 Chart of Accounts",
-                "🏛️ Tax Compliance",
-                "📄 Financial Statements",
-                "🔑 Subscription",
-                "⚙️ Settings"
-            ]
-        )
-        
-        st.markdown("---")
-        
-        if st.button("🚪 Sign Out"):
-            handle_signout()
-        
-        return page
+# Simple navigation function (no sidebar)
+def show_navigation():
+    st.title("LedgerPro-PH")
+    st.markdown("---")
+    
+    user = get_current_user()
+    if user:
+        st.write(f"Logged in as: {user.email}")
+    
+    st.markdown("---")
+    
+    # Simple navigation
+    page = st.selectbox(
+        "Navigate to:",
+        [
+            "🏠 Dashboard",
+            "💰 Cash Receipts Journal",
+            "📈 Sales Journal", 
+            "🛒 Purchase Journal",
+            "💳 Cash Disbursement Journal",
+            "📝 General Journal",
+            "📋 General Ledger",
+            "📊 Chart of Accounts",
+            "🏛️ Tax Compliance",
+            "📄 Financial Statements",
+            "🔑 Subscription",
+            "⚙️ Settings"
+        ]
+    )
+    
+    st.markdown("---")
+    
+    if st.button("🚪 Sign Out"):
+        handle_signout()
+    
+    return page
 
 # License key verification
 @st.cache_data(ttl=300)
@@ -2591,8 +2590,8 @@ def main():
         show_auth_page()
         return
     
-    # Show sidebar and get selected page
-    page = show_sidebar()
+    # Show navigation and get selected page
+    page = show_navigation()
     
     # Route to appropriate page
     if page == "🏠 Dashboard":
