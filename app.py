@@ -1677,8 +1677,49 @@ def show_tax_compliance():
                     
                     st.success(f"Total Creditable EWT: ₱{total_ewt:,.2f}")
                     
-                    if st.button("📥 Generate Form 2307", type="primary"):
-                        st.info("Form 2307 generation would be implemented here")
+                    if st.button(" Generate Form 2307", type="primary"):
+                        st.markdown("#####  BIR Form No. 2307")
+                        st.markdown("**Certificate of Creditable Tax Withheld at Source**")
+                        
+                        # Form data
+                        form_data = {
+                            'Withholding Agent': profile.get('business_name', 'Your Business'),
+                            'TIN': '000-000-000-000',  # Placeholder
+                            'Address': 'Business Address',  # Placeholder
+                            'Payee Name': 'Various Suppliers',
+                            'Period': f"{datetime.now().strftime('%B %Y')}",
+                            'Total EWT': f"Total Creditable EWT: {total_ewt:,.2f}"
+                        }
+                        
+                        st.write("**Withholding Agent Information:**")
+                        for key, value in form_data.items():
+                            st.write(f"- {key}: {value}")
+                        
+                        st.write("**EWT Transactions:**")
+                        for _, trans in ewt_transactions.iterrows():
+                            st.write(f"- {trans['description']}: {trans['transaction_date'].strftime('%Y-%m-%d')} - {trans['ewt_amount']:,.2f}")
+                        
+                        # Download button
+                        form_2307_content = f"""
+BIR Form No. 2307
+Certificate of Creditable Tax Withheld at Source
+
+Withholding Agent: {profile.get('business_name', 'Your Business')}
+Period: {datetime.now().strftime('%B %Y')}
+Total EWT: {total_ewt:,.2f}
+
+Transactions:
+"""
+                        for _, trans in ewt_transactions.iterrows():
+                            form_2307_content += f"- {trans['description']}: {trans['ewt_amount']:,.2f}\n"
+                        
+                        st.download_button(
+                            label=" Download Form 2307",
+                            data=form_2307_content,
+                            file_name=f"Form_2307_{datetime.now().strftime('%Y%m')}.txt",
+                            mime="text/plain",
+                            type="primary"
+                        )
                 else:
                     st.write("No EWT transactions found for this period.")
             
@@ -1697,8 +1738,52 @@ def show_tax_compliance():
                     st.write(f"- Tax Type: Expanded")
                     st.write(f"- Period: {datetime.now().strftime('%B %Y')}")
                     
-                    if st.button("📥 Generate Form 1601C", type="primary"):
-                        st.info("Form 1601C generation would be implemented here")
+                    if st.button(" Generate Form 1601C", type="primary"):
+                        st.markdown("#####  BIR Form No. 1601C")
+                        st.markdown("**Monthly Withholding Tax Return - Creditable Withholding Tax Expanded**")
+                        
+                        # Form data
+                        form_data = {
+                            'Withholding Agent': profile.get('business_name', 'Your Business'),
+                            'TIN': '000-000-000-000',  # Placeholder
+                            'Period': f"{datetime.now().strftime('%B %Y')}",
+                            'Tax Type': 'Expanded',
+                            'Total EWT Withheld': f"Total EWT: {month_ewt:,.2f}",
+                            'Due Date': f"20th of {datetime.now().strftime('%B %Y')}"
+                        }
+                        
+                        st.write("**Monthly Withholding Tax Return:**")
+                        for key, value in form_data.items():
+                            st.write(f"- {key}: {value}")
+                        
+                        st.write("**EWT Transactions for Current Month:**")
+                        month_ewt_trans = month_data[month_data['ewt_amount'] > 0]
+                        for _, trans in month_ewt_trans.iterrows():
+                            st.write(f"- {trans['description']}: {trans['transaction_date'].strftime('%Y-%m-%d')} - {trans['ewt_amount']:,.2f}")
+                        
+                        # Download button
+                        form_1601c_content = f"""
+BIR Form No. 1601C
+Monthly Withholding Tax Return - Creditable Withholding Tax Expanded
+
+Withholding Agent: {profile.get('business_name', 'Your Business')}
+Period: {datetime.now().strftime('%B %Y')}
+Tax Type: Expanded
+Total EWT Withheld: {month_ewt:,.2f}
+Due Date: 20th of {datetime.now().strftime('%B %Y')}
+
+Transactions:
+"""
+                        for _, trans in month_ewt_trans.iterrows():
+                            form_1601c_content += f"- {trans['description']}: {trans['ewt_amount']:,.2f}\n"
+                        
+                        st.download_button(
+                            label=" Download Form 1601C",
+                            data=form_1601c_content,
+                            file_name=f"Form_1601C_{datetime.now().strftime('%Y%m')}.txt",
+                            mime="text/plain",
+                            type="primary"
+                        )
                 else:
                     st.write("No EWT transactions for current month.")
             
@@ -1715,12 +1800,59 @@ def show_tax_compliance():
                     quarter_num = quarter['Quarter'].replace('Q', '')
                     with st.expander(f"{quarter['Quarter']} VAT Return"):
                         st.write(f"**Period:** {quarter_num} {current_year}")
-                        st.write(f"**Output VAT:** ₱{quarter['VAT']:,.2f}")
-                        st.write(f"**Input VAT:** ₱{quarter['VAT']:,.2f}")  # Simplified
-                        st.write(f"**VAT Payable:** ₱{quarter['VAT']:,.2f}")  # Simplified
+                        st.write(f"**Output VAT:** {quarter['VAT']:,.2f}")
+                        st.write(f"**Input VAT:** {quarter['VAT']:,.2f}")  # Simplified
+                        st.write(f"**VAT Payable:** {quarter['VAT']:,.2f}")  # Simplified
                         
-                        if st.button(f"📥 Generate {quarter['Quarter']} VAT Return", key=f"vat_{quarter_num}"):
-                            st.info(f"{quarter['Quarter']} VAT return generation would be implemented here")
+                        if st.button(f" Generate {quarter['Quarter']} VAT Return", key=f"vat_{quarter_num}"):
+                            st.markdown(f"#####  BIR Form No. 2550Q")
+                            st.markdown(f"**Quarterly VAT Return - {quarter['Quarter']} {current_year}**")
+                            
+                            # Form data
+                            form_data = {
+                                'Taxpayer': profile.get('business_name', 'Your Business'),
+                                'TIN': '000-000-000-000',  # Placeholder
+                                'Period': f"{quarter_num} {current_year}",
+                                'Output VAT': f"Output VAT: {quarter['VAT']:,.2f}",
+                                'Input VAT': f"Input VAT: {quarter['VAT']:,.2f}",  # Simplified
+                                'VAT Payable': f"VAT Payable: {quarter['VAT']:,.2f}",  # Simplified
+                                'Due Date': f"20th day following end of {quarter_num} {current_year}"
+                            }
+                            
+                            st.write(f"**{quarter['Quarter']} VAT Return:**")
+                            for key, value in form_data.items():
+                                st.write(f"- {key}: {value}")
+                            
+                            st.write(f"**VAT Transactions for {quarter['Quarter']}:**")
+                            quarter_trans = transactions[transactions['quarter'] == int(quarter_num)]
+                            vat_trans = quarter_trans[quarter_trans['vat_amount'] > 0]
+                            for _, trans in vat_trans.iterrows():
+                                st.write(f"- {trans['description']}: {trans['transaction_date'].strftime('%Y-%m-%d')} - {trans['vat_amount']:,.2f}")
+                            
+                            # Download button
+                            form_2550q_content = f"""
+BIR Form No. 2550Q
+Quarterly VAT Return
+
+Taxpayer: {profile.get('business_name', 'Your Business')}
+Period: {quarter_num} {current_year}
+Output VAT: {quarter['VAT']:,.2f}
+Input VAT: {quarter['VAT']:,.2f}
+VAT Payable: {quarter['VAT']:,.2f}
+Due Date: 20th day following end of {quarter_num} {current_year}
+
+Transactions:
+"""
+                            for _, trans in vat_trans.iterrows():
+                                form_2550q_content += f"- {trans['description']}: {trans['vat_amount']:,.2f}\n"
+                            
+                            st.download_button(
+                                label=f" Download {quarter['Quarter']} VAT Return",
+                                data=form_2550q_content,
+                                file_name=f"Form_2550Q_{current_year}_Q{quarter_num}.txt",
+                                mime="text/plain",
+                                type="primary"
+                            )
             
             with col2:
                 st.markdown("#### 📄 Annual Income Tax")
@@ -1729,7 +1861,7 @@ def show_tax_compliance():
                 tax_type = profile.get('tax_type', 'VAT (12%)')
                 
                 st.write(f"**Tax Type:** {tax_type}")
-                st.write(f"**Gup Income:** ₱{annual_income:,.2f}")
+                st.write(f"**Gross Income:** {annual_income:,.2f}")
                 
                 # Simplified tax calculation
                 if 'NON-VAT' in tax_type:
@@ -1743,10 +1875,49 @@ def show_tax_compliance():
                     # Simplified VAT calculation
                     income_tax = annual_income * 0.12
                 
-                st.write(f"**Estimated Income Tax:** ₱{income_tax:,.2f}")
+                st.write(f"**Estimated Income Tax:** {income_tax:,.2f}")
                 
-                if st.button("📥 Generate Annual Tax Return", type="primary"):
-                    st.info("Annual tax return generation would be implemented here")
+                if st.button(" Generate Annual Tax Return", type="primary"):
+                    st.markdown("#####  BIR Form No. 1701")
+                    st.markdown("**Annual Income Tax Return**")
+                    
+                    # Form data
+                    form_data = {
+                        'Taxpayer': profile.get('business_name', 'Your Business'),
+                        'TIN': '000-000-000-000',  # Placeholder
+                        'Tax Year': current_year,
+                        'Gross Income': f"Gross Income: {annual_income:,.2f}",
+                        'Tax Type': tax_type,
+                        'Estimated Tax': f"Estimated Income Tax: {income_tax:,.2f}",
+                        'Due Date': f"April 15, {current_year + 1}"
+                    }
+                    
+                    st.write("**Annual Income Tax Return:**")
+                    for key, value in form_data.items():
+                        st.write(f"- {key}: {value}")
+                    
+                    # Download button
+                    form_1701_content = f"""
+BIR Form No. 1701
+Annual Income Tax Return
+
+Taxpayer: {profile.get('business_name', 'Your Business')}
+Tax Year: {current_year}
+Gross Income: {annual_income:,.2f}
+Tax Type: {tax_type}
+Estimated Income Tax: {income_tax:,.2f}
+Due Date: April 15, {current_year + 1}
+
+Note: This is a simplified calculation. Please consult with a tax professional for accurate tax filing.
+"""
+                    
+                    st.download_button(
+                        label=" Download Annual Tax Return",
+                        data=form_1701_content,
+                        file_name=f"Form_1701_{current_year}.txt",
+                        mime="text/plain",
+                        type="primary"
+                    )
             
             # Tax Calendar
             st.markdown("---")
