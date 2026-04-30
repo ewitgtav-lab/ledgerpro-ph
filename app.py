@@ -1658,6 +1658,16 @@ def can_submit_form(form_key):
     
     return True
 
+def get_countdown_time(form_key):
+    """Get remaining countdown time for form submission"""
+    current_time = datetime.now().timestamp()
+    last_time = st.session_state.last_submission.get(form_key, 0)
+    remaining = 2 - (current_time - last_time)
+    
+    if remaining > 0 and remaining < 2:
+        return max(0, int(remaining) + 1)  # Round up to show full seconds
+    return 0
+
 def mark_form_submitted(form_key):
     """Mark form as submitted to prevent double submissions"""
     st.session_state.last_submission[form_key] = datetime.now().timestamp()
@@ -3140,7 +3150,11 @@ def show_cash_receipts_journal():
                     button_disabled = not can_submit
                     
                     if button_disabled:
-                        st.info("Please wait 2 seconds between submissions...")
+                        countdown = get_countdown_time('cash_receipt')
+                        if countdown > 0:
+                            st.warning(f" Please wait {countdown} second{'s' if countdown > 1 else ''} before submitting again...")
+                        else:
+                            st.info("Please wait 2 seconds between submissions...")
                     
                     submitted = st.form_submit_button(
                         " Save Cash Receipt", 
@@ -3442,15 +3456,15 @@ def show_sales_journal():
         st.session_state.selected_page = "🔑 Subscription"
         st.rerun()
     else:
-        with st.form("purchase_entry_form", clear_on_submit=True):
-            st.markdown("####  Purchase Transaction Details")
+        with st.form("sales_entry_form", clear_on_submit=True):
+            st.markdown("####  Sales Transaction Details")
             
             col1, col2 = st.columns(2)
             
             with col1:
                 transaction_date = st.date_input("Transaction Date *", value=datetime.now().date())
-                supplier_name = st.text_input("Supplier Name *", placeholder="Enter supplier name")
-                receipt_no = st.text_input("Receipt Number", placeholder="Optional")
+                customer_name = st.text_input("Customer Name *", placeholder="Enter customer name")
+                invoice_no = st.text_input("Invoice Number", placeholder="Optional")
                 
             with col2:
                 amount = st.number_input("Amount *", min_value=0.01, value=0.01, step=0.01, format="%.2f")
@@ -3489,14 +3503,18 @@ def show_sales_journal():
             col1, col2, col3 = st.columns(3)
             with col2:
                 # Check if form can be submitted
-                can_submit = can_submit_form('purchase_entry')
+                can_submit = can_submit_form('sales_entry')
                 button_disabled = not can_submit
                 
                 if button_disabled:
-                    st.info("Please wait 2 seconds between submissions...")
+                    countdown = get_countdown_time('sales_entry')
+                    if countdown > 0:
+                        st.warning(f" Please wait {countdown} second{'s' if countdown > 1 else ''} before submitting again...")
+                    else:
+                        st.info("Please wait 2 seconds between submissions...")
                 
                 submitted = st.form_submit_button(
-                    " Save Purchase Entry", 
+                    " Save Sales Entry", 
                     type="primary", 
                     use_container_width=False,
                     disabled=button_disabled
@@ -3505,30 +3523,30 @@ def show_sales_journal():
             if submitted:
                 try:
                     # Mark form as submitted to prevent double submissions
-                    mark_form_submitted('purchase_entry')
+                    mark_form_submitted('sales_entry')
                     
                     supabase = init_supabase()
                     
                     # Validate transaction data before saving
-                    purchase_data = {
-                        'supplier_name': supplier_name,
+                    sales_data = {
+                        'customer_name': customer_name,
                         'gross_amount': amount,
                         'transaction_date': transaction_date.strftime('%Y-%m-%d')
                     }
                     
-                    validation_errors = validate_transaction_data(purchase_data, 'Purchase')
+                    validation_errors = validate_transaction_data(sales_data, 'Sales')
                     if validation_errors:
                         for error in validation_errors:
                             st.error(f"Validation Error: {error}")
-                        mark_form_complete('purchase_entry')
+                        mark_form_complete('sales_entry')
                         st.stop()
                     
-                    # Insert purchase transaction
-                    purchase_data = {
+                    # Insert sales transaction
+                    sales_data = {
                         'user_id': user.id,
                         'transaction_date': transaction_date.strftime('%Y-%m-%d'),
-                        'supplier_name': supplier_name.strip(),
-                        'expense_category': expense_category,
+                        'customer_name': customer_name.strip(),
+                        'payment_method': payment_method,
                         'gross_amount': amount,
                         'net_amount': amount - vat_amount - ewt_amount,
                         'vat_rate': vat_rate,
@@ -3536,26 +3554,26 @@ def show_sales_journal():
                         'ewt_rate': ewt_rate,
                         'ewt_amount': ewt_amount,
                         'final_amount': final_amount,
-                        'type': 'Purchase',
+                        'type': 'Sales',
                         'tax_type': profile.get('tax_type', 'VAT (12%)')
                     }
                     
-                    result = supabase.table('transactions').insert(purchase_data).execute()
+                    result = supabase.table('transactions').insert(sales_data).execute()
                     
                     if result.data:
-                        st.success(" Purchase entry saved successfully!")
+                        st.success(" Sales entry saved successfully!")
                         st.balloons()
-                        mark_form_complete('purchase_entry')
+                        mark_form_complete('sales_entry')
                         st.rerun()
                     else:
-                        st.error(" Failed to save purchase entry")
-                        mark_form_complete('purchase_entry')
+                        st.error(" Failed to save sales entry")
+                        mark_form_complete('sales_entry')
                         
                 except Exception as e:
                     if not handle_database_error(e):
-                        st.error(f" Error saving purchase entry: {str(e)}")
+                        st.error(f" Error saving sales entry: {str(e)}")
                         st.info("Please try again or contact support if the issue persists.")
-                    mark_form_complete('purchase_entry')
+                    mark_form_complete('sales_entry')
     
     # Recent sales entries
     st.markdown("### 📋 Recent Sales Entries")
