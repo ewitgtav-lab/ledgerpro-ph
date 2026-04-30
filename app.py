@@ -2490,17 +2490,18 @@ def generate_pdf_financial_statements(period_title, income_data, balance_data, e
         <html>
         <head>
             <style>
-                body {{ font-family: 'Times New Roman', serif; margin: 40px; }}
-                .header {{ text-align: center; margin-bottom: 30px; }}
-                .title {{ font-size: 24px; font-weight: bold; margin-bottom: 10px; }}
-                .subtitle {{ font-size: 16px; color: #666; margin-bottom: 20px; }}
-                .statement-title {{ font-size: 18px; font-weight: bold; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 5px; }}
-                table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-                th, td {{ text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }}
-                .total {{ font-weight: bold; border-top: 2px solid #333; }}
-                .grand-total {{ font-weight: bold; font-size: 14px; background-color: #f5f5f5; }}
+                body {{ font-family: 'Times New Roman', serif; margin: 20px; line-height: 1.4; }}
+                .header {{ text-align: center; margin-bottom: 15px; }}
+                .title {{ font-size: 20px; font-weight: bold; margin-bottom: 5px; }}
+                .subtitle {{ font-size: 14px; color: #666; margin-bottom: 10px; }}
+                .statement-title {{ font-size: 16px; font-weight: bold; margin-top: 20px; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 3px; }}
+                table {{ width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 13px; }}
+                th, td {{ text-align: left; padding: 4px 8px; border-bottom: 1px solid #ddd; }}
+                .total {{ font-weight: bold; border-top: 2px solid #333; background-color: #f9f9f9; }}
+                .grand-total {{ font-weight: bold; font-size: 13px; background-color: #f0f0f0; border-top: 2px solid #333; }}
                 .right-align {{ text-align: right; }}
                 .indent {{ padding-left: 20px; }}
+                .section-header {{ font-weight: bold; background-color: #e8e8e8; }}
             </style>
         </head>
         <body>
@@ -2509,22 +2510,43 @@ def generate_pdf_financial_statements(period_title, income_data, balance_data, e
                 <div class="subtitle">For the period ended {period_title}</div>
                 <div class="subtitle">Generated on {datetime.now().strftime('%B %d, %Y')}</div>
             </div>
-            
+
             <div class="statement-title">STATEMENT OF COMPREHENSIVE INCOME</div>
             <table>
-                <tr><td width="70%">Revenue</td><td class="right-align" width="30%">PHP {sum(item['Amount'] for item in income_data if item['Type'] == 'Revenue'):,.2f}</td></tr>
-                <tr><td class="indent">Less: Cost of Goods Sold</td><td class="right-align">PHP 0.00</td></tr>
-                <tr><td class="total">Gross Profit</td><td class="right-align">PHP {sum(item['Amount'] for item in income_data if item['Type'] == 'Total' and 'Profit' in item['Item']):,.2f}</td></tr>
-                <tr><td colspan="2">&nbsp;</td></tr>
-                <tr><td>Operating Expenses</td><td class="right-align">PHP {sum(item['Amount'] for item in income_data if 'Expense' in item['Type'] and 'Tax' not in item['Item']):,.2f}</td></tr>
-                <tr><td class="total">Net Income</td><td class="right-align">PHP {sum(item['Amount'] for item in income_data if 'Net Income' in item['Item']):,.2f}</td></tr>
+        """
+
+        # Add income statement rows
+        for item in income_data:
+            if item['Type'] == 'Separator':
+                continue
+            elif item['Type'] == 'Header':
+                pdf_content += f'<tr><td class="section-header" colspan="2">{item["Item"]}</td></tr>'
+            elif item['Type'] == 'Total':
+                pdf_content += f'<tr><td class="total">{item["Item"]}</td><td class="right-align total">₱{item["Amount"]:,.2f}</td></tr>'
+            else:
+                indent_class = 'indent' if item['Type'] == 'Expense' else ''
+                pdf_content += f'<tr><td class="{indent_class}">{item["Item"]}</td><td class="right-align">₱{item["Amount"]:,.2f}</td></tr>'
+
+        pdf_content += """
             </table>
-            
+
             <div class="statement-title">BALANCE SHEET</div>
             <table>
-                <tr><td class="grand-total">TOTAL ASSETS</td><td class="right-align grand-total">PHP {sum(item['Amount'] for item in balance_data if item['Type'] == 'Asset'):,.2f}</td></tr>
-                <tr><td class="grand-total">TOTAL LIABILITIES</td><td class="right-align grand-total">PHP {sum(item['Amount'] for item in balance_data if item['Type'] == 'Liability'):,.2f}</td></tr>
-                <tr><td class="grand-total">TOTAL EQUITY</td><td class="right-align grand-total">PHP {sum(item['Amount'] for item in balance_data if item['Type'] == 'Equity'):,.2f}</td></tr>
+        """
+
+        # Add balance sheet rows
+        current_section = ""
+        for item in balance_data:
+            if item['Type'] == 'Header':
+                current_section = item['Section']
+                pdf_content += f'<tr><td class="section-header" colspan="3">{item["Section"]}</td></tr>'
+            elif item['Type'] == 'GrandTotal':
+                pdf_content += f'<tr><td class="grand-total" colspan="2">{item["Section"]}</td><td class="right-align grand-total">₱{item["Amount"]:,.2f}</td></tr>'
+            else:
+                indent = "&nbsp;&nbsp;&nbsp;&nbsp;" if item['Section'] != current_section else ""
+                pdf_content += f'<tr><td>{item["Section"]}</td><td>{indent}{item["Item"]}</td><td class="right-align">₱{item["Amount"]:,.2f}</td></tr>'
+
+        pdf_content += """
             </table>
         </body>
         </html>
@@ -2557,7 +2579,14 @@ def generate_excel_financial_statements(period_title, income_data, balance_data,
         title_format = workbook.add_format({'bold': True, 'font_size': 16, 'align': 'center'})
         header_format = workbook.add_format({'bold': True, 'bg_color': '#D9E1F2', 'border': 1})
         total_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#E2EFDA'})
-        currency_format = workbook.add_format({'num_format': 'PHP #,##0.00', 'border': 1})
+        currency_format = workbook.add_format({'num_format': '₱ #,##0.00', 'border': 1})
+        double_underline_format = workbook.add_format({
+            'bold': True,
+            'num_format': '₱ #,##0.00',
+            'border': 1,
+            'bg_color': '#E2EFDA',
+            'bottom': 2
+        })
         
         # Income Statement
         income_sheet = workbook.add_worksheet('Income Statement')
@@ -2576,8 +2605,13 @@ def generate_excel_financial_statements(period_title, income_data, balance_data,
                 income_sheet.write(row, 0, item['Item'], total_format)
                 income_sheet.write(row, 1, item['Amount'], total_format)
             elif item['Type'] == 'Total':
-                income_sheet.write(row, 0, item['Item'], bold_format)
-                income_sheet.write(row, 1, item['Amount'], currency_format)
+                # Apply double underline to Net Income
+                if 'Net Income' in item['Item']:
+                    income_sheet.write(row, 0, item['Item'], double_underline_format)
+                    income_sheet.write(row, 1, item['Amount'], double_underline_format)
+                else:
+                    income_sheet.write(row, 0, item['Item'], bold_format)
+                    income_sheet.write(row, 1, item['Amount'], currency_format)
             else:
                 income_sheet.write(row, 0, item['Item'], None)
                 income_sheet.write(row, 1, item['Amount'], currency_format)
@@ -2597,9 +2631,15 @@ def generate_excel_financial_statements(period_title, income_data, balance_data,
         
         for item in balance_data:
             if item['Type'] == 'GrandTotal':
-                balance_sheet.write(row, 0, item['Section'], total_format)
-                balance_sheet.write(row, 1, item['Item'], total_format)
-                balance_sheet.write(row, 2, item['Amount'], total_format)
+                # Apply double underline to Total Equity
+                if 'TOTAL EQUITY' in item['Section']:
+                    balance_sheet.write(row, 0, item['Section'], double_underline_format)
+                    balance_sheet.write(row, 1, item['Item'], double_underline_format)
+                    balance_sheet.write(row, 2, item['Amount'], double_underline_format)
+                else:
+                    balance_sheet.write(row, 0, item['Section'], total_format)
+                    balance_sheet.write(row, 1, item['Item'], total_format)
+                    balance_sheet.write(row, 2, item['Amount'], total_format)
             else:
                 balance_sheet.write(row, 0, item['Section'], None)
                 balance_sheet.write(row, 1, item['Item'], None)
@@ -2953,20 +2993,21 @@ def show_financial_statements():
             # Export options
             st.markdown("---")
             st.markdown("### 📥 Export Options")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                if st.button("Export as PDF", type="secondary"):
-                    generate_pdf_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
-            
-            with col2:
-                if st.button("Export as Excel", type="secondary"):
-                    generate_excel_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
-            
-            with col3:
-                if st.button("Print Statement", type="secondary"):
-                    print_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+
+            with st.form("export_form"):
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    if st.form_submit_button("Export as PDF", type="secondary"):
+                        generate_pdf_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+
+                with col2:
+                    if st.form_submit_button("Export as Excel", type="secondary"):
+                        generate_excel_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+
+                with col3:
+                    if st.form_submit_button("Print Statement", type="secondary"):
+                        print_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
         
         else:
             st.info(f"No transactions found for {period_title}. Add transactions to generate financial statements.")
