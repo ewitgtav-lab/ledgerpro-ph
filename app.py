@@ -3090,17 +3090,17 @@ def show_cash_receipts_journal():
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    customer_name = st.text_input("Customer Name*", placeholder="Enter customer name", key="cash_customer")
-                    gross_amount = st.number_input("Gross Amount*", min_value=0.01, value=0.01, step=0.01, format="%.2f", key="cash_amount")
-                    platform_name = st.selectbox("Platform", ["None", "SHOPEE", "LAZADA", "TIKTOK"], key="cash_platform")
-                    platform_fee = st.number_input("Platform Fee", min_value=0.0, step=0.01, format="%.2f", value=0.0, help="Leave 0 to auto-calculate", key="cash_platform_fee")
-                    seller_discount = st.number_input("Seller Discount", min_value=0.0, step=0.01, format="%.2f", value=0.0, key="cash_discount")
+                    customer_name = st.text_input("Customer Name*", placeholder="Enter customer name", key="cash_cust_name_v1")
+                    gross_amount = st.number_input("Gross Amount*", min_value=0.01, value=0.01, step=0.01, format="%.2f", key="cash_amount_v1")
+                    platform_name = st.selectbox("Platform", ["None", "SHOPEE", "LAZADA", "TIKTOK"], key="cash_platform_v1")
+                    platform_fee = st.number_input("Platform Fee", min_value=0.0, step=0.01, format="%.2f", value=0.0, help="Leave 0 to auto-calculate", key="cash_platform_fee_v1")
+                    seller_discount = st.number_input("Seller Discount", min_value=0.0, step=0.01, format="%.2f", value=0.0, key="cash_discount_v1")
                 
                 with col2:
-                    payment_method = st.selectbox("Payment Method*", ["Cash", "Bank Transfer", "Check", "Digital Wallet"], key="cash_payment")
-                    bank_name = st.text_input("Bank Name", placeholder="Enter bank name", key="cash_bank")
-                    check_number = st.text_input("Check Number", placeholder="Enter check number", key="cash_check")
-                    description = st.text_input("Description", placeholder="Payment description", key="cash_description")
+                    payment_method = st.selectbox("Payment Method*", ["Cash", "Bank Transfer", "Check", "Digital Wallet"], key="cash_payment_v1")
+                    bank_name = st.text_input("Bank Name", placeholder="Enter bank name", key="cash_bank_v1")
+                    check_number = st.text_input("Check Number", placeholder="Enter check number", key="cash_check_v1")
+                    description = st.text_input("Description", placeholder="Payment description", key="cash_description_v1")
                 
                 # Auto-calculate tax amounts (initialize with default values)
                 tax_calculations = calculate_tax_amounts(
@@ -3124,27 +3124,13 @@ def show_cash_receipts_journal():
                     with col4:
                         st.metric("Final Amount", format_currency_ph(tax_calculations['final_amount']))
                 
-                # Submit button with validation
+                # Submit button - validation moved inside submission check
                 col1, col2, col3 = st.columns(3)
                 with col2:
-                    # Check if required fields are filled
-                    form_data = {
-                        'customer_name': customer_name,
-                        'gross_amount': gross_amount,
-                        'transaction_date': datetime.now().strftime('%Y-%m-%d')
-                    }
-                    validation_errors = validate_required_fields(form_data, 'Cash Receipt')
-                    button_disabled = len(validation_errors) > 0
-                    
-                    if button_disabled:
-                        for error in validation_errors:
-                            st.error(error)
-                    
                     submitted = st.form_submit_button(
                         " Save Cash Receipt", 
                         type="primary", 
-                        use_container_width=False,
-                        disabled=button_disabled
+                        use_container_width=False
                     )
                 
                 if submitted:
@@ -3455,27 +3441,27 @@ def show_sales_journal():
             col1, col2 = st.columns(2)
             
             with col1:
-                transaction_date = st.date_input("Transaction Date *", value=datetime.now().date(), key="sales_date")
-                customer_name = st.text_input("Customer Name *", placeholder="Enter customer name", key="sales_customer")
-                invoice_no = st.text_input("Invoice Number", placeholder="Optional", key="sales_invoice")
+                transaction_date = st.date_input("Transaction Date *", value=datetime.now().date(), key="sales_date_v1")
+                customer_name = st.text_input("Customer Name *", placeholder="Enter customer name", key="sales_cust_name_v1")
+                invoice_no = st.text_input("Invoice Number", placeholder="Optional", key="sales_invoice_v1")
                 
             with col2:
-                amount = st.number_input("Amount *", min_value=0.01, value=0.01, step=0.01, format="%.2f", key="sales_amount")
-                payment_method = st.selectbox("Payment Method *", ["Cash", "Bank Transfer", "Check", "Online Payment"], key="sales_payment")
+                amount = st.number_input("Amount *", min_value=0.01, value=0.01, step=0.01, format="%.2f", key="sales_amount_v1")
+                payment_method = st.selectbox("Payment Method *", ["Cash", "Bank Transfer", "Check", "Online Payment"], key="sales_payment_v1")
             
             st.markdown("####  Tax Information")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                vat_rate = st.selectbox("VAT Rate", [0.00, 0.12], format_func=lambda x: f"{x*100:.0f}%", key="sales_vat_rate")
+                vat_rate = st.selectbox("VAT Rate", [0.00, 0.12], format_func=lambda x: f"{x*100:.0f}%", key="sales_vat_rate_v1")
                 if vat_rate > 0:
                     vat_amount = amount * vat_rate
                 else:
                     vat_amount = 0
             
             with col2:
-                ewt_rate = st.selectbox("EWT Rate", [0.00, 0.01, 0.02], format_func=lambda x: f"{x*100:.0f}%", key="sales_ewt_rate")
+                ewt_rate = st.selectbox("EWT Rate", [0.00, 0.01, 0.02], format_func=lambda x: f"{x*100:.0f}%", key="sales_ewt_rate_v1")
                 if ewt_rate > 0:
                     ewt_amount = amount * ewt_rate
                 else:
@@ -3492,27 +3478,13 @@ def show_sales_journal():
             with col3:
                 st.metric("Final Amount", format_currency_ph(final_amount))
             
-            # Submit button with validation
+            # Submit button - validation moved inside submission check
             col1, col2, col3 = st.columns(3)
             with col2:
-                # Check if required fields are filled
-                form_data = {
-                    'customer_name': customer_name,
-                    'gross_amount': amount,
-                    'transaction_date': transaction_date.strftime('%Y-%m-%d')
-                }
-                validation_errors = validate_required_fields(form_data, 'Sales')
-                button_disabled = len(validation_errors) > 0
-                
-                if button_disabled:
-                    for error in validation_errors:
-                        st.error(error)
-                
                 submitted = st.form_submit_button(
                     " Save Sales Entry", 
                     type="primary", 
-                    use_container_width=False,
-                    disabled=button_disabled
+                    use_container_width=False
                 )
             
             if submitted:
@@ -3648,26 +3620,26 @@ def show_purchase_journal():
             col1, col2 = st.columns(2)
             
             with col1:
-                transaction_date = st.date_input("Transaction Date*", datetime.now().date(), key="purchase_date")
-                receipt_no = st.text_input("Receipt No.*", placeholder="Enter receipt number", key="purchase_receipt")
+                transaction_date = st.date_input("Transaction Date*", datetime.now().date(), key="purchase_date_v1")
+                receipt_no = st.text_input("Receipt No.*", placeholder="Enter receipt number", key="purchase_receipt_v1")
                 
             with col2:
-                supplier_name = st.text_input("Supplier Name*", placeholder="Enter supplier name", key="purchase_supplier")
-                expense_category = st.selectbox("Expense Category*", ["Office Supplies", "Equipment", "Utilities", "Rent", "Marketing", "Professional Services", "Other"], key="purchase_category")
+                supplier_name = st.text_input("Supplier Name*", placeholder="Enter supplier name", key="purchase_supp_name_v1")
+                expense_category = st.selectbox("Expense Category*", ["Office Supplies", "Equipment", "Utilities", "Rent", "Marketing", "Professional Services", "Other"], key="purchase_category_v1")
                 
             st.markdown("###  Purchase Details")
             
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                amount = st.number_input("Amount*", min_value=0.01, value=0.01, step=0.01, format="%.2f", key="purchase_amount")
+                amount = st.number_input("Amount*", min_value=0.01, value=0.01, step=0.01, format="%.2f", key="purchase_amount_v1")
                 
             with col2:
-                vat_rate = st.selectbox("VAT Rate", [0.00, 0.12], format_func=lambda x: f"{x*100:.0f}%", key="purchase_vat_rate")
+                vat_rate = st.selectbox("VAT Rate", [0.00, 0.12], format_func=lambda x: f"{x*100:.0f}%", key="purchase_vat_rate_v1")
                 vat_amount = amount * vat_rate
                 
             with col3:
-                ewt_rate = st.selectbox("EWT Rate", [0.00, 0.01, 0.02], format_func=lambda x: f"{x*100:.0f}%", key="purchase_ewt_rate")
+                ewt_rate = st.selectbox("EWT Rate", [0.00, 0.01, 0.02], format_func=lambda x: f"{x*100:.0f}%", key="purchase_ewt_rate_v1")
                 ewt_amount = amount * ewt_rate
                 
             final_amount = amount - vat_amount - ewt_amount
@@ -3684,27 +3656,13 @@ def show_purchase_journal():
             with col3:
                 st.metric("Net Amount", f"₱{final_amount:,.2f}")
             
-            # Submit button with validation
+            # Submit button - validation moved inside submission check
             col1, col2, col3 = st.columns(3)
             with col2:
-                # Check if required fields are filled
-                form_data = {
-                    'supplier_name': supplier_name,
-                    'gross_amount': amount,
-                    'transaction_date': transaction_date.strftime('%Y-%m-%d')
-                }
-                validation_errors = validate_required_fields(form_data, 'Purchase')
-                button_disabled = len(validation_errors) > 0
-                
-                if button_disabled:
-                    for error in validation_errors:
-                        st.error(error)
-                
                 submitted = st.form_submit_button(
                     " Save Purchase Entry", 
                     type="primary", 
-                    use_container_width=False,
-                    disabled=button_disabled
+                    use_container_width=False
                 )
                 
                 if submitted:
