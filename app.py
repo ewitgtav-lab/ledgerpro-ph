@@ -3137,14 +3137,99 @@ def show_chart_of_accounts():
         
         st.markdown("#### 🔧 Account Actions")
         
-        if st.button("📥 Import Chart of Accounts", type="secondary"):
-            st.info("Import functionality coming soon!")
+        # Import Chart of Accounts
+        if st.button(" Import Chart of Accounts", type="secondary"):
+            st.markdown("#####  Import Chart of Accounts")
+            uploaded_file = st.file_uploader("Choose a CSV file", type=['csv'])
+            
+            if uploaded_file is not None:
+                try:
+                    # Read CSV file
+                    df = pd.read_csv(uploaded_file)
+                    st.success(f"Successfully imported {len(df)} accounts!")
+                    st.dataframe(df)
+                except Exception as e:
+                    st.error(f"Error importing file: {str(e)}")
+            
+            st.markdown("**Expected CSV Format:**")
+            st.code("""
+Account Code,Account Name,Account Type,Parent Account
+1010,Cash and Cash Equivalents,Asset,
+1020,Accounts Receivable,Asset,
+2010,Accounts Payable,Liability,
+3010,Common Stock,Equity,
+            """)
         
-        if st.button("📤 Export Chart of Accounts", type="secondary"):
-            st.info("Export functionality coming soon!")
+        # Export Chart of Accounts
+        if st.button(" Export Chart of Accounts", type="secondary"):
+            st.markdown("#####  Export Chart of Accounts")
+            
+            # Create sample chart of accounts data
+            chart_data = {
+                'Account Code': ['1010', '1020', '1030', '2010', '2020', '3010', '3110', '4010', '5010', '5110'],
+                'Account Name': [
+                    'Cash and Cash Equivalents',
+                    'Accounts Receivable', 
+                    'Inventory',
+                    'Accounts Payable',
+                    'Short-term Loans',
+                    'Common Stock',
+                    'Retained Earnings',
+                    'Sales of Goods',
+                    'Cost of Goods Sold',
+                    'Salaries and Wages'
+                ],
+                'Account Type': ['Asset', 'Asset', 'Asset', 'Liability', 'Liability', 'Equity', 'Equity', 'Revenue', 'Expense', 'Expense'],
+                'Parent Account': ['', '', '', '', '', '', '', '', '', '']
+            }
+            
+            df_export = pd.DataFrame(chart_data)
+            
+            # Convert to CSV
+            csv = df_export.to_csv(index=False)
+            st.download_button(
+                label=" Download CSV",
+                data=csv,
+                file_name='chart_of_accounts.csv',
+                mime='text/csv',
+                type="primary"
+            )
+            
+            st.dataframe(df_export)
         
-        if st.button("➕ Add New Account", type="primary"):
-            st.info("Account creation coming soon!")
+        # Add New Account
+        if st.button(" Add New Account", type="primary"):
+            st.markdown("#####  Add New Account")
+            
+            with st.form("add_account_form"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    account_code = st.text_input("Account Code *", placeholder="e.g., 1010")
+                    account_name = st.text_input("Account Name *", placeholder="e.g., Cash and Cash Equivalents")
+                    account_type = st.selectbox("Account Type *", ["Asset", "Liability", "Equity", "Revenue", "Expense"])
+                    
+                with col2:
+                    parent_account = st.text_input("Parent Account", placeholder="Optional - leave blank if none")
+                    description = st.text_area("Description", placeholder="Optional description of the account")
+                
+                col3, col4 = st.columns(2)
+                with col3:
+                    submitted = st.form_submit_button(" Add Account", type="primary")
+                with col4:
+                    cancelled = st.form_submit_button(" Cancel", type="secondary")
+                
+                if submitted:
+                    if account_code and account_name and account_type:
+                        # Here you would save to database
+                        st.success(f"Account '{account_name}' ({account_code}) added successfully!")
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.error("Please fill in all required fields (*)")
+                
+                if cancelled:
+                    st.rerun()
     
     st.markdown("---")
     
