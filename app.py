@@ -2592,7 +2592,7 @@ def create_database_schema():
             id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
             user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
             transaction_date TIMESTAMP WITH TIME ZONE NOT NULL,
-            transaction_type TEXT NOT NULL CHECK (transaction_type IN ('Cash Receipt', 'Sales', 'Purchase', 'Cash Disbursement', 'General Journal')),
+            type TEXT NOT NULL CHECK (type IN ('Cash Receipt', 'Sales', 'Purchase', 'Cash Disbursement', 'General Journal')),
             description TEXT,
             invoice_no TEXT,
             receipt_no TEXT,
@@ -2780,7 +2780,7 @@ def show_sales_journal():
                             'ewt_rate': ewt_rate,
                             'ewt_amount': ewt_amount,
                             'final_amount': final_amount,
-                            'transaction_type': 'Sales',
+                            'type': 'Sales',
                             'status': 'Active',
                             'tax_type': profile.get('tax_type', 'VAT (12%)')
                         }
@@ -2803,7 +2803,7 @@ def show_sales_journal():
     
     try:
         supabase = init_supabase()
-        result = supabase.table('transactions').select('*').eq('user_id', user.id).eq('transaction_type', 'Sales').order('created_at', desc=True).limit(10).execute()
+        result = supabase.table('transactions').select('*').eq('user_id', user.id).eq('type', 'Sales').order('created_at', desc=True).limit(10).execute()
         
         if result.data:
             for entry in result.data:
@@ -2927,7 +2927,7 @@ def show_purchase_journal():
                             'ewt_rate': ewt_rate,
                             'ewt_amount': ewt_amount,
                             'final_amount': final_amount,
-                            'transaction_type': 'Purchase',
+                            'type': 'Purchase',
                             'status': 'Active',
                             'tax_type': profile.get('tax_type', 'VAT (12%)')
                         }
@@ -2950,7 +2950,7 @@ def show_purchase_journal():
     
     try:
         supabase = init_supabase()
-        result = supabase.table('transactions').select('*').eq('user_id', user.id).eq('transaction_type', 'Purchase').order('created_at', desc=True).limit(10).execute()
+        result = supabase.table('transactions').select('*').eq('user_id', user.id).eq('type', 'Purchase').order('created_at', desc=True).limit(10).execute()
         
         if result.data:
             for entry in result.data:
