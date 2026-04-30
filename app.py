@@ -2304,106 +2304,34 @@ def show_dashboard():
                 delta=f"₱{total_tax:,.2f}" if total_tax != 0 else None
             )
         
-        # Revenue trend chart with enhanced styling
-        st.markdown("### 📈 Revenue Analytics")
-        
-        st.write(f"DEBUG: Transactions empty: {transactions.empty}, Length: {len(transactions)}, Has type column: {'type' in transactions.columns}")
-        
+        # Simple revenue chart
+        st.markdown("### 📈 Revenue Trend")
         if not transactions.empty and len(transactions) > 0 and 'type' in transactions.columns:
-            st.write(f"DEBUG: Transaction types: {transactions['type'].unique()}")
-            revenue_transactions = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
-            st.write(f"DEBUG: Revenue transactions count: {len(revenue_transactions)}")
-            if len(revenue_transactions) > 0:
-                daily_revenue = revenue_transactions.groupby(revenue_transactions['transaction_date'].dt.date)['final_amount'].sum().reset_index()
-                st.write(f"DEBUG: Daily revenue count: {len(daily_revenue)}")
-                
-                if len(daily_revenue) > 0:
-                    fig = px.line(
-                        daily_revenue, 
-                        x='transaction_date', 
-                        y='final_amount',
-                        title='Daily Revenue Trend',
-                        labels={'final_amount': 'Revenue (₱)', 'transaction_date': 'Date'},
-                        color_discrete_sequence=['#10b981']
-                    )
-                    
-                    # Enhanced chart styling
-                    fig.update_traces(
-                        line=dict(width=3),  # Make line thicker
-                        marker=dict(size=6)     # Add markers
-                    )
-                    fig.update_layout(
-                        title_font_size=16,
-                        title_x=0.5,
-                        xaxis_title_font_size=12,
-                        yaxis_title_font_size=12,
-                        showlegend=False,
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        height=400
-                    )
-                    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-                    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-                    
+            revenue_data = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
+            if len(revenue_data) > 0:
+                chart_data = revenue_data.groupby('transaction_date')['final_amount'].sum().reset_index()
+                if len(chart_data) > 0:
+                    fig = px.line(chart_data, x='transaction_date', y='final_amount', title='Revenue Over Time')
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("No revenue data available for the selected period.")
+                    st.info("No revenue data available")
             else:
-                st.info("No revenue transactions found.")
+                st.info("No revenue transactions found")
         else:
-            st.info("No transaction data available. Start adding transactions to see analytics.")
+            st.info("No transaction data available")
         
-        # Transaction breakdown pie chart
-        st.markdown("### 🥧 Transaction Breakdown")
-        
+        # Simple pie chart
+        st.markdown("### 🥧 Transaction Distribution")
         if not transactions.empty and len(transactions) > 0 and 'type' in transactions.columns:
-            # Group transactions by type
-            transaction_summary = transactions.groupby('type')['final_amount'].sum().reset_index()
-            
-            if len(transaction_summary) > 0:
-                # Add emoji for transaction types
-                type_labels = {
-                    'cash_receipt': '💰 Cash Receipts',
-                    'sales': '📈 Sales', 
-                    'purchase': '🛒 Purchases',
-                    'expense': '💸 Expenses',
-                    'cash_disbursement': '💳 Cash Disbursements'
-                }
-                
-                transaction_summary['type_label'] = transaction_summary['type'].apply(
-                    lambda x: type_labels.get(x, x.title())
-                )
-                
-                # Create pie chart
-                fig = px.pie(
-                    transaction_summary, 
-                    values='final_amount',
-                    names='type_label',
-                    title='Transaction Distribution',
-                    color_discrete_sequence=['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6']
-                )
-                
-                # Enhanced pie chart styling
-                fig.update_layout(
-                    title_font_size=16,
-                    title_x=0.5,
-                    height=400,
-                    showlegend=True,
-                    legend=dict(
-                        orientation="v",
-                        yanchor="middle",
-                        y=0.5,
-                        xanchor="left",
-                        x=1.01
-                    )
-                )
-                
+            pie_data = transactions.groupby('type')['final_amount'].sum().reset_index()
+            if len(pie_data) > 0:
+                fig = px.pie(pie_data, values='final_amount', names='type', title='Transaction Distribution')
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("No transaction data available for breakdown.")
+                st.info("No transaction data available")
         else:
-            st.info("No transactions yet. Start adding transactions to see the breakdown chart.")
-        
+            st.info("No transaction data available")
+                
         # Enhanced recent transactions section
         st.markdown("### 📋 Recent Activity")
         
