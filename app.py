@@ -1290,21 +1290,49 @@ def show_general_journal():
                                         'created_at': datetime.now().isoformat()
                                     }
                                     
-                                    result = supabase.table('transactions').insert(transaction_data).execute()
-                                    if not result.data:
-                                        st.error("❌ Failed to save credit entry")
-                                        raise Exception("Credit entry failed")
                             
-                            st.success("✅ Journal entry saved successfully!")
-                            st.balloons()
-                            st.rerun()
-                            
-                        except Exception as e:
-                            st.error(f"❌ Error saving journal entry: {str(e)}")
-                            st.info("Please try again or contact support if the issue persists.")
+                            if entry['credit'] > 0:
+                                # Credit entry
+                                transaction_data = {
+                                    'user_id': user.id,
+                                    'transaction_date': entry_date.isoformat(),
+                                    'type': 'cash_receipt',  # Credits are receipts
+                                    'description': f"{summary} - {entry['description']}",
+                                    'customer_name': entry['account'],
+                                    'supplier_name': None,
+                                    'gross_amount': entry['credit'],
+                                    'platform_name': None,
+                                    'platform_fee': 0.0,
+                                    'seller_discount': 0.0,
+                                    'net_amount': entry['credit'],
+                                    'vat_amount': 0.0,
+                                    'ewt_amount': 0.0,
+                                    'final_amount': entry['credit'],
+                                    'payment_method': 'Journal Entry',
+                                    'bank_name': None,
+                                    'check_number': reference_no,
+                                    'tax_type': profile.get('tax_type', 'VAT (12%)'),
+                                    'vat_rate': 0.0,
+                                    'ewt_rate': 0.0,
+                                    'status': 'POSTED',
+                                    'created_at': datetime.now().isoformat()
+                                }
+                                
+                                result = supabase.table('transactions').insert(transaction_data).execute()
+                                if not result.data:
+                                    st.error(" Failed to save credit entry")
+                                    raise Exception("Credit entry failed")
+                    
+                    st.success(" Journal entry saved successfully!")
+                    st.balloons()
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f" Error saving journal entry: {str(e)}")
+                    st.info("Please try again or contact support if the issue persists.")
     
     # Existing entries table
-    st.markdown("### 📋 Recent Journal Entries")
+    st.markdown("###  Recent Journal Entries")
     
     # Load recent journal entries
     try:
