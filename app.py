@@ -146,6 +146,9 @@ def show_auth_page():
                             st.error("❌ Password is too weak. Use at least 6 characters.")
                         elif "invalid_email" in error_msg:
                             st.error("❌ Invalid email format.")
+                        elif "rate limit" in error_msg or "otp_rate_limit" in error_msg:
+                            st.error("❌ Too many signup attempts. Please wait a few minutes before trying again.")
+                            st.info("💡 Supabase has a rate limit on email verification. Try again in 5-10 minutes.")
                         elif "database" in error_msg or "connection" in error_msg:
                             st.error("❌ Database connection error. Please try again.")
                         else:
