@@ -2208,7 +2208,6 @@ def check_transaction_limit(user_id):
 
 # Dashboard
 def show_dashboard():
-    st.write("DEBUG: Dashboard function called")
     st.markdown("""
     <div class="main-header">
         <h1>Dashboard</h1>
@@ -2218,20 +2217,22 @@ def show_dashboard():
     
     try:
         user = get_current_user()
-        st.write(f"DEBUG: Current user: {user.email if user else 'None'}")
-        profile = get_user_profile(user.id) if user else None
-        st.write(f"DEBUG: Profile loaded: {profile is not None}")
-        
+        if not user:
+            st.error("Unable to load user")
+            return
+            
+        profile = get_user_profile(user.id)
         if not profile:
             st.error("Unable to load user profile")
             return
     
-    # Load user transactions with date filtering
+        # Initialize default values
+        total_revenue = total_expenses = net_income = total_tax = 0
+        transactions = pd.DataFrame()
+        
+        # Load user transactions with date filtering
         try:
             supabase = init_supabase()
-            # Get current month data
-            current_month = datetime.now().strftime('%Y-%m')
-            # Use date range filter instead of LIKE on timestamp
             from dateutil.relativedelta import relativedelta
             start_date = datetime.now().replace(day=1)
             end_date = start_date + relativedelta(months=1)
@@ -2239,15 +2240,8 @@ def show_dashboard():
             result = supabase.table('transactions').select('*').eq('user_id', user.id).gte('transaction_date', start_date.strftime('%Y-%m-%d')).lt('transaction_date', end_date.strftime('%Y-%m-%d')).execute()
             
             if result.data and len(result.data) > 0:
-                # Create DataFrame with explicit error handling
-                try:
-                    transactions = pd.DataFrame(result.data)
-                except Exception as df_error:
-                    st.error(f"DataFrame creation error: {str(df_error)}")
-                    st.write("Debug - Raw data sample:", result.data[:2])
-                    raise df_error
-            
-                # Ensure proper data types
+                transactions = pd.DataFrame(result.data)
+                
                 if not transactions.empty:
                     # Convert numeric columns
                     numeric_cols = ['gross_amount', 'platform_fee', 'net_amount', 'vat_amount', 'ewt_amount', 'final_amount']
@@ -2258,8 +2252,8 @@ def show_dashboard():
                     # Convert dates
                     transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], errors='coerce')
                     
-                    # Key metrics with explicit error handling
-                    try:
+                    # Calculate metrics
+                    if 'type' in transactions.columns:
                         revenue_mask = transactions['type'].isin(['cash_receipt', 'sales'])
                         expense_mask = transactions['type'].isin(['purchase', 'expense'])
                         
@@ -2267,23 +2261,10 @@ def show_dashboard():
                         total_expenses = transactions[expense_mask]['final_amount'].sum()
                         net_income = total_revenue - total_expenses
                         total_tax = transactions['vat_amount'].sum() + transactions['ewt_amount'].sum()
-                    except Exception as metric_error:
-                        st.error(f"Metrics calculation error: {str(metric_error)}")
-                        st.write("Debug - Transactions types:", transactions['type'].unique() if 'type' in transactions.columns else "No type column")
-                        raise metric_error
-                else:
-                    total_revenue = total_expenses = net_income = total_tax = 0
-            else:
-                st.write("Debug - No transaction data found")
-                total_revenue = total_expenses = net_income = total_tax = 0
-                transactions = pd.DataFrame()
         except Exception as e:
             st.error(f"Error loading transactions: {str(e)}")
-            total_revenue = total_expenses = net_income = total_tax = 0
-            transactions = pd.DataFrame()
         
         # Enhanced metrics display with professional styling
-        st.write("DEBUG: Starting dashboard rendering...")
         st.markdown("### 📊 Financial Overview")
         
         # Create professional metrics cards
@@ -2326,7 +2307,7 @@ def show_dashboard():
         # Revenue trend chart with enhanced styling
         st.markdown("### 📈 Revenue Analytics")
         
-        if not transactions.empty and len(transactions) > 0:
+        if not transactions.empty and len(transactions) > 0 and 'type' in transactions.columns:
             revenue_transactions = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
             if len(revenue_transactions) > 0:
                 daily_revenue = revenue_transactions.groupby(revenue_transactions['transaction_date'].dt.date)['final_amount'].sum().reset_index()
@@ -2368,7 +2349,7 @@ def show_dashboard():
         # Transaction breakdown pie chart
         st.markdown("### 🥧 Transaction Breakdown")
         
-        if not transactions.empty and len(transactions) > 0:
+        if not transactions.empty and len(transactions) > 0 and 'type' in transactions.columns:
             # Group transactions by type
             transaction_summary = transactions.groupby('type')['final_amount'].sum().reset_index()
             
@@ -2455,20 +2436,7 @@ def show_dashboard():
         st.error("Full error details:")
         st.code(traceback.format_exc())
         
-        # Try to get basic user info
-        try:
-            user = get_current_user()
-            st.write("Current user:", user.id if user else "No user")
-        except:
-            st.write("Could not get user info")
-    
-    except Exception as e:
-        st.error(f"Dashboard error: {str(e)}")
-        import traceback
-        st.error("Full error details:")
-        st.code(traceback.format_exc())
-    
-    # Cash Receipts Journal
+        # Cash Receipts Journal
 def show_cash_receipts_journal():
     st.markdown("""
     <div class="main-header">
