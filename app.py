@@ -2767,6 +2767,12 @@ def show_sales_journal():
                     try:
                         supabase = init_supabase()
                         
+                        # Debug: Check what columns exist
+                        st.write("DEBUG: Checking available columns...")
+                        columns_result = supabase.table('transactions').select('*').limit(1).execute()
+                        if columns_result.data:
+                            st.write("DEBUG: Available columns:", list(columns_result.data[0].keys()))
+                        
                         # Insert sales transaction
                         sales_data = {
                             'user_id': user.id,
@@ -2784,6 +2790,7 @@ def show_sales_journal():
                             'tax_type': profile.get('tax_type', 'VAT (12%)')
                         }
                         
+                        st.write("DEBUG: Sales data to insert:", sales_data)
                         result = supabase.table('transactions').insert(sales_data).execute()
                         
                         if result.data:
