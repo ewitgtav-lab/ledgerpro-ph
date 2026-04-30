@@ -93,8 +93,8 @@ def show_auth_page():
                     try:
                         supabase = init_supabase()
                         # Create user account with email confirmation
-                        # Get current host for redirect
-                        redirect_url = f"{st.context.base_url}"
+                        # Get redirect URL from secrets or use default
+                        redirect_url = st.secrets.get("SITE_URL", "http://localhost:8501")
                         auth_response = supabase.auth.sign_up({
                             "email": new_email,
                             "password": new_password,
