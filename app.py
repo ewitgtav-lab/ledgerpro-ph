@@ -3183,7 +3183,7 @@ def show_cash_receipts_journal():
                             for error in validation_errors:
                                 st.error(f"Validation Error: {error}")
                             mark_form_complete('cash_receipt')
-                            st.stop()
+                            # Don't use st.stop() to allow recent entries to show below
                         
                         # Prepare data for insertion
                         cash_receipt_data = {
@@ -3539,7 +3539,7 @@ def show_sales_journal():
                         for error in validation_errors:
                             st.error(f"Validation Error: {error}")
                         mark_form_complete('sales_entry')
-                        st.stop()
+                        # Don't use st.stop() to allow recent entries to show below
                     
                     # Insert sales transaction
                     sales_data = {
@@ -3682,26 +3682,47 @@ def show_purchase_journal():
             with col3:
                 st.metric("Net Amount", f"₱{final_amount:,.2f}")
             
-            # Submit button
+            # Submit button with validation
             col1, col2, col3 = st.columns(3)
             with col2:
-                submitted = st.form_submit_button("💾 Save Purchase Entry", type="primary", use_container_width=False)
+                # Check if form can be submitted
+                can_submit = can_submit_form('purchase_entry')
+                button_disabled = not can_submit
+                
+                if button_disabled:
+                    countdown = get_countdown_time('purchase_entry')
+                    if countdown > 0:
+                        st.warning(f" Please wait {countdown} second{'s' if countdown > 1 else ''} before submitting again...")
+                    else:
+                        st.info("Please wait 2 seconds between submissions...")
+                
+                submitted = st.form_submit_button(
+                    " Save Purchase Entry", 
+                    type="primary", 
+                    use_container_width=False,
+                    disabled=button_disabled
+                )
                 
                 if submitted:
                     try:
+                        # Mark form as submitted to prevent double submissions
+                        mark_form_submitted('purchase_entry')
+                        
                         supabase = init_supabase()
                         
                         # Validate transaction data before saving
                         purchase_data = {
                             'supplier_name': supplier_name,
-                            'gross_amount': amount
+                            'gross_amount': amount,
+                            'transaction_date': transaction_date.strftime('%Y-%m-%d')
                         }
                         
                         validation_errors = validate_transaction_data(purchase_data, 'Purchase')
                         if validation_errors:
                             for error in validation_errors:
                                 st.error(f"Validation Error: {error}")
-                            st.stop()
+                            mark_form_complete('purchase_entry')
+                            # Don't use st.stop() to allow recent entries to show below
                         
                         # Insert purchase transaction
                         purchase_data = {
@@ -3723,15 +3744,19 @@ def show_purchase_journal():
                         result = supabase.table('transactions').insert(purchase_data).execute()
                         
                         if result.data:
-                            st.success("✅ Purchase entry saved successfully!")
+                            st.success(" Purchase entry saved successfully!")
                             st.balloons()
+                            mark_form_complete('purchase_entry')
                             st.rerun()
                         else:
-                            st.error("❌ Failed to save purchase entry")
+                            st.error(" Failed to save purchase entry")
+                            mark_form_complete('purchase_entry')
                             
                     except Exception as e:
-                        st.error(f"❌ Error saving purchase entry: {str(e)}")
-                        st.info("Please try again or contact support if the issue persists.")
+                        if not handle_database_error(e):
+                            st.error(f" Error saving purchase entry: {str(e)}")
+                            st.info("Please try again or contact support if the issue persists.")
+                        mark_form_complete('purchase_entry')
     
     # Recent purchase entries
     st.markdown("### 📋 Recent Purchase Entries")
