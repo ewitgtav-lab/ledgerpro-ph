@@ -2780,6 +2780,7 @@ def show_sales_journal():
                             'customer_name': customer_name,
                             'payment_method': payment_method,
                             'gross_amount': amount,
+                            'net_amount': amount - vat_amount - ewt_amount,
                             'vat_rate': vat_rate,
                             'vat_amount': vat_amount,
                             'ewt_rate': ewt_rate,
@@ -2924,7 +2925,9 @@ def show_purchase_journal():
                             'user_id': user.id,
                             'transaction_date': transaction_date.strftime('%Y-%m-%d'),
                             'supplier_name': supplier_name,
+                            'expense_category': expense_category,
                             'gross_amount': amount,
+                            'net_amount': amount - vat_amount - ewt_amount,
                             'vat_rate': vat_rate,
                             'vat_amount': vat_amount,
                             'ewt_rate': ewt_rate,
@@ -2964,8 +2967,8 @@ def show_purchase_journal():
                         st.write(f"**Amount:** ₱{entry['gross_amount']:,.2f}")
                         
                     with col2:
-                        st.write(f"**Category:** {entry['expense_category']}")
-                        st.write(f"**VAT:** ₱{entry['vat_amount']:,.2f}")
+                        st.write(f"**Category:** {entry.get('expense_category', 'N/A')}")
+                        st.write(f"**VAT:** {entry['vat_amount']:,.2f}")
                         
                     with col3:
                         st.write(f"**Net:** ₱{entry['final_amount']:,.2f}")
