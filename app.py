@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
 from supabase import create_client, Client
@@ -3149,7 +3149,16 @@ def show_cash_receipts_journal():
                 
                 if submitted:
                     try:
-                        # Double-check validation before submission
+                        # Strict validation - prevent database insertion unless conditions are met
+                        if not customer_name or not customer_name.strip():
+                            st.error("Customer name is required and cannot be empty")
+                            return
+                        
+                        if not gross_amount or gross_amount <= 0:
+                            st.error("Amount must be greater than 0")
+                            return
+                        
+                        # Additional validation to prevent duplicate entries
                         form_data = {
                             'customer_name': customer_name,
                             'gross_amount': gross_amount,
@@ -3508,7 +3517,16 @@ def show_sales_journal():
             
             if submitted:
                 try:
-                    # Double-check validation before submission
+                    # Strict validation - prevent database insertion unless conditions are met
+                    if not customer_name or not customer_name.strip():
+                        st.error("Customer name is required and cannot be empty")
+                        return
+                    
+                    if not amount or amount <= 0:
+                        st.error("Amount must be greater than 0")
+                        return
+                    
+                    # Additional validation to prevent duplicate entries
                     form_data = {
                         'customer_name': customer_name,
                         'gross_amount': amount,
@@ -3691,7 +3709,16 @@ def show_purchase_journal():
                 
                 if submitted:
                     try:
-                        # Double-check validation before submission
+                        # Strict validation - prevent database insertion unless conditions are met
+                        if not supplier_name or not supplier_name.strip():
+                            st.error("Supplier name is required and cannot be empty")
+                            return
+                        
+                        if not amount or amount <= 0:
+                            st.error("Amount must be greater than 0")
+                            return
+                        
+                        # Additional validation to prevent duplicate entries
                         form_data = {
                             'supplier_name': supplier_name,
                             'gross_amount': amount,
@@ -3706,6 +3733,14 @@ def show_purchase_journal():
                             return
                         
                         supabase = init_supabase()
+                        
+                        # Check for potential duplicate entry (same supplier, amount, and date within last 5 minutes)
+                        five_minutes_ago = datetime.now() - timedelta(minutes=5)
+                        duplicate_check = supabase.table('transactions').select('*').eq('user_id', user.id).eq('supplier_name', supplier_name.strip()).eq('gross_amount', amount).eq('transaction_date', transaction_date.strftime('%Y-%m-%d')).eq('type', 'Purchase').gte('created_at', five_minutes_ago.strftime('%Y-%m-%d %H:%M:%S')).execute()
+                        
+                        if duplicate_check.data and len(duplicate_check.data) > 0:
+                            st.error("Duplicate entry detected! A similar purchase entry was recently created.")
+                            return
                         
                         # Insert purchase transaction
                         purchase_data = {
