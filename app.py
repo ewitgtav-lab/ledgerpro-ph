@@ -1886,45 +1886,132 @@ Revenue Code of 1997, as amended.
                         st.markdown("#####  BIR Form No. 1601C")
                         st.markdown("**Monthly Withholding Tax Return - Creditable Withholding Tax Expanded**")
                         
-                        # Form data
-                        form_data = {
-                            'Withholding Agent': profile.get('business_name', 'Your Business'),
-                            'TIN': '000-000-000-000',  # Placeholder
-                            'Period': f"{datetime.now().strftime('%B %Y')}",
-                            'Tax Type': 'Expanded',
-                            'Total EWT Withheld': f"Total EWT: {month_ewt:,.2f}",
-                            'Due Date': f"20th of {datetime.now().strftime('%B %Y')}"
-                        }
+                        # Professional header with logo placeholder
+                        st.markdown("""
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <div style="border: 2px dashed #ccc; padding: 20px; margin-bottom: 10px;">
+                                <p style="color: #666; margin: 0;">[BUSINESS LOGO]</p>
+                            </div>
+                            <h3 style="margin: 5px 0;">BIR Form No. 1601C</h3>
+                            <p style="margin: 5px 0;">Monthly Withholding Tax Return - Creditable Withholding Tax Expanded</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                         
-                        st.write("**Monthly Withholding Tax Return:**")
-                        for key, value in form_data.items():
-                            st.write(f"- {key}: {value}")
+                        # Standard BIR Form 1601C fields
+                        st.markdown("####  Taxpayer Information")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write(f"**Withholding Agent Name:** {profile.get('business_name', 'Your Business')}")
+                            st.write(f"**TIN:** 000-000-000-000")
+                            st.write(f"**Address:** Business Address")
+                        with col2:
+                            st.write(f"**Taxable Period:** {datetime.now().strftime('%B %Y')}")
+                            st.write(f"**Tax Type:** Expanded (Creditable)")
+                            st.write(f"**Due Date:** 20th {datetime.now().strftime('%B %Y')}")
                         
-                        st.write("**EWT Transactions for Current Month:**")
+                        # Professional transaction table
+                        st.markdown("####  Creditable Withholding Tax Details")
+                        
+                        # Create structured table data
+                        table_data = []
+                        total_gross_amount = 0
                         month_ewt_trans = month_data[month_data['ewt_amount'] > 0]
                         for _, trans in month_ewt_trans.iterrows():
-                            st.write(f"- {trans['description']}: {trans['transaction_date'].strftime('%Y-%m-%d')} - {trans['ewt_amount']:,.2f}")
+                            gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
+                            table_data.append({
+                                'Date': trans['transaction_date'].strftime('%Y-%m-%d'),
+                                'Payee Name': trans.get('supplier_name', trans.get('customer_name', 'N/A')),
+                                'Description': trans.get('description', 'N/A'),
+                                'ATC': 'Expanded',
+                                'Tax Base (Gross Amount)': format_currency_ph(gross_amount),
+                                'EWT Rate': '1%',
+                                'EWT Withheld': format_currency_ph(trans['ewt_amount'])
+                            })
+                            total_gross_amount += gross_amount
                         
-                        # Download button
+                        if table_data:
+                            df_table = pd.DataFrame(table_data)
+                            st.dataframe(df_table, use_container_width=True, hide_index=True)
+                            
+                            # Summary section
+                            st.markdown("####  Tax Computation Summary")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Total Tax Base", format_currency_ph(total_gross_amount))
+                            with col2:
+                                st.metric("Total EWT Withheld", format_currency_ph(month_ewt))
+                            with col3:
+                                st.metric("Net Amount", format_currency_ph(total_gross_amount - month_ewt))
+                        else:
+                            st.info("No EWT transactions found for current month.")
+                        
+                        # Professional footer with signature lines
+                        st.markdown("""
+                        <div style="margin-top: 40px;">
+                            <div style="display: flex; justify-content: space-between; margin-top: 30px;">
+                                <div style="width: 45%;">
+                                    <div style="border-bottom: 1px solid #000; height: 40px;"></div>
+                                    <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
+                                    <p style="text-align: center; margin: 5px 0;">Withholding Agent</p>
+                                </div>
+                                <div style="width: 45%;">
+                                    <div style="border-bottom: 1px solid #000; height: 40px;"></div>
+                                    <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
+                                    <p style="text-align: center; margin: 5px 0;">Authorized Representative</p>
+                                </div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Professional downloadable form
                         form_1601c_content = f"""
-BIR Form No. 1601C
-Monthly Withholding Tax Return - Creditable Withholding Tax Expanded
+{'='*80}
+BIR FORM NO. 1601C
+MONTHLY WITHHOLDING TAX RETURN - CREDITABLE WITHHOLDING TAX EXPANDED
+{'='*80}
 
-Withholding Agent: {profile.get('business_name', 'Your Business')}
-Period: {datetime.now().strftime('%B %Y')}
-Tax Type: Expanded
-Total EWT Withheld: {month_ewt:,.2f}
-Due Date: 20th of {datetime.now().strftime('%B %Y')}
+TAXPAYER INFORMATION:
+Withholding Agent Name: {profile.get('business_name', 'Your Business')}
+TIN: 000-000-000-000
+Address: Business Address
+Taxable Period: {datetime.now().strftime('%B %Y')}
+Tax Type: Expanded (Creditable)
+Due Date: 20th {datetime.now().strftime('%B %Y')}
 
-Transactions:
+CREDITABLE WITHHOLDING TAX DETAILS:
+{'-'*80}
+{'Date':<12} {'Payee Name':<25} {'Description':<20} {'Tax Base':<15} {'EWT':<12}
+{'-'*80}
 """
+                        
                         for _, trans in month_ewt_trans.iterrows():
-                            form_1601c_content += f"- {trans['description']}: {trans['ewt_amount']:,.2f}\n"
+                            gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
+                            payee_name = trans.get('supplier_name', trans.get('customer_name', 'N/A'))[:24]
+                            description = trans.get('description', 'N/A')[:19]
+                            form_1601c_content += f"{trans['transaction_date'].strftime('%Y-%m-%d'):<12} {payee_name:<25} {description:<20} {format_currency_ph(gross_amount):<15} {format_currency_ph(trans['ewt_amount']):<12}\n"
+                        
+                        form_1601c_content += f"""
+{'-'*80}
+TAX COMPUTATION SUMMARY:
+Total Tax Base: {format_currency_ph(total_gross_amount)}
+Total EWT Withheld: {format_currency_ph(month_ewt)}
+Net Amount: {format_currency_ph(total_gross_amount - month_ewt)}
+
+{'='*80}
+CERTIFIED CORRECT:
+_________________________    _________________________
+Withholding Agent              Authorized Representative
+Signature over Printed Name    Signature over Printed Name
+
+{'='*80}
+This return is filed pursuant to Sec. 58 of the National Internal 
+Revenue Code of 1997, as amended.
+"""
                         
                         st.download_button(
-                            label=" Download Form 1601C",
+                            label=" Download Professional Form 1601C",
                             data=form_1601c_content,
-                            file_name=f"Form_1601C_{datetime.now().strftime('%Y%m')}.txt",
+                            file_name=f"BIR_Form_1601C_{datetime.now().strftime('%Y%m')}.txt",
                             mime="text/plain",
                             type="primary"
                         )
@@ -1952,48 +2039,141 @@ Transactions:
                             st.markdown(f"#####  BIR Form No. 2550Q")
                             st.markdown(f"**Quarterly VAT Return - {quarter['Quarter']} {current_year}**")
                             
-                            # Form data
-                            form_data = {
-                                'Taxpayer': profile.get('business_name', 'Your Business'),
-                                'TIN': '000-000-000-000',  # Placeholder
-                                'Period': f"{quarter_num} {current_year}",
-                                'Output VAT': f"Output VAT: {quarter['VAT']:,.2f}",
-                                'Input VAT': f"Input VAT: {quarter['VAT']:,.2f}",  # Simplified
-                                'VAT Payable': f"VAT Payable: {quarter['VAT']:,.2f}",  # Simplified
-                                'Due Date': f"20th day following end of {quarter_num} {current_year}"
-                            }
+                            # Professional header with logo placeholder
+                            st.markdown(f"""
+                            <div style="text-align: center; margin-bottom: 20px;">
+                                <div style="border: 2px dashed #ccc; padding: 20px; margin-bottom: 10px;">
+                                    <p style="color: #666; margin: 0;">[BUSINESS LOGO]</p>
+                                </div>
+                                <h3 style="margin: 5px 0;">BIR Form No. 2550Q</h3>
+                                <p style="margin: 5px 0;">Quarterly VAT Return - {quarter['Quarter']} {current_year}</p>
+                            </div>
+                            """, unsafe_allow_html=True)
                             
-                            st.write(f"**{quarter['Quarter']} VAT Return:**")
-                            for key, value in form_data.items():
-                                st.write(f"- {key}: {value}")
+                            # Standard BIR Form 2550Q fields
+                            st.markdown("####  Taxpayer Information")
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.write(f"**Taxpayer Name:** {profile.get('business_name', 'Your Business')}")
+                                st.write(f"**TIN:** 000-000-000-000")
+                                st.write(f"**Address:** Business Address")
+                            with col2:
+                                st.write(f"**Taxable Period:** Q{quarter_num} {current_year}")
+                                st.write(f"**VAT Type:** {profile.get('tax_type', 'VAT (12%)')}")
+                                st.write(f"**Due Date:** 20th day following end of Q{quarter_num} {current_year}")
                             
-                            st.write(f"**VAT Transactions for {quarter['Quarter']}:**")
+                            # Professional VAT transaction table
+                            st.markdown("####  VAT Transaction Details")
+                            
+                            # Create structured table data
+                            table_data = []
+                            total_output_vat = 0
+                            total_input_vat = 0
                             quarter_trans = transactions[transactions['quarter'] == int(quarter_num)]
                             vat_trans = quarter_trans[quarter_trans['vat_amount'] > 0]
-                            for _, trans in vat_trans.iterrows():
-                                st.write(f"- {trans['description']}: {trans['transaction_date'].strftime('%Y-%m-%d')} - {trans['vat_amount']:,.2f}")
                             
-                            # Download button
-                            form_2550q_content = f"""
-BIR Form No. 2550Q
-Quarterly VAT Return
-
-Taxpayer: {profile.get('business_name', 'Your Business')}
-Period: {quarter_num} {current_year}
-Output VAT: {quarter['VAT']:,.2f}
-Input VAT: {quarter['VAT']:,.2f}
-VAT Payable: {quarter['VAT']:,.2f}
-Due Date: 20th day following end of {quarter_num} {current_year}
-
-Transactions:
-"""
                             for _, trans in vat_trans.iterrows():
-                                form_2550q_content += f"- {trans['description']}: {trans['vat_amount']:,.2f}\n"
+                                is_output = trans['type'] in ['cash_receipt', 'sales']
+                                if is_output:
+                                    total_output_vat += trans['vat_amount']
+                                else:
+                                    total_input_vat += trans['vat_amount']
+                                
+                                table_data.append({
+                                    'Date': trans['transaction_date'].strftime('%Y-%m-%d'),
+                                    'Transaction Type': trans['type'].title(),
+                                    'Description': trans.get('description', 'N/A'),
+                                    'Gross Amount': format_currency_ph(trans.get('gross_amount', 0)),
+                                    'VAT Rate': f"{trans.get('vat_rate', 0) * 100:.0f}%",
+                                    'VAT Amount': format_currency_ph(trans['vat_amount']),
+                                    'VAT Type': 'Output' if is_output else 'Input'
+                                })
+                            
+                            if table_data:
+                                df_table = pd.DataFrame(table_data)
+                                st.dataframe(df_table, use_container_width=True, hide_index=True)
+                                
+                                # VAT computation summary
+                                st.markdown("####  VAT Computation Summary")
+                                col1, col2, col3 = st.columns(3)
+                                with col1:
+                                    st.metric("Total Output VAT", format_currency_ph(total_output_vat))
+                                with col2:
+                                    st.metric("Total Input VAT", format_currency_ph(total_input_vat))
+                                with col3:
+                                    vat_payable = total_output_vat - total_input_vat
+                                    st.metric("VAT Payable/Refundable", format_currency_ph(vat_payable))
+                            else:
+                                st.info(f"No VAT transactions found for {quarter['Quarter']} {current_year}.")
+                            
+                            # Professional footer with signature lines
+                            st.markdown(f"""
+                            <div style="margin-top: 40px;">
+                                <div style="display: flex; justify-content: space-between; margin-top: 30px;">
+                                    <div style="width: 45%;">
+                                        <div style="border-bottom: 1px solid #000; height: 40px;"></div>
+                                        <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
+                                        <p style="text-align: center; margin: 5px 0;">Taxpayer</p>
+                                    </div>
+                                    <div style="width: 45%;">
+                                        <div style="border-bottom: 1px solid #000; height: 40px;"></div>
+                                        <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
+                                        <p style="text-align: center; margin: 5px 0;">Authorized Representative</p>
+                                    </div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # Professional downloadable form
+                            form_2550q_content = f"""
+{'='*80}
+BIR FORM NO. 2550Q
+QUARTERLY VAT RETURN - Q{quarter_num} {current_year}
+{'='*80}
+
+TAXPAYER INFORMATION:
+Taxpayer Name: {profile.get('business_name', 'Your Business')}
+TIN: 000-000-000-000
+Address: Business Address
+Taxable Period: Q{quarter_num} {current_year}
+VAT Type: {profile.get('tax_type', 'VAT (12%)')}
+Due Date: 20th day following end of Q{quarter_num} {current_year}
+
+VAT TRANSACTION DETAILS:
+{'-'*80}
+{'Date':<12} {'Type':<15} {'Description':<20} {'Gross':<12} {'VAT':<12}
+{'-'*80}
+"""
+                            
+                            for _, trans in vat_trans.iterrows():
+                                is_output = trans['type'] in ['cash_receipt', 'sales']
+                                trans_type = trans['type'].title()[:14]
+                                description = trans.get('description', 'N/A')[:19]
+                                form_2550q_content += f"{trans['transaction_date'].strftime('%Y-%m-%d'):<12} {trans_type:<15} {description:<20} {format_currency_ph(trans.get('gross_amount', 0)):<12} {format_currency_ph(trans['vat_amount']):<12}\n"
+                            
+                            vat_payable = total_output_vat - total_input_vat
+                            form_2550q_content += f"""
+{'-'*80}
+VAT COMPUTATION SUMMARY:
+Total Output VAT: {format_currency_ph(total_output_vat)}
+Total Input VAT: {format_currency_ph(total_input_vat)}
+VAT Payable/Refundable: {format_currency_ph(vat_payable)}
+
+{'='*80}
+CERTIFIED CORRECT:
+_________________________    _________________________
+Taxpayer                      Authorized Representative
+Signature over Printed Name    Signature over Printed Name
+
+{'='*80}
+This return is filed pursuant to Sec. 114 of the National Internal 
+Revenue Code of 1997, as amended.
+"""
                             
                             st.download_button(
-                                label=f" Download {quarter['Quarter']} VAT Return",
+                                label=f" Download Professional {quarter['Quarter']} VAT Return",
                                 data=form_2550q_content,
-                                file_name=f"Form_2550Q_{current_year}_Q{quarter_num}.txt",
+                                file_name=f"BIR_Form_2550Q_{current_year}_Q{quarter_num}.txt",
                                 mime="text/plain",
                                 type="primary"
                             )
@@ -2025,40 +2205,183 @@ Transactions:
                     st.markdown("#####  BIR Form No. 1701")
                     st.markdown("**Annual Income Tax Return**")
                     
-                    # Form data
-                    form_data = {
-                        'Taxpayer': profile.get('business_name', 'Your Business'),
-                        'TIN': '000-000-000-000',  # Placeholder
-                        'Tax Year': current_year,
-                        'Gross Income': f"Gross Income: {annual_income:,.2f}",
-                        'Tax Type': tax_type,
-                        'Estimated Tax': f"Estimated Income Tax: {income_tax:,.2f}",
-                        'Due Date': f"April 15, {current_year + 1}"
-                    }
+                    # Professional header with logo placeholder
+                    st.markdown(f"""
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="border: 2px dashed #ccc; padding: 20px; margin-bottom: 10px;">
+                            <p style="color: #666; margin: 0;">[BUSINESS LOGO]</p>
+                        </div>
+                        <h3 style="margin: 5px 0;">BIR Form No. 1701</h3>
+                        <p style="margin: 5px 0;">Annual Income Tax Return - Tax Year {current_year}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
-                    st.write("**Annual Income Tax Return:**")
-                    for key, value in form_data.items():
-                        st.write(f"- {key}: {value}")
+                    # Standard BIR Form 1701 fields
+                    st.markdown("####  Taxpayer Information")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Taxpayer Name:** {profile.get('business_name', 'Your Business')}")
+                        st.write(f"**TIN:** 000-000-000-000")
+                        st.write(f"**Address:** Business Address")
+                    with col2:
+                        st.write(f"**Tax Year:** {current_year}")
+                        st.write(f"**Tax Type:** {tax_type}")
+                        st.write(f"**Due Date:** April 15, {current_year + 1}")
                     
-                    # Download button
+                    # Professional income computation table
+                    st.markdown("####  Income Tax Computation")
+                    
+                    # Create structured income data
+                    income_data = []
+                    total_revenue_amount = 0
+                    total_expenses_amount = 0
+                    
+                    # Revenue transactions
+                    revenue_trans = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
+                    for _, trans in revenue_trans.iterrows():
+                        total_revenue_amount += trans['final_amount']
+                        income_data.append({
+                            'Date': trans['transaction_date'].strftime('%Y-%m-%d'),
+                            'Transaction Type': 'Revenue',
+                            'Description': trans.get('description', 'Sales'),
+                            'Amount': format_currency_ph(trans['final_amount']),
+                            'Category': 'Gross Income'
+                        })
+                    
+                    # Expense transactions
+                    expense_trans = transactions[transactions['type'].isin(['purchase', 'expense'])]
+                    for _, trans in expense_trans.iterrows():
+                        total_expenses_amount += trans['final_amount']
+                        income_data.append({
+                            'Date': trans['transaction_date'].strftime('%Y-%m-%d'),
+                            'Transaction Type': 'Expense',
+                            'Description': trans.get('description', 'Purchase'),
+                            'Amount': format_currency_ph(trans['final_amount']),
+                            'Category': 'Deductible Expense'
+                        })
+                    
+                    if income_data:
+                        df_income = pd.DataFrame(income_data)
+                        st.dataframe(df_income, use_container_width=True, hide_index=True)
+                        
+                        # Tax computation summary
+                        st.markdown("####  Tax Computation Summary")
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("Total Gross Income", format_currency_ph(total_revenue_amount))
+                        with col2:
+                            st.metric("Total Deductible Expenses", format_currency_ph(total_expenses_amount))
+                        with col3:
+                            st.metric("Taxable Income", format_currency_ph(annual_income))
+                        with col4:
+                            st.metric("Estimated Income Tax", format_currency_ph(income_tax))
+                    else:
+                        st.info(f"No income transactions found for tax year {current_year}.")
+                    
+                    # Tax rate explanation
+                    st.markdown("####  Tax Rate Applied")
+                    if 'NON-VAT' in tax_type:
+                        if '1%' in tax_type:
+                            st.write(f"**Tax Rate:** 1% (NON-VAT Registered - 1% Presumptive)")
+                        elif '3%' in tax_type:
+                            st.write(f"**Tax Rate:** 3% (NON-VAT Registered - 3% Presumptive)")
+                        else:
+                            st.write(f"**Tax Rate:** 8% (NON-VAT Registered - 8% Presumptive)")
+                    else:
+                        st.write(f"**Tax Rate:** 12% (VAT Registered - Corporate Income Tax)")
+                    
+                    st.write(f"**Computation:** {format_currency_ph(annual_income)} × Tax Rate = {format_currency_ph(income_tax)}")
+                    
+                    # Professional footer with signature lines
+                    st.markdown(f"""
+                    <div style="margin-top: 40px;">
+                        <div style="display: flex; justify-content: space-between; margin-top: 30px;">
+                            <div style="width: 45%;">
+                                <div style="border-bottom: 1px solid #000; height: 40px;"></div>
+                                <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
+                                <p style="text-align: center; margin: 5px 0;">Taxpayer</p>
+                            </div>
+                            <div style="width: 45%;">
+                                <div style="border-bottom: 1px solid #000; height: 40px;"></div>
+                                <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
+                                <p style="text-align: center; margin: 5px 0;">Authorized Representative</p>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Professional downloadable form
                     form_1701_content = f"""
-BIR Form No. 1701
-Annual Income Tax Return
+{'='*80}
+BIR FORM NO. 1701
+ANNUAL INCOME TAX RETURN - TAX YEAR {current_year}
+{'='*80}
 
-Taxpayer: {profile.get('business_name', 'Your Business')}
+TAXPAYER INFORMATION:
+Taxpayer Name: {profile.get('business_name', 'Your Business')}
+TIN: 000-000-000-000
+Address: Business Address
 Tax Year: {current_year}
-Gross Income: {annual_income:,.2f}
 Tax Type: {tax_type}
-Estimated Income Tax: {income_tax:,.2f}
 Due Date: April 15, {current_year + 1}
 
-Note: This is a simplified calculation. Please consult with a tax professional for accurate tax filing.
+INCOME TAX COMPUTATION:
+{'-'*80}
+{'Date':<12} {'Type':<15} {'Description':<20} {'Amount':<15} {'Category':<20}
+{'-'*80}
+"""
+                    
+                    for item in income_data:
+                        date = item['Date']
+                        trans_type = item['Transaction Type'][:14]
+                        description = item['Description'][:19]
+                        amount = item['Amount']
+                        category = item['Category'][:19]
+                        form_1701_content += f"{date:<12} {trans_type:<15} {description:<20} {amount:<15} {category:<20}\n"
+                    
+                    form_1701_content += f"""
+{'-'*80}
+TAX COMPUTATION SUMMARY:
+Total Gross Income: {format_currency_ph(total_revenue_amount)}
+Total Deductible Expenses: {format_currency_ph(total_expenses_amount)}
+Taxable Income: {format_currency_ph(annual_income)}
+Estimated Income Tax: {format_currency_ph(income_tax)}
+
+TAX RATE APPLIED:
+"""
+                    if 'NON-VAT' in tax_type:
+                        if '1%' in tax_type:
+                            form_1701_content += "Tax Rate: 1% (NON-VAT Registered - 1% Presumptive)\n"
+                        elif '3%' in tax_type:
+                            form_1701_content += "Tax Rate: 3% (NON-VAT Registered - 3% Presumptive)\n"
+                        else:
+                            form_1701_content += "Tax Rate: 8% (NON-VAT Registered - 8% Presumptive)\n"
+                    else:
+                        form_1701_content += "Tax Rate: 12% (VAT Registered - Corporate Income Tax)\n"
+                    
+                    form_1701_content += f"Computation: {format_currency_ph(annual_income)} × Tax Rate = {format_currency_ph(income_tax)}\n"
+                    
+                    form_1701_content += f"""
+{'='*80}
+CERTIFIED CORRECT:
+_________________________    _________________________
+Taxpayer                      Authorized Representative
+Signature over Printed Name    Signature over Printed Name
+
+{'='*80}
+This return is filed pursuant to Sec. 42 of the National Internal 
+Revenue Code of 1997, as amended.
+
+DISCLAIMER:
+This is a simplified calculation for informational purposes only. 
+Please consult with a qualified tax professional for accurate tax filing.
+{'='*80}
 """
                     
                     st.download_button(
-                        label=" Download Annual Tax Return",
+                        label=" Download Professional Annual Tax Return",
                         data=form_1701_content,
-                        file_name=f"Form_1701_{current_year}.txt",
+                        file_name=f"BIR_Form_1701_{current_year}.txt",
                         mime="text/plain",
                         type="primary"
                     )
