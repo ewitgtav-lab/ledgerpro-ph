@@ -978,7 +978,7 @@ def show_cash_disbursement_journal():
                         cash_disbursement_data = {
                             'user_id': user.id,
                             'transaction_date': datetime.now().strftime('%Y-%m-%d'),
-                            'type': 'Cash Disbursement',
+                            'type': 'expense',
                             'description': description or f"Payment to {payee_name}",
                             'customer_name': None,
                             'supplier_name': payee_name.strip(),
