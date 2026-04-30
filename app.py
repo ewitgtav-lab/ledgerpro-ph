@@ -59,7 +59,7 @@ def show_auth_page():
             email = st.text_input("Email", placeholder="your@email.com", key="login_email")
             password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
             submitted = st.form_submit_button("Sign In", type="primary")
-            
+
             if submitted:
                 if email and password:
                     try:
@@ -68,7 +68,7 @@ def show_auth_page():
                             "email": email,
                             "password": password
                         })
-                        
+
                         if auth_response.user:
                             st.session_state.user = auth_response.user
                             st.session_state.authenticated = True
@@ -77,9 +77,42 @@ def show_auth_page():
                         else:
                             st.error("❌ Invalid credentials")
                     except Exception as e:
-                        st.error("❌ Sign in failed. Please try again.")
+                        error_msg = str(e).lower()
+                        if "email not confirmed" in error_msg:
+                            st.error("❌ Please verify your email before signing in.")
+                            st.info("💡 Use the 'Resend Confirmation' button below to get a new verification link.")
+                        else:
+                            st.error("❌ Sign in failed. Please try again.")
                 else:
                     st.error("Please fill in all fields")
+
+            st.markdown("---")
+            st.markdown("### Need to verify your email?")
+            resend_email = st.text_input("Enter your email to resend confirmation", key="resend_email")
+            if st.form_submit_button("📧 Resend Confirmation Email", type="secondary"):
+                if resend_email:
+                    try:
+                        supabase = init_supabase()
+                        redirect_url = st.secrets.get("SITE_URL", "http://localhost:8501")
+                        response = supabase.auth.resend({
+                            "type": "signup",
+                            "email": resend_email,
+                            "options": {
+                                "email_redirect_to": redirect_url
+                            }
+                        })
+                        st.success("✅ A new verification link has been sent to your inbox!")
+                        st.info("Please check your email and click the verification link to activate your account.")
+                    except Exception as e:
+                        error_msg = str(e).lower()
+                        if "user not found" in error_msg:
+                            st.error("❌ No account found with this email. Please sign up first.")
+                        elif "rate limit" in error_msg:
+                            st.error("❌ Too many resend attempts. Please wait a few minutes before trying again.")
+                        else:
+                            st.error(f"❌ Failed to resend confirmation: {str(e)}")
+                else:
+                    st.error("Please enter your email address")
     
         with tab2:
             new_email = st.text_input("Email", placeholder="your@email.com", key="signup_email")
