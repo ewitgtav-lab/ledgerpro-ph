@@ -3094,12 +3094,12 @@ def show_cash_receipts_journal():
                 st.session_state.selected_page = "🔑 Subscription"
                 st.rerun()
         else:
-            with st.form("cash_receipt_form"):
+            with st.form("cash_receipt_form", clear_on_submit=True):
                 col1, col2 = st.columns(2)
                 
                 with col1:
                     customer_name = st.text_input("Customer Name*", placeholder="Enter customer name")
-                    gross_amount = st.number_input("Gross Amount*", min_value=0.0, step=0.01, format="%.2f", placeholder="0.00")
+                    gross_amount = st.number_input("Gross Amount*", min_value=0.01, value=0.01, step=0.01, format="%.2f")
                     platform_name = st.selectbox("Platform", ["None", "SHOPEE", "LAZADA", "TIKTOK"])
                     platform_fee = st.number_input("Platform Fee", min_value=0.0, step=0.01, format="%.2f", value=0.0, help="Leave 0 to auto-calculate")
                     seller_discount = st.number_input("Seller Discount", min_value=0.0, step=0.01, format="%.2f", value=0.0)
@@ -3124,62 +3124,95 @@ def show_cash_receipts_journal():
                     col1, col2, col3, col4 = st.columns(4)
                     
                     with col1:
-                        st.metric("Net Amount", f"₱{tax_calculations['net_amount']:,.2f}")
+                        st.metric("Net Amount", format_currency_ph(tax_calculations['net_amount']))
                     with col2:
-                        st.metric("VAT Amount", f"₱{tax_calculations['vat_amount']:,.2f}")
+                        st.metric("VAT Amount", format_currency_ph(tax_calculations['vat_amount']))
                     with col3:
-                        st.metric("EWT Amount", f"₱{tax_calculations['ewt_amount']:,.2f}")
+                        st.metric("EWT Amount", format_currency_ph(tax_calculations['ewt_amount']))
                     with col4:
-                        st.metric("Final Amount", f"₱{tax_calculations['final_amount']:,.2f}")
+                        st.metric("Final Amount", format_currency_ph(tax_calculations['final_amount']))
                 
-                # Submit button
+                # Submit button with validation
                 col1, col2, col3 = st.columns(3)
                 with col2:
-                    if st.form_submit_button("💾 Save Cash Receipt", type="primary", use_container_width=False):
-                        try:
-                            # Initialize Supabase client
-                            supabase = init_supabase()
+                    # Check if form can be submitted
+                    can_submit = can_submit_form('cash_receipt')
+                    button_disabled = not can_submit
+                    
+                    if button_disabled:
+                        st.info("Please wait 2 seconds between submissions...")
+                    
+                    submitted = st.form_submit_button(
+                        " Save Cash Receipt", 
+                        type="primary", 
+                        use_container_width=False,
+                        disabled=button_disabled
+                    )
+                
+                if submitted:
+                    try:
+                        # Mark form as submitted to prevent double submissions
+                        mark_form_submitted('cash_receipt')
+                        
+                        # Initialize Supabase client
+                        supabase = init_supabase()
+                        
+                        # Validate transaction data before saving
+                        cash_receipt_data = {
+                            'customer_name': customer_name,
+                            'gross_amount': gross_amount,
+                            'transaction_date': datetime.now().strftime('%Y-%m-%d')
+                        }
+                        
+                        validation_errors = validate_transaction_data(cash_receipt_data, 'Sales')
+                        if validation_errors:
+                            for error in validation_errors:
+                                st.error(f"Validation Error: {error}")
+                            mark_form_complete('cash_receipt')
+                            st.stop()
+                        
+                        # Prepare data for insertion
+                        cash_receipt_data = {
+                            'user_id': user.id,
+                            'transaction_date': datetime.now().strftime('%Y-%m-%d'),
+                            'type': 'cash_receipt',
+                            'description': description or f"Payment from {customer_name}",
+                            'customer_name': customer_name.strip(),
+                            'gross_amount': gross_amount,
+                            'platform_name': platform_name if platform_name != 'None' else None,
+                            'platform_fee': tax_calculations['platform_fee'],
+                            'seller_discount': seller_discount,
+                            'net_amount': tax_calculations['net_amount'],
+                            'vat_amount': tax_calculations['vat_amount'],
+                            'ewt_amount': tax_calculations['ewt_amount'],
+                            'final_amount': tax_calculations['final_amount'],
+                            'payment_method': payment_method,
+                            'bank_name': bank_name if bank_name else None,
+                            'check_number': check_number if check_number else None,
+                            'tax_type': profile.get('tax_type', 'VAT (12%)'),
+                            'vat_rate': tax_calculations['vat_rate'],
+                            'ewt_rate': tax_calculations['ewt_rate'],
+                            'status': 'POSTED',
+                            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                        
+                        # Insert into Supabase
+                        result = supabase.table('transactions').insert(cash_receipt_data).execute()
+                        
+                        if result.data:
+                            st.success("✅ Cash receipt saved successfully!")
+                            st.balloons()
+                            # Clear cache to refresh transaction count
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save cash receipt")
                             
-                            # Prepare data for insertion
-                            cash_receipt_data = {
-                                'user_id': user.id,
-                                'transaction_date': datetime.now().isoformat(),
-                                'type': 'cash_receipt',
-                                'description': description or f"Payment from {customer_name}",
-                                'customer_name': customer_name,
-                                'gross_amount': gross_amount,
-                                'platform_name': platform_name if platform_name != 'None' else None,
-                                'platform_fee': tax_calculations['platform_fee'],
-                                'seller_discount': seller_discount,
-                                'net_amount': tax_calculations['net_amount'],
-                                'vat_amount': tax_calculations['vat_amount'],
-                                'ewt_amount': tax_calculations['ewt_amount'],
-                                'final_amount': tax_calculations['final_amount'],
-                                'payment_method': payment_method,
-                                'bank_name': bank_name if bank_name else None,
-                                'check_number': check_number if check_number else None,
-                                'tax_type': profile.get('tax_type', 'VAT (12%)'),
-                                'vat_rate': tax_calculations['vat_rate'],
-                                'ewt_rate': tax_calculations['ewt_rate'],
-                                'status': 'POSTED',
-                                'created_at': datetime.now().isoformat()
-                            }
-                            
-                            # Insert into Supabase
-                            result = supabase.table('transactions').insert(cash_receipt_data).execute()
-                            
-                            if result.data:
-                                st.success("✅ Cash receipt saved successfully!")
-                                st.balloons()
-                                # Clear cache to refresh transaction count
-                                st.cache_data.clear()
-                                st.rerun()
-                            else:
-                                st.error("❌ Failed to save cash receipt")
-                                
-                        except Exception as e:
-                            st.error(f"❌ Error saving cash receipt: {str(e)}")
+                    except Exception as e:
+                        if not handle_database_error(e):
+                            st.error(f" Error saving cash receipt: {str(e)}")
                             st.info("Please try again or contact support if the issue persists.")
+                        mark_form_complete('cash_receipt')
     
     # Existing records table
     st.markdown("### 📋 Cash Receipts Records")
@@ -3420,7 +3453,7 @@ def show_sales_journal():
                 receipt_no = st.text_input("Receipt Number", placeholder="Optional")
                 
             with col2:
-                amount = st.number_input("Amount *", min_value=0.01, value=0.00, step=0.01, format="%.2f")
+                amount = st.number_input("Amount *", min_value=0.01, value=0.01, step=0.01, format="%.2f")
                 payment_method = st.selectbox("Payment Method *", ["Cash", "Bank Transfer", "Check", "Online Payment"])
             
             st.markdown("####  Tax Information")
@@ -3646,7 +3679,7 @@ def show_purchase_journal():
                             'gross_amount': amount
                         }
                         
-                        validation_errors = validate_transaction_data(purchase_data)
+                        validation_errors = validate_transaction_data(purchase_data, 'Purchase')
                         if validation_errors:
                             for error in validation_errors:
                                 st.error(f"Validation Error: {error}")
