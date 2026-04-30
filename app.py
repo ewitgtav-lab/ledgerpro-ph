@@ -2786,7 +2786,6 @@ def show_sales_journal():
                             'ewt_amount': ewt_amount,
                             'final_amount': final_amount,
                             'type': 'Sales',
-                            'status': 'active',
                             'tax_type': profile.get('tax_type', 'VAT (12%)')
                         }
                         
@@ -2932,7 +2931,6 @@ def show_purchase_journal():
                             'ewt_amount': ewt_amount,
                             'final_amount': final_amount,
                             'type': 'Purchase',
-                            'status': 'active',
                             'tax_type': profile.get('tax_type', 'VAT (12%)')
                         }
                         
