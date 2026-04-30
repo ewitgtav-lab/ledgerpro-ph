@@ -1637,45 +1637,27 @@ def validate_transaction_data(transaction_data, transaction_type):
     
     return errors
 
-def can_submit_form(form_key):
-    """Check if form can be submitted (prevent double submissions)"""
-    current_time = datetime.now().timestamp()
+def validate_required_fields(form_data, form_type):
+    """Check if all required fields are filled"""
+    errors = []
     
-    # Initialize session state if needed
-    if 'last_submission' not in st.session_state:
-        st.session_state.last_submission = {}
-    if 'submission_in_progress' not in st.session_state:
-        st.session_state.submission_in_progress = {}
+    if form_type == 'Sales':
+        if not form_data.get('customer_name') or form_data.get('customer_name').strip() == '':
+            errors.append("Customer name is required")
+    elif form_type == 'Purchase':
+        if not form_data.get('supplier_name') or form_data.get('supplier_name').strip() == '':
+            errors.append("Supplier name is required")
+    elif form_type == 'Cash Receipt':
+        if not form_data.get('customer_name') or form_data.get('customer_name').strip() == '':
+            errors.append("Customer name is required")
     
-    # Check if submission is in progress
-    if st.session_state.submission_in_progress.get(form_key, False):
-        return False
+    if not form_data.get('gross_amount') or form_data.get('gross_amount') <= 0:
+        errors.append("Amount must be greater than 0")
     
-    # Check debouncing (prevent submissions within 2 seconds)
-    last_time = st.session_state.last_submission.get(form_key, 0)
-    if current_time - last_time < 2:
-        return False
+    if not form_data.get('transaction_date'):
+        errors.append("Transaction date is required")
     
-    return True
-
-def get_countdown_time(form_key):
-    """Get remaining countdown time for form submission"""
-    current_time = datetime.now().timestamp()
-    last_time = st.session_state.last_submission.get(form_key, 0)
-    remaining = 2 - (current_time - last_time)
-    
-    if remaining > 0 and remaining < 2:
-        return max(0, int(remaining) + 1)  # Round up to show full seconds
-    return 0
-
-def mark_form_submitted(form_key):
-    """Mark form as submitted to prevent double submissions"""
-    st.session_state.last_submission[form_key] = datetime.now().timestamp()
-    st.session_state.submission_in_progress[form_key] = True
-
-def mark_form_complete(form_key):
-    """Mark form submission as complete"""
-    st.session_state.submission_in_progress[form_key] = False
+    return errors
 
 def handle_database_error(error):
     """Handle and display database errors gracefully"""
@@ -3145,16 +3127,18 @@ def show_cash_receipts_journal():
                 # Submit button with validation
                 col1, col2, col3 = st.columns(3)
                 with col2:
-                    # Check if form can be submitted
-                    can_submit = can_submit_form('cash_receipt')
-                    button_disabled = not can_submit
+                    # Check if required fields are filled
+                    form_data = {
+                        'customer_name': customer_name,
+                        'gross_amount': gross_amount,
+                        'transaction_date': datetime.now().strftime('%Y-%m-%d')
+                    }
+                    validation_errors = validate_required_fields(form_data, 'Cash Receipt')
+                    button_disabled = len(validation_errors) > 0
                     
                     if button_disabled:
-                        countdown = get_countdown_time('cash_receipt')
-                        if countdown > 0:
-                            st.warning(f" Please wait {countdown} second{'s' if countdown > 1 else ''} before submitting again...")
-                        else:
-                            st.info("Please wait 2 seconds between submissions...")
+                        for error in validation_errors:
+                            st.error(error)
                     
                     submitted = st.form_submit_button(
                         " Save Cash Receipt", 
@@ -3165,25 +3149,8 @@ def show_cash_receipts_journal():
                 
                 if submitted:
                     try:
-                        # Mark form as submitted to prevent double submissions
-                        mark_form_submitted('cash_receipt')
-                        
                         # Initialize Supabase client
                         supabase = init_supabase()
-                        
-                        # Validate transaction data before saving
-                        cash_receipt_data = {
-                            'customer_name': customer_name,
-                            'gross_amount': gross_amount,
-                            'transaction_date': datetime.now().strftime('%Y-%m-%d')
-                        }
-                        
-                        validation_errors = validate_transaction_data(cash_receipt_data, 'Sales')
-                        if validation_errors:
-                            for error in validation_errors:
-                                st.error(f"Validation Error: {error}")
-                            mark_form_complete('cash_receipt')
-                            # Don't use st.stop() to allow recent entries to show below
                         
                         # Prepare data for insertion
                         cash_receipt_data = {
@@ -3214,19 +3181,18 @@ def show_cash_receipts_journal():
                         result = supabase.table('transactions').insert(cash_receipt_data).execute()
                         
                         if result.data:
-                            st.success("✅ Cash receipt saved successfully!")
+                            st.success(" Cash receipt saved successfully!")
                             st.balloons()
                             # Clear cache to refresh transaction count
                             st.cache_data.clear()
                             st.rerun()
                         else:
-                            st.error("❌ Failed to save cash receipt")
+                            st.error(" Failed to save cash receipt")
                             
                     except Exception as e:
                         if not handle_database_error(e):
                             st.error(f" Error saving cash receipt: {str(e)}")
                             st.info("Please try again or contact support if the issue persists.")
-                        mark_form_complete('cash_receipt')
     
     # Existing records table
     st.markdown("### 📋 Cash Receipts Records")
@@ -3502,16 +3468,18 @@ def show_sales_journal():
             # Submit button with validation
             col1, col2, col3 = st.columns(3)
             with col2:
-                # Check if form can be submitted
-                can_submit = can_submit_form('sales_entry')
-                button_disabled = not can_submit
+                # Check if required fields are filled
+                form_data = {
+                    'customer_name': customer_name,
+                    'gross_amount': amount,
+                    'transaction_date': transaction_date.strftime('%Y-%m-%d')
+                }
+                validation_errors = validate_required_fields(form_data, 'Sales')
+                button_disabled = len(validation_errors) > 0
                 
                 if button_disabled:
-                    countdown = get_countdown_time('sales_entry')
-                    if countdown > 0:
-                        st.warning(f" Please wait {countdown} second{'s' if countdown > 1 else ''} before submitting again...")
-                    else:
-                        st.info("Please wait 2 seconds between submissions...")
+                    for error in validation_errors:
+                        st.error(error)
                 
                 submitted = st.form_submit_button(
                     " Save Sales Entry", 
@@ -3522,24 +3490,7 @@ def show_sales_journal():
             
             if submitted:
                 try:
-                    # Mark form as submitted to prevent double submissions
-                    mark_form_submitted('sales_entry')
-                    
                     supabase = init_supabase()
-                    
-                    # Validate transaction data before saving
-                    sales_data = {
-                        'customer_name': customer_name,
-                        'gross_amount': amount,
-                        'transaction_date': transaction_date.strftime('%Y-%m-%d')
-                    }
-                    
-                    validation_errors = validate_transaction_data(sales_data, 'Sales')
-                    if validation_errors:
-                        for error in validation_errors:
-                            st.error(f"Validation Error: {error}")
-                        mark_form_complete('sales_entry')
-                        # Don't use st.stop() to allow recent entries to show below
                     
                     # Insert sales transaction
                     sales_data = {
@@ -3563,17 +3514,14 @@ def show_sales_journal():
                     if result.data:
                         st.success(" Sales entry saved successfully!")
                         st.balloons()
-                        mark_form_complete('sales_entry')
                         st.rerun()
                     else:
                         st.error(" Failed to save sales entry")
-                        mark_form_complete('sales_entry')
                         
                 except Exception as e:
                     if not handle_database_error(e):
                         st.error(f" Error saving sales entry: {str(e)}")
                         st.info("Please try again or contact support if the issue persists.")
-                    mark_form_complete('sales_entry')
     
     # Recent sales entries
     st.markdown("### 📋 Recent Sales Entries")
@@ -3685,16 +3633,18 @@ def show_purchase_journal():
             # Submit button with validation
             col1, col2, col3 = st.columns(3)
             with col2:
-                # Check if form can be submitted
-                can_submit = can_submit_form('purchase_entry')
-                button_disabled = not can_submit
+                # Check if required fields are filled
+                form_data = {
+                    'supplier_name': supplier_name,
+                    'gross_amount': amount,
+                    'transaction_date': transaction_date.strftime('%Y-%m-%d')
+                }
+                validation_errors = validate_required_fields(form_data, 'Purchase')
+                button_disabled = len(validation_errors) > 0
                 
                 if button_disabled:
-                    countdown = get_countdown_time('purchase_entry')
-                    if countdown > 0:
-                        st.warning(f" Please wait {countdown} second{'s' if countdown > 1 else ''} before submitting again...")
-                    else:
-                        st.info("Please wait 2 seconds between submissions...")
+                    for error in validation_errors:
+                        st.error(error)
                 
                 submitted = st.form_submit_button(
                     " Save Purchase Entry", 
@@ -3705,24 +3655,7 @@ def show_purchase_journal():
                 
                 if submitted:
                     try:
-                        # Mark form as submitted to prevent double submissions
-                        mark_form_submitted('purchase_entry')
-                        
                         supabase = init_supabase()
-                        
-                        # Validate transaction data before saving
-                        purchase_data = {
-                            'supplier_name': supplier_name,
-                            'gross_amount': amount,
-                            'transaction_date': transaction_date.strftime('%Y-%m-%d')
-                        }
-                        
-                        validation_errors = validate_transaction_data(purchase_data, 'Purchase')
-                        if validation_errors:
-                            for error in validation_errors:
-                                st.error(f"Validation Error: {error}")
-                            mark_form_complete('purchase_entry')
-                            # Don't use st.stop() to allow recent entries to show below
                         
                         # Insert purchase transaction
                         purchase_data = {
@@ -3746,17 +3679,14 @@ def show_purchase_journal():
                         if result.data:
                             st.success(" Purchase entry saved successfully!")
                             st.balloons()
-                            mark_form_complete('purchase_entry')
                             st.rerun()
                         else:
                             st.error(" Failed to save purchase entry")
-                            mark_form_complete('purchase_entry')
                             
                     except Exception as e:
                         if not handle_database_error(e):
                             st.error(f" Error saving purchase entry: {str(e)}")
                             st.info("Please try again or contact support if the issue persists.")
-                        mark_form_complete('purchase_entry')
     
     # Recent purchase entries
     st.markdown("### 📋 Recent Purchase Entries")
