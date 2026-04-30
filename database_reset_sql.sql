@@ -18,21 +18,21 @@ CREATE TABLE profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 3. Create transactions table with all necessary columns
+-- 3. Create transactions table with all necessary columns and NOT NULL constraints
 CREATE TABLE transactions (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
     transaction_date TIMESTAMP WITH TIME ZONE NOT NULL,
     type TEXT NOT NULL,
     description TEXT,
     customer_name TEXT,
     supplier_name TEXT,
     expense_category TEXT,
-    gross_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+    gross_amount DECIMAL(15,2) NOT NULL CHECK (gross_amount > 0),
     net_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
     vat_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
     ewt_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
-    final_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+    final_amount DECIMAL(15,2) NOT NULL CHECK (final_amount >= 0),
     payment_method TEXT,
     bank_name TEXT,
     check_number TEXT,
@@ -49,7 +49,12 @@ CREATE TABLE transactions (
     -- Status constraint that accepts both cases
     CONSTRAINT transactions_status_check CHECK (
         status IN ('active', 'inactive', 'cancelled', 'Active', 'Inactive', 'Cancelled')
-    )
+    ),
+    
+    -- Additional business logic constraints
+    CONSTRAINT transactions_amount_check CHECK (final_amount >= 0),
+    CONSTRAINT transactions_date_check CHECK (transaction_date <= NOW()),
+    CONSTRAINT transactions_user_check CHECK (user_id IS NOT NULL)
 );
 
 -- 4. Create license_keys table

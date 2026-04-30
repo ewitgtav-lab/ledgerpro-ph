@@ -1611,18 +1611,19 @@ def format_currency_ph(amount):
     except:
         return "0.00"
 
-def validate_transaction_data(transaction_data):
+def validate_transaction_data(transaction_data, transaction_type):
     """Validate transaction data before saving to database"""
     errors = []
     
-    # Check required fields
-    if not transaction_data.get('customer_name') or transaction_data.get('customer_name').strip() == '':
-        errors.append("Customer name is required")
+    # Check required fields based on transaction type
+    if transaction_type == 'Sales':
+        if not transaction_data.get('customer_name') or transaction_data.get('customer_name').strip() == '':
+            errors.append("Customer name is required")
+    elif transaction_type == 'Purchase':
+        if not transaction_data.get('supplier_name') or transaction_data.get('supplier_name').strip() == '':
+            errors.append("Supplier name is required")
     
-    if not transaction_data.get('supplier_name') or transaction_data.get('supplier_name').strip() == '':
-        errors.append("Supplier name is required")
-    
-    # Check numeric fields
+    # Check amount
     try:
         amount = float(transaction_data.get('gross_amount', 0))
         if amount <= 0:
@@ -1630,7 +1631,61 @@ def validate_transaction_data(transaction_data):
     except (ValueError, TypeError):
         errors.append("Invalid amount format")
     
+    # Check transaction date
+    if not transaction_data.get('transaction_date'):
+        errors.append("Transaction date is required")
+    
     return errors
+
+def can_submit_form(form_key):
+    """Check if form can be submitted (prevent double submissions)"""
+    current_time = datetime.now().timestamp()
+    
+    # Initialize session state if needed
+    if 'last_submission' not in st.session_state:
+        st.session_state.last_submission = {}
+    if 'submission_in_progress' not in st.session_state:
+        st.session_state.submission_in_progress = {}
+    
+    # Check if submission is in progress
+    if st.session_state.submission_in_progress.get(form_key, False):
+        return False
+    
+    # Check debouncing (prevent submissions within 2 seconds)
+    last_time = st.session_state.last_submission.get(form_key, 0)
+    if current_time - last_time < 2:
+        return False
+    
+    return True
+
+def mark_form_submitted(form_key):
+    """Mark form as submitted to prevent double submissions"""
+    st.session_state.last_submission[form_key] = datetime.now().timestamp()
+    st.session_state.submission_in_progress[form_key] = True
+
+def mark_form_complete(form_key):
+    """Mark form submission as complete"""
+    st.session_state.submission_in_progress[form_key] = False
+
+def handle_database_error(error):
+    """Handle and display database errors gracefully"""
+    error_str = str(error)
+    
+    if '23514' in error_str:  # Check constraint violation
+        if 'transactions_status_check' in error_str:
+            st.error("Invalid status value. Please use a valid status.")
+        elif 'transactions_type_check' in error_str:
+            st.error("Invalid transaction type. Please use a valid transaction type.")
+        else:
+            st.error("Data validation error. Please check your input values.")
+    elif '42703' in error_str:  # Column does not exist
+        st.error("Database schema error. Please contact support.")
+    elif 'PGRST204' in error_str:  # Column not found in schema cache
+        st.error("Database configuration error. Please contact support.")
+    else:
+        st.error(f"Database error: {error_str}")
+    
+    return False
 
 # Tax Compliance
 def show_tax_compliance():
@@ -3354,105 +3409,120 @@ def show_sales_journal():
         st.session_state.selected_page = "🔑 Subscription"
         st.rerun()
     else:
-        with st.form("sales_journal_form"):
-            st.markdown("### 📝 Sales Entry Details")
+        with st.form("purchase_entry_form", clear_on_submit=True):
+            st.markdown("####  Purchase Transaction Details")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                transaction_date = st.date_input("Transaction Date*", datetime.now().date())
-                invoice_no = st.text_input("Invoice No.*", placeholder="Enter invoice number")
+                transaction_date = st.date_input("Transaction Date *", value=datetime.now().date())
+                supplier_name = st.text_input("Supplier Name *", placeholder="Enter supplier name")
+                receipt_no = st.text_input("Receipt Number", placeholder="Optional")
                 
             with col2:
-                customer_name = st.text_input("Customer Name*", placeholder="Enter customer name")
-                payment_method = st.selectbox("Payment Method*", ["Cash", "Bank Transfer", "Credit Card", "Check"])
-                
-            st.markdown("### 💰 Sales Details")
+                amount = st.number_input("Amount *", min_value=0.01, value=0.00, step=0.01, format="%.2f")
+                payment_method = st.selectbox("Payment Method *", ["Cash", "Bank Transfer", "Check", "Online Payment"])
             
-            col1, col2, col3 = st.columns(3)
+            st.markdown("####  Tax Information")
+            
+            col1, col2 = st.columns(2)
             
             with col1:
-                amount = st.number_input("Amount*", min_value=0.0, step=0.01, placeholder="0.00")
-                
+                vat_rate = st.selectbox("VAT Rate", [0.00, 0.12], format_func=lambda x: f"{x*100:.0f}%")
+                if vat_rate > 0:
+                    vat_amount = amount * vat_rate
+                else:
+                    vat_amount = 0
+            
             with col2:
-                vat_rate = st.selectbox("VAT Rate", [0, 12]) / 100
-                vat_amount = amount * vat_rate
-                
-            with col3:
-                ewt_rate = st.selectbox("EWT Rate", [0, 1, 2]) / 100
-                ewt_amount = amount * ewt_rate
-                
+                ewt_rate = st.selectbox("EWT Rate", [0.00, 0.01, 0.02], format_func=lambda x: f"{x*100:.0f}%")
+                if ewt_rate > 0:
+                    ewt_amount = amount * ewt_rate
+                else:
+                    ewt_amount = 0
+            
             final_amount = amount - vat_amount - ewt_amount
             
-            st.markdown("### 📋 Summary")
+            st.markdown("####  Transaction Summary")
             col1, col2, col3 = st.columns(3)
-            
             with col1:
-                st.metric("Gross Amount", f"₱{amount:,.2f}")
-                
+                st.metric("Gross Amount", format_currency_ph(amount))
             with col2:
-                st.metric("VAT", f"₱{vat_amount:,.2f}")
-                
+                st.metric("Total Tax", format_currency_ph(vat_amount + ewt_amount))
             with col3:
-                st.metric("Net Amount", f"₱{final_amount:,.2f}")
+                st.metric("Final Amount", format_currency_ph(final_amount))
             
-            # Submit button
+            # Submit button with validation
             col1, col2, col3 = st.columns(3)
             with col2:
-                submitted = st.form_submit_button("💾 Save Sales Entry", type="primary", use_container_width=False)
+                # Check if form can be submitted
+                can_submit = can_submit_form('purchase_entry')
+                button_disabled = not can_submit
                 
-                if submitted:
-                    try:
-                        supabase = init_supabase()
+                if button_disabled:
+                    st.info("Please wait 2 seconds between submissions...")
+                
+                submitted = st.form_submit_button(
+                    " Save Purchase Entry", 
+                    type="primary", 
+                    use_container_width=False,
+                    disabled=button_disabled
+                )
+            
+            if submitted:
+                try:
+                    # Mark form as submitted to prevent double submissions
+                    mark_form_submitted('purchase_entry')
+                    
+                    supabase = init_supabase()
+                    
+                    # Validate transaction data before saving
+                    purchase_data = {
+                        'supplier_name': supplier_name,
+                        'gross_amount': amount,
+                        'transaction_date': transaction_date.strftime('%Y-%m-%d')
+                    }
+                    
+                    validation_errors = validate_transaction_data(purchase_data, 'Purchase')
+                    if validation_errors:
+                        for error in validation_errors:
+                            st.error(f"Validation Error: {error}")
+                        mark_form_complete('purchase_entry')
+                        st.stop()
+                    
+                    # Insert purchase transaction
+                    purchase_data = {
+                        'user_id': user.id,
+                        'transaction_date': transaction_date.strftime('%Y-%m-%d'),
+                        'supplier_name': supplier_name.strip(),
+                        'expense_category': expense_category,
+                        'gross_amount': amount,
+                        'net_amount': amount - vat_amount - ewt_amount,
+                        'vat_rate': vat_rate,
+                        'vat_amount': vat_amount,
+                        'ewt_rate': ewt_rate,
+                        'ewt_amount': ewt_amount,
+                        'final_amount': final_amount,
+                        'type': 'Purchase',
+                        'tax_type': profile.get('tax_type', 'VAT (12%)')
+                    }
+                    
+                    result = supabase.table('transactions').insert(purchase_data).execute()
+                    
+                    if result.data:
+                        st.success(" Purchase entry saved successfully!")
+                        st.balloons()
+                        mark_form_complete('purchase_entry')
+                        st.rerun()
+                    else:
+                        st.error(" Failed to save purchase entry")
+                        mark_form_complete('purchase_entry')
                         
-                        # Validate transaction data before saving
-                        sales_data = {
-                            'customer_name': customer_name,
-                            'gross_amount': amount
-                        }
-                        
-                        validation_errors = validate_transaction_data(sales_data)
-                        if validation_errors:
-                            for error in validation_errors:
-                                st.error(f"Validation Error: {error}")
-                            st.stop()
-                        
-                        # Debug: Check what columns exist
-                        st.write("DEBUG: Checking available columns...")
-                        columns_result = supabase.table('transactions').select('*').limit(1).execute()
-                        if columns_result.data:
-                            st.write("DEBUG: Available columns:", list(columns_result.data[0].keys()))
-                        
-                        # Insert sales transaction
-                        sales_data = {
-                            'user_id': user.id,
-                            'transaction_date': transaction_date.strftime('%Y-%m-%d'),
-                            'customer_name': customer_name.strip(),
-                            'payment_method': payment_method,
-                            'gross_amount': amount,
-                            'net_amount': amount - vat_amount - ewt_amount,
-                            'vat_rate': vat_rate,
-                            'vat_amount': vat_amount,
-                            'ewt_rate': ewt_rate,
-                            'ewt_amount': ewt_amount,
-                            'final_amount': final_amount,
-                            'type': 'Sales',
-                            'tax_type': profile.get('tax_type', 'VAT (12%)')
-                        }
-                        
-                        st.write("DEBUG: Sales data to insert:", sales_data)
-                        result = supabase.table('transactions').insert(sales_data).execute()
-                        
-                        if result.data:
-                            st.success("✅ Sales entry saved successfully!")
-                            st.balloons()
-                            st.rerun()
-                        else:
-                            st.error("❌ Failed to save sales entry")
-                            
-                    except Exception as e:
-                        st.error(f"❌ Error saving sales entry: {str(e)}")
+                except Exception as e:
+                    if not handle_database_error(e):
+                        st.error(f" Error saving purchase entry: {str(e)}")
                         st.info("Please try again or contact support if the issue persists.")
+                    mark_form_complete('purchase_entry')
     
     # Recent sales entries
     st.markdown("### 📋 Recent Sales Entries")
