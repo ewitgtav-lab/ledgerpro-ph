@@ -2247,34 +2247,38 @@ def show_dashboard():
                     st.write("Debug - Raw data sample:", result.data[:2])
                     raise df_error
             
-            # Ensure proper data types
-            if not transactions.empty:
-                # Convert numeric columns
-                numeric_cols = ['gross_amount', 'platform_fee', 'net_amount', 'vat_amount', 'ewt_amount', 'final_amount']
-                for col in numeric_cols:
-                    if col in transactions.columns:
-                        transactions[col] = pd.to_numeric(transactions[col], errors='coerce').fillna(0)
-                
-                # Convert dates
-                transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], errors='coerce')
-                
-                # Key metrics with explicit error handling
-                try:
-                    revenue_mask = transactions['type'].isin(['cash_receipt', 'sales'])
-                    expense_mask = transactions['type'].isin(['purchase', 'expense'])
+                # Ensure proper data types
+                if not transactions.empty:
+                    # Convert numeric columns
+                    numeric_cols = ['gross_amount', 'platform_fee', 'net_amount', 'vat_amount', 'ewt_amount', 'final_amount']
+                    for col in numeric_cols:
+                        if col in transactions.columns:
+                            transactions[col] = pd.to_numeric(transactions[col], errors='coerce').fillna(0)
                     
-                    total_revenue = transactions[revenue_mask]['final_amount'].sum()
-                    total_expenses = transactions[expense_mask]['final_amount'].sum()
-                    net_income = total_revenue - total_expenses
-                    total_tax = transactions['vat_amount'].sum() + transactions['ewt_amount'].sum()
-                except Exception as metric_error:
-                    st.error(f"Metrics calculation error: {str(metric_error)}")
-                    st.write("Debug - Transactions types:", transactions['type'].unique() if 'type' in transactions.columns else "No type column")
-                    raise metric_error
+                    # Convert dates
+                    transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], errors='coerce')
+                    
+                    # Key metrics with explicit error handling
+                    try:
+                        revenue_mask = transactions['type'].isin(['cash_receipt', 'sales'])
+                        expense_mask = transactions['type'].isin(['purchase', 'expense'])
+                        
+                        total_revenue = transactions[revenue_mask]['final_amount'].sum()
+                        total_expenses = transactions[expense_mask]['final_amount'].sum()
+                        net_income = total_revenue - total_expenses
+                        total_tax = transactions['vat_amount'].sum() + transactions['ewt_amount'].sum()
+                    except Exception as metric_error:
+                        st.error(f"Metrics calculation error: {str(metric_error)}")
+                        st.write("Debug - Transactions types:", transactions['type'].unique() if 'type' in transactions.columns else "No type column")
+                        raise metric_error
+                else:
+                    total_revenue = total_expenses = net_income = total_tax = 0
             else:
+                st.write("Debug - No transaction data found")
                 total_revenue = total_expenses = net_income = total_tax = 0
-        else:
-            st.write("Debug - No transaction data found")
+                transactions = pd.DataFrame()
+        except Exception as e:
+            st.error(f"Error loading transactions: {str(e)}")
             total_revenue = total_expenses = net_income = total_tax = 0
             transactions = pd.DataFrame()
         
@@ -2458,7 +2462,12 @@ def show_dashboard():
         except:
             st.write("Could not get user info")
     
-        
+    except Exception as e:
+        st.error(f"Dashboard error: {str(e)}")
+        import traceback
+        st.error("Full error details:")
+        st.code(traceback.format_exc())
+    
     # Cash Receipts Journal
 def show_cash_receipts_journal():
     st.markdown("""
