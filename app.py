@@ -2530,14 +2530,13 @@ def generate_pdf_financial_statements(period_title, income_data, balance_data, e
         </html>
         """
         
-        # Save to temporary file and provide download
-        import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
-            f.write(pdf_content)
-            temp_file = f.name
-        
-        st.success("PDF generated successfully! The file contains professionally formatted financial statements.")
-        st.info("Note: In production, this would generate a downloadable PDF file.")
+        # Provide download button
+        st.download_button(
+            label="📥 Download Financial Statements (HTML)",
+            data=pdf_content,
+            file_name=f"financial_statements_{period_title.replace(' ', '_')}.html",
+            mime="text/html"
+        )
         
     except Exception as e:
         st.error(f"Error generating PDF: {str(e)}")
@@ -2609,9 +2608,14 @@ def generate_excel_financial_statements(period_title, income_data, balance_data,
         
         workbook.close()
         output.seek(0)
-        
-        st.success("Excel file generated successfully! Contains professionally formatted financial statements with proper accounting formats.")
-        st.info("Note: In production, this would provide a downloadable Excel file.")
+
+        # Provide download button
+        st.download_button(
+            label="📥 Download Financial Statements (Excel)",
+            data=output.getvalue(),
+            file_name=f"financial_statements_{period_title.replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
         
     except Exception as e:
         st.error(f"Error generating Excel: {str(e)}")
@@ -2619,7 +2623,7 @@ def generate_excel_financial_statements(period_title, income_data, balance_data,
 def print_financial_statements(period_title, income_data, balance_data, equity_data, cash_flow_data):
     """Generate print-friendly financial statements"""
     try:
-        # Create print-friendly CSS
+        # Create print-friendly CSS and trigger print
         st.markdown("""
         <style>
             @media print {
@@ -2630,19 +2634,29 @@ def print_financial_statements(period_title, income_data, balance_data, equity_d
             }
         </style>
         """, unsafe_allow_html=True)
-        
-        st.markdown(f"""
+
+        # Generate HTML content for printing
+        print_content = f"""
         <div class="print-header">
             <h1 style="text-align: center; font-size: 24px; font-weight: bold;">FINANCIAL STATEMENTS</h1>
             <p style="text-align: center; font-size: 16px; color: #666;">For the period ended {period_title}</p>
             <p style="text-align: center; font-size: 14px;">Generated on {datetime.now().strftime('%B %d, %Y')}</p>
             <hr style="border: 2px solid #333; margin: 20px 0;">
         </div>
-        """, unsafe_allow_html=True)
-        
-        st.success("Print view ready! Use browser's print function (Ctrl+P) to print professionally formatted statements.")
-        st.info("For best results, set printer orientation to Landscape and margins to Narrow.")
-        
+        """
+
+        st.markdown(print_content, unsafe_allow_html=True)
+
+        # Provide download button for print-ready HTML
+        st.download_button(
+            label="📥 Download Print-Ready HTML",
+            data=print_content,
+            file_name=f"financial_statements_print_{period_title.replace(' ', '_')}.html",
+            mime="text/html"
+        )
+
+        st.info("💡 Tip: Open the downloaded HTML file in your browser and use Ctrl+P to print. For best results, set printer orientation to Landscape and margins to Narrow.")
+
     except Exception as e:
         st.error(f"Error preparing print view: {str(e)}")
 
