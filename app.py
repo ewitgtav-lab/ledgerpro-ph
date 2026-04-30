@@ -2307,10 +2307,15 @@ def show_dashboard():
         # Revenue trend chart with enhanced styling
         st.markdown("### 📈 Revenue Analytics")
         
+        st.write(f"DEBUG: Transactions empty: {transactions.empty}, Length: {len(transactions)}, Has type column: {'type' in transactions.columns}")
+        
         if not transactions.empty and len(transactions) > 0 and 'type' in transactions.columns:
+            st.write(f"DEBUG: Transaction types: {transactions['type'].unique()}")
             revenue_transactions = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
+            st.write(f"DEBUG: Revenue transactions count: {len(revenue_transactions)}")
             if len(revenue_transactions) > 0:
                 daily_revenue = revenue_transactions.groupby(revenue_transactions['transaction_date'].dt.date)['final_amount'].sum().reset_index()
+                st.write(f"DEBUG: Daily revenue count: {len(daily_revenue)}")
                 
                 if len(daily_revenue) > 0:
                     fig = px.line(
@@ -2343,6 +2348,8 @@ def show_dashboard():
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No revenue data available for the selected period.")
+            else:
+                st.info("No revenue transactions found.")
         else:
             st.info("No transaction data available. Start adding transactions to see analytics.")
         
