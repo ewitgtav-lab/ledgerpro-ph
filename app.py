@@ -2786,7 +2786,7 @@ def show_sales_journal():
                             'ewt_amount': ewt_amount,
                             'final_amount': final_amount,
                             'type': 'Sales',
-                            'status': 'Active',
+                            'status': 'active',
                             'tax_type': profile.get('tax_type', 'VAT (12%)')
                         }
                         
@@ -2925,7 +2925,6 @@ def show_purchase_journal():
                             'user_id': user.id,
                             'transaction_date': transaction_date.strftime('%Y-%m-%d'),
                             'supplier_name': supplier_name,
-                            'expense_category': expense_category,
                             'gross_amount': amount,
                             'vat_rate': vat_rate,
                             'vat_amount': vat_amount,
@@ -2933,7 +2932,7 @@ def show_purchase_journal():
                             'ewt_amount': ewt_amount,
                             'final_amount': final_amount,
                             'type': 'Purchase',
-                            'status': 'Active',
+                            'status': 'active',
                             'tax_type': profile.get('tax_type', 'VAT (12%)')
                         }
                         
