@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - LedgerPro-PH</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+        .tagline {
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 24px;
+            color: #333333;
+            margin-bottom: 20px;
+        }
+        .message {
+            font-size: 16px;
+            color: #555555;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .verify-button {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+        }
+        .verify-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 3px;
+        }
+        .info-box p {
+            margin: 0;
+            color: #555555;
+            font-size: 14px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #888888;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">📊 LedgerPro-PH</div>
+            <div class="tagline">Philippine Bookkeeping & Tax Compliance System</div>
+        </div>
+        
+        <div class="content">
+            <h1 class="greeting">Welcome to LedgerPro-PH!</h1>
+            
+            <p class="message">
+                Thank you for signing up for LedgerPro-PH. We're excited to help you streamline your Philippine bookkeeping and tax compliance.
+            </p>
+            
+            <p class="message">
+                To complete your registration and secure your account, please verify your email address by clicking the button below:
+            </p>
+            
+            <div class="button-container">
+                <a href="{{ .ConfirmationURL }}" class="verify-button">✓ Verify Email Address</a>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>📧 Important:</strong> This link will expire in 24 hours. If you don't verify your email within this time, you may need to request a new verification email.</p>
+            </div>
+            
+            <p class="message">
+                If the button above doesn't work, you can copy and paste this link into your browser:
+            </p>
+            
+            <p class="message" style="word-break: break-all; color: #667eea; font-size: 14px;">
+                {{ .ConfirmationURL }}
+            </p>
+            
+            <p class="message">
+                If you didn't create an account with LedgerPro-PH, please ignore this email or contact our support team.
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>© 2026 LedgerPro-PH. All rights reserved.</p>
+            <p>
+                <a href="#">Privacy Policy</a> | 
+                <a href="#">Terms of Service</a> | 
+                <a href="#">Contact Support</a>
+            </p>
+            <p style="margin-top: 10px;">
+                This email was sent to {{ .Email }}
+            </p>
+        </div>
+    </div>
+</body>
+</html>

@@ -9,6 +9,7 @@ import os
 from typing import Optional, Dict, Any
 import hashlib
 import hmac
+import time
 
 # Initialize Supabase client with proper error handling
 @st.cache_resource
@@ -50,11 +51,11 @@ def show_auth_page():
         <p>Philippine Bookkeeping & Tax Compliance System</p>
     </div>
     """, unsafe_allow_html=True)
-    
-    tab1, tab2 = st.tabs(["🔐 Sign In", "📝 Sign Up"])
-    
-    with tab1:
-        with st.form("login_form"):
+
+    with st.form("auth_form"):
+        tab1, tab2 = st.tabs(["🔐 Sign In", "📝 Sign Up"])
+
+        with tab1:
             email = st.text_input("Email", placeholder="your@email.com", key="login_email")
             password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
             submitted = st.form_submit_button("Sign In", type="primary")
@@ -80,19 +81,18 @@ def show_auth_page():
                 else:
                     st.error("Please fill in all fields")
     
-    with tab2:
-        with st.form("signup_form"):
+        with tab2:
             new_email = st.text_input("Email", placeholder="your@email.com", key="signup_email")
             new_password = st.text_input("Password", type="password", placeholder="Create a password", key="signup_password")
             business_name = st.text_input("Business Name", placeholder="Your Business Name", key="signup_business")
             tax_type = st.selectbox("Tax Type", ["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"], key="signup_tax")
             submitted = st.form_submit_button("Create Account", type="primary")
-            
+
             if submitted:
                 if new_email and new_password and business_name:
                     try:
                         supabase = init_supabase()
-                        # Create user account
+                        # Create user account with email confirmation
                         auth_response = supabase.auth.sign_up({
                             "email": new_email,
                             "password": new_password,
@@ -100,10 +100,11 @@ def show_auth_page():
                                 "data": {
                                     "business_name": business_name,
                                     "tax_type": tax_type
-                                }
+                                },
+                                "email_confirm": True
                             }
                         })
-                        
+
                         if auth_response.user:
                             # Create profile record
                             profile_data = {
@@ -114,11 +115,24 @@ def show_auth_page():
                                 "is_pro_status": False,
                                 "created_at": datetime.now().isoformat()
                             }
-                            
+
                             supabase.table('profiles').insert(profile_data).execute()
-                            
-                            st.success("✅ Account created! Please check your email to verify.")
-                            st.info("After verification, you can sign in to continue.")
+
+                            # Show verification screen
+                            st.markdown("""
+                            <div style="text-align: center; padding: 40px; background-color: #f0f8ff; border-radius: 10px; margin: 20px 0;">
+                                <h2 style="color: #2c3e50;">📧 Check Your Inbox</h2>
+                                <p style="font-size: 16px; color: #34495e;">
+                                    We've sent a verification email to <strong>{}</strong>
+                                </p>
+                                <p style="color: #7f8c8d;">
+                                    Please click the verification link in the email to activate your account before signing in.
+                                </p>
+                                <p style="color: #e74c3c; font-size: 14px;">
+                                    ⚠️ If you don't see the email, check your spam folder.
+                                </p>
+                            </div>
+                            """.format(new_email), unsafe_allow_html=True)
                         else:
                             st.error("❌ Account creation failed")
                     except Exception as e:
@@ -4295,7 +4309,28 @@ Account Code,Account Name,Account Type,Parent Account
 def main():
     # Load CSS
     load_css()
-    
+
+    # Handle email confirmation callback
+    query_params = st.query_params
+    if "access_token" in query_params or "refresh_token" in query_params:
+        try:
+            supabase = init_supabase()
+            # Set the session from the URL parameters
+            if "access_token" in query_params:
+                supabase.auth.set_session(
+                    query_params["access_token"],
+                    query_params.get("refresh_token", "")
+                )
+            st.success("✅ Email verified successfully! You can now sign in.")
+            st.info("Redirecting to sign in page...")
+            time.sleep(2)
+            # Clear query params
+            st.query_params.clear()
+            st.rerun()
+        except Exception as e:
+            st.error("❌ Email verification failed. Please try again.")
+            st.info(f"Error: {str(e)}")
+
     # Check system health first
     is_healthy, error = check_system_health()
     if not is_healthy:
