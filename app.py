@@ -93,6 +93,8 @@ def show_auth_page():
                     try:
                         supabase = init_supabase()
                         # Create user account with email confirmation
+                        # Get current host for redirect
+                        redirect_url = f"{st.context.base_url}"
                         auth_response = supabase.auth.sign_up({
                             "email": new_email,
                             "password": new_password,
@@ -101,7 +103,8 @@ def show_auth_page():
                                     "business_name": business_name,
                                     "tax_type": tax_type
                                 },
-                                "email_confirm": True
+                                "email_confirm": True,
+                                "email_redirect_to": redirect_url
                             }
                         })
 
@@ -4312,6 +4315,14 @@ def main():
 
     # Handle email confirmation callback
     query_params = st.query_params
+
+    # Check for expired link error
+    if "error_code" in query_params and query_params["error_code"] == "otp_expired":
+        st.warning("⚠️ Your confirmation link has expired. Please request a new verification email.")
+        st.info("You can request a new verification email by signing up again with the same email address.")
+        st.query_params.clear()
+        return
+
     if "access_token" in query_params or "refresh_token" in query_params:
         try:
             supabase = init_supabase()

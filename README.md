@@ -69,7 +69,10 @@ A comprehensive automated bookkeeping web application specifically designed for 
    # Edit .streamlit/secrets.toml
    SUPABASE_URL = "your_supabase_url"
    SUPABASE_KEY = "your_supabase_anon_key"
+   SITE_URL = "http://localhost:8501"  # Update to match your Streamlit port
    ```
+
+   **Important**: Ensure the SITE_URL in your Supabase project settings (Authentication > URL Configuration) matches your Streamlit app URL (e.g., http://localhost:8501 for local development).
 
 5. **Run the application**
    ```bash
