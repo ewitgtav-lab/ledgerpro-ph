@@ -918,20 +918,20 @@ def show_cash_disbursement_journal():
         st.session_state.selected_page = "🔑 Subscription"
         st.rerun()
     else:
-        with st.form("cash_disbursement_form"):
+        with st.form("cash_disbursement_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
             
             with col1:
-                payee_name = st.text_input("Payee Name*", placeholder="Enter payee name")
-                gross_amount = st.number_input("Amount*", min_value=0.0, step=0.01, format="%.2f", value=0.0)
-                expense_type = st.selectbox("Expense Type*", ["Office Supplies", "Rent", "Utilities", "Salaries", "Marketing", "Professional Fees", "Equipment", "Travel", "Insurance", "Taxes", "Other Expenses"])
-                description = st.text_input("Description", placeholder="Payment description")
+                payee_name = st.text_input("Payee Name*", placeholder="Enter payee name", key="disb_payee_v1")
+                gross_amount = st.number_input("Amount*", min_value=0.01, value=0.01, step=0.01, format="%.2f", key="disb_amount_v1")
+                expense_type = st.selectbox("Expense Type*", ["Office Supplies", "Rent", "Utilities", "Salaries", "Marketing", "Professional Fees", "Equipment", "Travel", "Insurance", "Taxes", "Other Expenses"], key="disb_expense_type_v1")
+                description = st.text_input("Description", placeholder="Payment description", key="disb_description_v1")
                 
             with col2:
-                payment_method = st.selectbox("Payment Method*", ["Cash", "Bank Transfer", "Check", "Credit Card", "Digital Wallet"])
-                bank_name = st.text_input("Bank Name", placeholder="Enter bank name")
-                check_number = st.text_input("Check Number", placeholder="Enter check number")
-                expense_category = st.selectbox("Expense Category", ["Operating Expenses", "Cost of Goods Sold", "Capital Expenses", "Financial Expenses"])
+                payment_method = st.selectbox("Payment Method*", ["Cash", "Bank Transfer", "Check", "Credit Card", "Digital Wallet"], key="disb_payment_v1")
+                bank_name = st.text_input("Bank Name", placeholder="Enter bank name", key="disb_bank_v1")
+                check_number = st.text_input("Check Number", placeholder="Enter check number", key="disb_check_v1")
+                expense_category = st.selectbox("Expense Category", ["Operating Expenses", "Cost of Goods Sold", "Capital Expenses", "Financial Expenses"], key="disb_category_v1")
             
             # Auto-calculate tax amounts (initialize with default values)
             tax_calculations = calculate_tax_amounts(
@@ -955,22 +955,33 @@ def show_cash_disbursement_journal():
                 with col4:
                     st.metric("Final Amount", f"₱{tax_calculations['final_amount']:,.2f}")
             
-            # Submit button
+            # Submit button - validation moved inside submission check
             col1, col2, col3 = st.columns(3)
             with col2:
-                if st.form_submit_button("💾 Save Cash Disbursement", type="primary", width='content'):
+                submitted = st.form_submit_button(" Save Cash Disbursement", type="primary", use_container_width=False)
+                
+                if submitted:
                     try:
+                        # Strict validation - prevent database insertion unless conditions are met
+                        if not payee_name or not payee_name.strip():
+                            st.error("Payee name is required and cannot be empty")
+                            return
+                        
+                        if not gross_amount or gross_amount <= 0:
+                            st.error("Amount must be greater than 0")
+                            return
+                        
                         # Initialize Supabase client
                         supabase = init_supabase()
                         
                         # Prepare data for insertion
                         cash_disbursement_data = {
                             'user_id': user.id,
-                            'transaction_date': datetime.now().isoformat(),
-                            'type': 'expense',
+                            'transaction_date': datetime.now().strftime('%Y-%m-%d'),
+                            'type': 'Cash Disbursement',
                             'description': description or f"Payment to {payee_name}",
                             'customer_name': None,
-                            'supplier_name': payee_name,
+                            'supplier_name': payee_name.strip(),
                             'gross_amount': gross_amount,
                             'platform_name': None,
                             'platform_fee': tax_calculations['platform_fee'],
@@ -986,25 +997,30 @@ def show_cash_disbursement_journal():
                             'vat_rate': tax_calculations['vat_rate'],
                             'ewt_rate': tax_calculations['ewt_rate'],
                             'status': 'POSTED',
-                            'created_at': datetime.now().isoformat()
+                            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         }
                         
                         # Insert data
                         result = supabase.table('transactions').insert(cash_disbursement_data).execute()
                         
                         if result.data:
-                            st.success("✅ Cash disbursement saved successfully!")
+                            st.success(" Cash disbursement saved successfully!")
                             st.balloons()
+                            # Explicit state reset to prevent multi-tab synchronization issues
+                            for key in list(st.session_state.keys()):
+                                if key.startswith('disb_'):
+                                    del st.session_state[key]
                             st.rerun()
                         else:
-                            st.error("❌ Failed to save cash disbursement")
+                            st.error(" Failed to save cash disbursement")
                             
                     except Exception as e:
-                        st.error(f"❌ Error saving cash disbursement: {str(e)}")
-                        st.info("Please try again or contact support if the issue persists.")
+                        if not handle_database_error(e):
+                            st.error(f" Error saving cash disbursement: {str(e)}")
+                            st.info("Please try again or contact support if the issue persists.")
     
     # Existing records table
-    st.markdown("### 📋 Cash Disbursement Records")
+    st.markdown("### Cash Disbursement Records")
     
     # Date filter
     col1, col2 = st.columns(2)
