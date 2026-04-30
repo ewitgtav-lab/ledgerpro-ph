@@ -2771,7 +2771,6 @@ def show_sales_journal():
                         sales_data = {
                             'user_id': user.id,
                             'transaction_date': transaction_date.strftime('%Y-%m-%d'),
-                            'invoice_no': invoice_no,
                             'customer_name': customer_name,
                             'payment_method': payment_method,
                             'gross_amount': amount,
@@ -2807,7 +2806,7 @@ def show_sales_journal():
         
         if result.data:
             for entry in result.data:
-                with st.expander(f"Sales Entry - {entry['invoice_no']} ({entry['transaction_date'][:10]})"):
+                with st.expander(f"Sales Entry - {entry['transaction_date'][:10]}"):
                     col1, col2, col3, col4 = st.columns(4)
                     
                     with col1:
@@ -2918,7 +2917,6 @@ def show_purchase_journal():
                         purchase_data = {
                             'user_id': user.id,
                             'transaction_date': transaction_date.strftime('%Y-%m-%d'),
-                            'receipt_no': receipt_no,
                             'supplier_name': supplier_name,
                             'expense_category': expense_category,
                             'gross_amount': amount,
@@ -2954,7 +2952,7 @@ def show_purchase_journal():
         
         if result.data:
             for entry in result.data:
-                with st.expander(f"Purchase Entry - {entry['receipt_no']} ({entry['transaction_date'][:10]})"):
+                with st.expander(f"Purchase Entry - {entry['transaction_date'][:10]}"):
                     col1, col2, col3, col4 = st.columns(4)
                     
                     with col1:
