@@ -2359,7 +2359,7 @@ def show_dashboard():
                     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
                     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
                     
-                    st.plotly_chart(fig, width='stretch', use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No revenue data available for the selected period.")
         else:
@@ -2410,7 +2410,7 @@ def show_dashboard():
                     )
                 )
                 
-                st.plotly_chart(fig, width='stretch', use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("No transaction data available for breakdown.")
         else:
