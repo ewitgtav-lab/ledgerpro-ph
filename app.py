@@ -3149,6 +3149,20 @@ def show_cash_receipts_journal():
                 
                 if submitted:
                     try:
+                        # Double-check validation before submission
+                        form_data = {
+                            'customer_name': customer_name,
+                            'gross_amount': gross_amount,
+                            'transaction_date': datetime.now().strftime('%Y-%m-%d')
+                        }
+                        validation_errors = validate_required_fields(form_data, 'Cash Receipt')
+                        
+                        if validation_errors:
+                            for error in validation_errors:
+                                st.error(f"Validation Error: {error}")
+                            # Don't proceed with database insertion
+                            return
+                        
                         # Initialize Supabase client
                         supabase = init_supabase()
                         
@@ -3490,6 +3504,20 @@ def show_sales_journal():
             
             if submitted:
                 try:
+                    # Double-check validation before submission
+                    form_data = {
+                        'customer_name': customer_name,
+                        'gross_amount': amount,
+                        'transaction_date': transaction_date.strftime('%Y-%m-%d')
+                    }
+                    validation_errors = validate_required_fields(form_data, 'Sales')
+                    
+                    if validation_errors:
+                        for error in validation_errors:
+                            st.error(f"Validation Error: {error}")
+                        # Don't proceed with database insertion
+                        return
+                    
                     supabase = init_supabase()
                     
                     # Insert sales transaction
@@ -3655,6 +3683,20 @@ def show_purchase_journal():
                 
                 if submitted:
                     try:
+                        # Double-check validation before submission
+                        form_data = {
+                            'supplier_name': supplier_name,
+                            'gross_amount': amount,
+                            'transaction_date': transaction_date.strftime('%Y-%m-%d')
+                        }
+                        validation_errors = validate_required_fields(form_data, 'Purchase')
+                        
+                        if validation_errors:
+                            for error in validation_errors:
+                                st.error(f"Validation Error: {error}")
+                            # Don't proceed with database insertion
+                            return
+                        
                         supabase = init_supabase()
                         
                         # Insert purchase transaction
