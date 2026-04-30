@@ -55,8 +55,8 @@ def show_auth_page():
     
     with tab1:
         with st.form("login_form"):
-            email = st.text_input("Email", placeholder="your@email.com")
-            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            email = st.text_input("Email", placeholder="your@email.com", key="login_email")
+            password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
             submitted = st.form_submit_button("Sign In", type="primary")
             
             if submitted:
@@ -82,10 +82,10 @@ def show_auth_page():
     
     with tab2:
         with st.form("signup_form"):
-            new_email = st.text_input("Email", placeholder="your@email.com")
-            new_password = st.text_input("Password", type="password", placeholder="Create a password")
-            business_name = st.text_input("Business Name", placeholder="Your Business Name")
-            tax_type = st.selectbox("Tax Type", ["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"])
+            new_email = st.text_input("Email", placeholder="your@email.com", key="signup_email")
+            new_password = st.text_input("Password", type="password", placeholder="Create a password", key="signup_password")
+            business_name = st.text_input("Business Name", placeholder="Your Business Name", key="signup_business")
+            tax_type = st.selectbox("Tax Type", ["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"], key="signup_tax")
             submitted = st.form_submit_button("Create Account", type="primary")
             
             if submitted:
@@ -819,7 +819,7 @@ def show_subscription_page():
         """, unsafe_allow_html=True)
         
         with st.form("activate_license"):
-            license_key = st.text_input("Enter License Key", placeholder="XXXX-XXXX-XXXX-XXXX", help="Purchase a license key from our Ko-fi store")
+            license_key = st.text_input("Enter License Key", placeholder="XXXX-XXXX-XXXX-XXXX", help="Purchase a license key from our Ko-fi store", key="license_key")
             submitted = st.form_submit_button("🔓 Activate License", type="primary")
             
             if submitted and license_key:
@@ -868,7 +868,7 @@ def show_subscription_page():
         
         col1, col2 = st.columns(2)
         with col1:
-            key_count = st.number_input("Number of keys to generate", min_value=1, max_value=100, value=10)
+            key_count = st.number_input("Number of keys to generate", min_value=1, max_value=100, value=10, key="key_count")
         with col2:
             if st.button("🔑 Generate Keys", type="primary"):
                 with st.spinner("Generating license keys..."):
@@ -1908,7 +1908,7 @@ def show_tax_compliance():
                         
                         if table_data:
                             df_table = pd.DataFrame(table_data)
-                            st.dataframe(df_table, use_container_width=True, hide_index=True)
+                            st.dataframe(df_table, width="stretch", hide_index=True)
                             
                             # Summary section
                             st.markdown("####  Summary")
@@ -2059,7 +2059,7 @@ Revenue Code of 1997, as amended.
                         
                         if table_data:
                             df_table = pd.DataFrame(table_data)
-                            st.dataframe(df_table, use_container_width=True, hide_index=True)
+                            st.dataframe(df_table, width="stretch", hide_index=True)
                             
                             # Summary section
                             st.markdown("####  Tax Computation Summary")
@@ -2219,7 +2219,7 @@ Revenue Code of 1997, as amended.
                             
                             if table_data:
                                 df_table = pd.DataFrame(table_data)
-                                st.dataframe(df_table, use_container_width=True, hide_index=True)
+                                st.dataframe(df_table, width="stretch", hide_index=True)
                                 
                                 # VAT computation summary
                                 st.markdown("####  VAT Computation Summary")
@@ -2390,7 +2390,7 @@ Revenue Code of 1997, as amended.
                     
                     if income_data:
                         df_income = pd.DataFrame(income_data)
-                        st.dataframe(df_income, use_container_width=True, hide_index=True)
+                        st.dataframe(df_income, width="stretch", hide_index=True)
                         
                         # Tax computation summary
                         st.markdown("####  Tax Computation Summary")
@@ -3243,7 +3243,7 @@ def show_dashboard():
                 chart_data = revenue_data.groupby('transaction_date')['final_amount'].sum().reset_index()
                 if len(chart_data) > 0:
                     fig = px.line(chart_data, x='transaction_date', y='final_amount', title='Revenue Over Time')
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=False)
                 else:
                     st.info("No revenue data available")
             else:
@@ -3257,7 +3257,7 @@ def show_dashboard():
             pie_data = transactions.groupby('type')['final_amount'].sum().reset_index()
             if len(pie_data) > 0:
                 fig = px.pie(pie_data, values='final_amount', names='type', title='Transaction Distribution')
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=False)
             else:
                 st.info("No transaction data available")
         else:
@@ -3287,7 +3287,7 @@ def show_dashboard():
                 }
                 display_data['Type'] = display_data['Type'].apply(lambda x: f"{type_emoji.get(x, '📝')} {x.title()}")
                 
-                st.dataframe(display_data, width="stretch", hide_index=True, use_container_width=True)
+                st.dataframe(display_data, width="stretch", hide_index=True)
             else:
                 st.info("No transactions this month. Start by adding your first transaction!")
         else:
