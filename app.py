@@ -1580,6 +1580,58 @@ def show_general_ledger():
         st.error(f"❌ Error loading ledger data: {str(e)}")
         st.info("Please try refreshing the page")
 
+# Data Integrity and Validation Functions
+def clean_transaction_data(transactions):
+    """Remove nulls, None, and empty strings from transaction data"""
+    if transactions.empty:
+        return transactions
+    
+    # Remove rows with essential null values
+    essential_columns = ['transaction_date', 'final_amount', 'type']
+    for col in essential_columns:
+        if col in transactions.columns:
+            transactions = transactions[transactions[col].notna()]
+            transactions = transactions[transactions[col] != '']
+    
+    # Clean string columns
+    string_columns = ['description', 'customer_name', 'supplier_name', 'payment_method']
+    for col in string_columns:
+        if col in transactions.columns:
+            transactions[col] = transactions[col].fillna('')
+            transactions[col] = transactions[col].astype(str)
+    
+    return transactions
+
+def format_currency_ph(amount):
+    """Format currency using Philippine Peso symbol with proper formatting"""
+    try:
+        if pd.isna(amount) or amount == 0:
+            return "0.00"
+        return f" {amount:,.2f}"
+    except:
+        return "0.00"
+
+def validate_transaction_data(transaction_data):
+    """Validate transaction data before saving to database"""
+    errors = []
+    
+    # Check required fields
+    if not transaction_data.get('customer_name') or transaction_data.get('customer_name').strip() == '':
+        errors.append("Customer name is required")
+    
+    if not transaction_data.get('supplier_name') or transaction_data.get('supplier_name').strip() == '':
+        errors.append("Supplier name is required")
+    
+    # Check numeric fields
+    try:
+        amount = float(transaction_data.get('gross_amount', 0))
+        if amount <= 0:
+            errors.append("Amount must be greater than 0")
+    except (ValueError, TypeError):
+        errors.append("Invalid amount format")
+    
+    return errors
+
 # Tax Compliance
 def show_tax_compliance():
     st.markdown("""
@@ -1608,6 +1660,9 @@ def show_tax_compliance():
         if result.data:
             transactions = pd.DataFrame(result.data)
             transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], format='ISO8601', errors='coerce')
+            
+            # Clean transaction data to remove nulls and invalid entries
+            transactions = clean_transaction_data(transactions)
             
             # Tax calculations
             total_revenue = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]['final_amount'].sum()
@@ -1642,19 +1697,19 @@ def show_tax_compliance():
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                st.metric("Total Revenue", f"₱{total_revenue:,.2f}")
+                st.metric("Total Revenue", format_currency_ph(total_revenue))
             with col2:
-                st.metric("Total Expenses", f"₱{total_expenses:,.2f}")
+                st.metric("Total Expenses", format_currency_ph(total_expenses))
             with col3:
-                st.metric("Total VAT", f"₱{total_vat_input:,.2f}")
+                st.metric("Total VAT", format_currency_ph(total_vat_input))
             with col4:
-                st.metric("Total EWT", f"₱{total_ewt:,.2f}")
+                st.metric("Total EWT", format_currency_ph(total_ewt))
             
             # Quarterly breakdown
             st.markdown("### 📈 Quarterly Breakdown")
             display_q_df = quarterly_df.copy()
             for col in ['Revenue', 'Expenses', 'Net Income', 'VAT', 'EWT']:
-                display_q_df[col] = display_q_df[col].apply(lambda x: f"₱{x:,.2f}")
+                display_q_df[col] = display_q_df[col].apply(format_currency_ph)
             
             st.dataframe(display_q_df, width="stretch", hide_index=True)
             
@@ -1681,42 +1736,131 @@ def show_tax_compliance():
                         st.markdown("#####  BIR Form No. 2307")
                         st.markdown("**Certificate of Creditable Tax Withheld at Source**")
                         
-                        # Form data
-                        form_data = {
-                            'Withholding Agent': profile.get('business_name', 'Your Business'),
-                            'TIN': '000-000-000-000',  # Placeholder
-                            'Address': 'Business Address',  # Placeholder
-                            'Payee Name': 'Various Suppliers',
-                            'Period': f"{datetime.now().strftime('%B %Y')}",
-                            'Total EWT': f"Total Creditable EWT: {total_ewt:,.2f}"
-                        }
+                        # Professional header with logo placeholder
+                        st.markdown("""
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <div style="border: 2px dashed #ccc; padding: 20px; margin-bottom: 10px;">
+                                <p style="color: #666; margin: 0;">[BUSINESS LOGO]</p>
+                            </div>
+                            <h3 style="margin: 5px 0;">BIR Form No. 2307</h3>
+                            <p style="margin: 5px 0;">Certificate of Creditable Tax Withheld at Source</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                         
-                        st.write("**Withholding Agent Information:**")
-                        for key, value in form_data.items():
-                            st.write(f"- {key}: {value}")
+                        # Standard BIR Form 2307 fields
+                        st.markdown("####  Withholding Agent Information")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write(f"**Withholding Agent Name:** {profile.get('business_name', 'Your Business')}")
+                            st.write(f"**TIN:** 000-000-000-000")
+                            st.write(f"**Address:** Business Address")
+                        with col2:
+                            st.write(f"**Period:** {datetime.now().strftime('%B %Y')}")
+                            st.write(f"**ATC:** Expanded (Creditable)")
+                            st.write(f"**Date Issued:** {datetime.now().strftime('%Y-%m-%d')}")
                         
-                        st.write("**EWT Transactions:**")
+                        # Professional transaction table
+                        st.markdown("####  Transaction Details")
+                        
+                        # Create structured table data
+                        table_data = []
+                        total_gross_amount = 0
                         for _, trans in ewt_transactions.iterrows():
-                            st.write(f"- {trans['description']}: {trans['transaction_date'].strftime('%Y-%m-%d')} - {trans['ewt_amount']:,.2f}")
+                            gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
+                            table_data.append({
+                                'Date': trans['transaction_date'].strftime('%Y-%m-%d'),
+                                'Payee Name': trans.get('supplier_name', trans.get('customer_name', 'N/A')),
+                                'Description': trans.get('description', 'N/A'),
+                                'ATC': 'Expanded',
+                                'Tax Base (Gross Amount)': format_currency_ph(gross_amount),
+                                'EWT Rate': '1%',
+                                'EWT Amount': format_currency_ph(trans['ewt_amount'])
+                            })
+                            total_gross_amount += gross_amount
                         
-                        # Download button
+                        if table_data:
+                            df_table = pd.DataFrame(table_data)
+                            st.dataframe(df_table, use_container_width=True, hide_index=True)
+                            
+                            # Summary section
+                            st.markdown("####  Summary")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Total Gross Amount", format_currency_ph(total_gross_amount))
+                            with col2:
+                                st.metric("Total EWT", format_currency_ph(total_ewt))
+                            with col3:
+                                st.metric("Net Amount", format_currency_ph(total_gross_amount - total_ewt))
+                        else:
+                            st.info("No EWT transactions found for this period.")
+                        
+                        # Professional footer with signature lines
+                        st.markdown("""
+                        <div style="margin-top: 40px;">
+                            <div style="display: flex; justify-content: space-between; margin-top: 30px;">
+                                <div style="width: 45%;">
+                                    <div style="border-bottom: 1px solid #000; height: 40px;"></div>
+                                    <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
+                                    <p style="text-align: center; margin: 5px 0;">Withholding Agent</p>
+                                </div>
+                                <div style="width: 45%;">
+                                    <div style="border-bottom: 1px solid #000; height: 40px;"></div>
+                                    <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
+                                    <p style="text-align: center; margin: 5px 0;">Payee</p>
+                                </div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Professional downloadable form
                         form_2307_content = f"""
-BIR Form No. 2307
-Certificate of Creditable Tax Withheld at Source
+{'='*80}
+BIR FORM NO. 2307
+CERTIFICATE OF CREDITABLE TAX WITHHELD AT SOURCE
+{'='*80}
 
-Withholding Agent: {profile.get('business_name', 'Your Business')}
+WITHHOLDING AGENT INFORMATION:
+Withholding Agent Name: {profile.get('business_name', 'Your Business')}
+TIN: 000-000-000-000
+Address: Business Address
 Period: {datetime.now().strftime('%B %Y')}
-Total EWT: {total_ewt:,.2f}
+ATC: Expanded (Creditable)
+Date Issued: {datetime.now().strftime('%Y-%m-%d')}
 
-Transactions:
+TRANSACTION DETAILS:
+{'-'*80}
+{'Date':<12} {'Payee Name':<25} {'Description':<20} {'Tax Base':<15} {'EWT':<12}
+{'-'*80}
 """
+                        
                         for _, trans in ewt_transactions.iterrows():
-                            form_2307_content += f"- {trans['description']}: {trans['ewt_amount']:,.2f}\n"
+                            gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
+                            payee_name = trans.get('supplier_name', trans.get('customer_name', 'N/A'))[:24]
+                            description = trans.get('description', 'N/A')[:19]
+                            form_2307_content += f"{trans['transaction_date'].strftime('%Y-%m-%d'):<12} {payee_name:<25} {description:<20} {format_currency_ph(gross_amount):<15} {format_currency_ph(trans['ewt_amount']):<12}\n"
+                        
+                        form_2307_content += f"""
+{'-'*80}
+SUMMARY:
+Total Gross Amount: {format_currency_ph(total_gross_amount)}
+Total EWT Withheld: {format_currency_ph(total_ewt)}
+Net Amount: {format_currency_ph(total_gross_amount - total_ewt)}
+
+{'='*80}
+CERTIFIED CORRECT:
+_________________________    _________________________
+Withholding Agent              Payee
+Signature over Printed Name    Signature over Printed Name
+
+{'='*80}
+This certificate is issued pursuant to Sec. 83 of the National Internal 
+Revenue Code of 1997, as amended.
+"""
                         
                         st.download_button(
-                            label=" Download Form 2307",
+                            label=" Download Professional Form 2307",
                             data=form_2307_content,
-                            file_name=f"Form_2307_{datetime.now().strftime('%Y%m')}.txt",
+                            file_name=f"BIR_Form_2307_{datetime.now().strftime('%Y%m')}.txt",
                             mime="text/plain",
                             type="primary"
                         )
@@ -2938,6 +3082,18 @@ def show_sales_journal():
                     try:
                         supabase = init_supabase()
                         
+                        # Validate transaction data before saving
+                        sales_data = {
+                            'customer_name': customer_name,
+                            'gross_amount': amount
+                        }
+                        
+                        validation_errors = validate_transaction_data(sales_data)
+                        if validation_errors:
+                            for error in validation_errors:
+                                st.error(f"Validation Error: {error}")
+                            st.stop()
+                        
                         # Debug: Check what columns exist
                         st.write("DEBUG: Checking available columns...")
                         columns_result = supabase.table('transactions').select('*').limit(1).execute()
@@ -2948,7 +3104,7 @@ def show_sales_journal():
                         sales_data = {
                             'user_id': user.id,
                             'transaction_date': transaction_date.strftime('%Y-%m-%d'),
-                            'customer_name': customer_name,
+                            'customer_name': customer_name.strip(),
                             'payment_method': payment_method,
                             'gross_amount': amount,
                             'net_amount': amount - vat_amount - ewt_amount,
@@ -3091,11 +3247,23 @@ def show_purchase_journal():
                     try:
                         supabase = init_supabase()
                         
+                        # Validate transaction data before saving
+                        purchase_data = {
+                            'supplier_name': supplier_name,
+                            'gross_amount': amount
+                        }
+                        
+                        validation_errors = validate_transaction_data(purchase_data)
+                        if validation_errors:
+                            for error in validation_errors:
+                                st.error(f"Validation Error: {error}")
+                            st.stop()
+                        
                         # Insert purchase transaction
                         purchase_data = {
                             'user_id': user.id,
                             'transaction_date': transaction_date.strftime('%Y-%m-%d'),
-                            'supplier_name': supplier_name,
+                            'supplier_name': supplier_name.strip(),
                             'expense_category': expense_category,
                             'gross_amount': amount,
                             'net_amount': amount - vat_amount - ewt_amount,
