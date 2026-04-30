@@ -1047,7 +1047,7 @@ def show_cash_disbursement_journal():
             display_data = []
             for _, record in cash_disbursements_data.iterrows():
                 display_data.append({
-                    'Date': pd.to_datetime(record['transaction_date']).strftime('%Y-%m-%d'),
+                    'Date': pd.to_datetime(record['transaction_date'], format='ISO8601', errors='coerce').strftime('%Y-%m-%d'),
                     'Payee': record['supplier_name'],
                     'Description': record['description'],
                     'Gross Amount': record['gross_amount'],
@@ -1320,7 +1320,7 @@ def show_general_ledger():
             transactions = pd.DataFrame(result.data)
             
             # Convert dates
-            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'])
+            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], format='ISO8601', errors='coerce')
             
             # Account mapping
             account_mapping = {
@@ -1607,7 +1607,7 @@ def show_tax_compliance():
         
         if result.data:
             transactions = pd.DataFrame(result.data)
-            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'])
+            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], format='ISO8601', errors='coerce')
             
             # Tax calculations
             total_revenue = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]['final_amount'].sum()
@@ -1836,7 +1836,7 @@ def show_financial_statements():
         
         if result.data and len(result.data) > 0:
             transactions = pd.DataFrame(result.data)
-            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'])
+            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], format='ISO8601', errors='coerce')
             
             # Calculate financial metrics
             revenue = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]['final_amount'].sum()
@@ -2250,7 +2250,7 @@ def show_dashboard():
                             transactions[col] = pd.to_numeric(transactions[col], errors='coerce').fillna(0)
                     
                     # Convert dates
-                    transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], errors='coerce')
+                    transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], format='ISO8601', errors='coerce')
                     
                     # Calculate metrics
                     if 'type' in transactions.columns:
@@ -2532,7 +2532,7 @@ def show_cash_receipts_journal():
             display_data = []
             for _, record in cash_receipts_data.iterrows():
                 display_data.append({
-                    'Date': pd.to_datetime(record['transaction_date']).strftime('%Y-%m-%d'),
+                    'Date': pd.to_datetime(record['transaction_date'], format='ISO8601', errors='coerce').strftime('%Y-%m-%d'),
                     'Customer': record['customer_name'],
                     'Description': record['description'],
                     'Gross Amount': record['gross_amount'],
