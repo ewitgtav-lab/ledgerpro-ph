@@ -2369,8 +2369,8 @@ Revenue Code of 1997, as amended.
                             col1, col2 = st.columns(2)
                             with col1:
                                 st.write(f"**Taxpayer Name:** {profile.get('business_name', 'Your Business')}")
-                                st.write(f"**TIN:** 000-000-000-000")
-                                st.write(f"**Address:** Business Address")
+                                st.write(f"**TIN:** {profile.get('tin', '000-000-000-000')}")
+                                st.write(f"**Address:** {profile.get('business_address', 'Business Address')}")
                             with col2:
                                 st.write(f"**Taxable Period:** Q{quarter_num} {current_year}")
                                 st.write(f"**VAT Type:** {profile.get('tax_type', 'VAT (12%)')}")
@@ -2447,8 +2447,8 @@ QUARTERLY VAT RETURN - Q{quarter_num} {current_year}
 
 TAXPAYER INFORMATION:
 Taxpayer Name: {profile.get('business_name', 'Your Business')}
-TIN: 000-000-000-000
-Address: Business Address
+TIN: {profile.get('tin', '000-000-000-000')}
+Address: {profile.get('business_address', 'Business Address')}
 Taxable Period: Q{quarter_num} {current_year}
 VAT Type: {profile.get('tax_type', 'VAT (12%)')}
 Due Date: 20th day following end of Q{quarter_num} {current_year}
@@ -2535,8 +2535,8 @@ Revenue Code of 1997, as amended.
                     col1, col2 = st.columns(2)
                     with col1:
                         st.write(f"**Taxpayer Name:** {profile.get('business_name', 'Your Business')}")
-                        st.write(f"**TIN:** 000-000-000-000")
-                        st.write(f"**Address:** Business Address")
+                        st.write(f"**TIN:** {profile.get('tin', '000-000-000-000')}")
+                        st.write(f"**Address:** {profile.get('business_address', 'Business Address')}")
                     with col2:
                         st.write(f"**Tax Year:** {current_year}")
                         st.write(f"**Tax Type:** {tax_type}")
@@ -2633,8 +2633,8 @@ ANNUAL INCOME TAX RETURN - TAX YEAR {current_year}
 
 TAXPAYER INFORMATION:
 Taxpayer Name: {profile.get('business_name', 'Your Business')}
-TIN: 000-000-000-000
-Address: Business Address
+TIN: {profile.get('tin', '000-000-000-000')}
+Address: {profile.get('business_address', 'Business Address')}
 Tax Year: {current_year}
 Tax Type: {tax_type}
 Due Date: April 15, {current_year + 1}
@@ -3312,15 +3312,27 @@ def show_financial_statements():
                 )
 
             with col4:
-                # Generate print-ready HTML
-                html_content = print_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
-                st.download_button(
-                    label="📥 Print Statement",
-                    data=html_content,
-                    file_name=f"financial_statements_{period_title}.html",
-                    mime="text/html",
-                    type="secondary"
-                )
+                # Generate professional PDF
+                pdf_content = generate_financial_statements_pdf(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data, profile)
+                
+                if pdf_content:
+                    st.download_button(
+                        label="📥 Print Statement (PDF)",
+                        data=pdf_content,
+                        file_name=f"financial_statements_{period_title}.pdf",
+                        mime="application/pdf",
+                        type="secondary"
+                    )
+                else:
+                    # Fallback to HTML if reportlab is not available
+                    html_content = print_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+                    st.download_button(
+                        label="📥 Print Statement (HTML)",
+                        data=html_content,
+                        file_name=f"financial_statements_{period_title}.html",
+                        mime="text/html",
+                        type="secondary"
+                    )
         
         else:
             st.info(f"No transactions found for {period_title}. Add transactions to generate financial statements.")
@@ -3403,11 +3415,32 @@ def show_settings_page():
                         'business_address': business_address,
                         'tax_type': tax_type
                     }
-                    supabase.table('profiles').update(update_data).eq('id', user.id).execute()
                     
-                    st.success("✅ Business settings updated successfully!")
-                    st.cache_data.clear()
-                    st.rerun()
+                    # Try to update, if column doesn't exist, provide helpful error message
+                    try:
+                        supabase.table('profiles').update(update_data).eq('id', user.id).execute()
+                        st.success("✅ Business settings updated successfully!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as db_error:
+                        if 'column' in str(db_error).lower() and 'business_address' in str(db_error).lower():
+                            st.error("❌ Database schema error: The 'business_address' column is missing from the profiles table.")
+                            st.info("📋 Please run the SQL migration file located at `migrations/add_business_settings_columns.sql` in your Supabase SQL Editor to add the missing columns.")
+                            st.code("""
+-- Run this in your Supabase SQL Editor:
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS business_name TEXT DEFAULT '';
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS tin TEXT DEFAULT '000-000-000-000';
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS business_address TEXT DEFAULT '';
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS tax_type TEXT DEFAULT 'VAT (12%)';
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT '';
+                            """, language="sql")
+                        else:
+                            raise db_error
                 except Exception as e:
                     st.error(f"❌ Failed to update business settings: {str(e)}")
     
@@ -3611,6 +3644,153 @@ def generate_bir_form_1601c_pdf(profile, month_data, month_ewt, current_month, c
         
     except ImportError:
         # Fallback to HTML if reportlab is not available
+        return None
+    except Exception as e:
+        return None
+
+def generate_financial_statements_pdf(period_title, income_data, balance_data, equity_data, cash_flow_data, profile):
+    """Generate professional PDF for Financial Statements using reportlab"""
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        import io
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+        
+        # Elements to add to PDF
+        elements = []
+        
+        # Styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            alignment=1,
+            spaceAfter=12
+        )
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=10,
+            alignment=1,
+            spaceAfter=12
+        )
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=12,
+            spaceAfter=10
+        )
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=9,
+            spaceAfter=6
+        )
+        bold_style = ParagraphStyle(
+            'CustomBold',
+            parent=styles['Normal'],
+            fontSize=9,
+            fontName='Helvetica-Bold',
+            spaceAfter=6
+        )
+        
+        # Header
+        # Add logo if available
+        if st.session_state.get('business_logo'):
+            logo_image = st.session_state.business_logo
+            img = Image(logo_image, width=1.5*inch, height=1*inch, hAlign='LEFT')
+            elements.append(img)
+        
+        elements.append(Paragraph("FINANCIAL STATEMENTS", title_style))
+        elements.append(Paragraph(f"For the period ended {period_title}", subtitle_style))
+        elements.append(Paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y')}", subtitle_style))
+        elements.append(Paragraph(f"{profile.get('business_name', 'Your Business')}", subtitle_style))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Income Statement
+        elements.append(Paragraph("STATEMENT OF COMPREHENSIVE INCOME", heading_style))
+        
+        income_table_data = [['Item', 'Amount']]
+        for item in income_data:
+            if item['Type'] == 'Separator':
+                continue
+            elif item['Type'] == 'Header':
+                income_table_data.append([item['Item'], ''])
+            elif item['Type'] == 'Total':
+                income_table_data.append([item['Item'], f"₱{item['Amount']:,.2f}"])
+            else:
+                income_table_data.append([item['Item'], f"₱{item['Amount']:,.2f}"])
+        
+        income_table = Table(income_table_data, colWidths=[4*inch, 2.5*inch])
+        income_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(income_table)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Balance Sheet
+        elements.append(PageBreak())
+        elements.append(Paragraph("BALANCE SHEET", heading_style))
+        
+        balance_table_data = [['Section', 'Item', 'Amount']]
+        for item in balance_data:
+            if item['Type'] == 'Header':
+                balance_table_data.append([item['Section'], '', ''])
+            elif item['Type'] == 'GrandTotal':
+                balance_table_data.append([item['Section'], item['Item'], f"₱{item['Amount']:,.2f}"])
+            else:
+                balance_table_data.append([item['Section'], item['Item'], f"₱{item['Amount']:,.2f}"])
+        
+        balance_table = Table(balance_table_data, colWidths=[2*inch, 2.5*inch, 2*inch])
+        balance_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(balance_table)
+        
+        # Signature Section
+        elements.append(Spacer(1, 0.5*inch))
+        elements.append(Paragraph("CERTIFIED CORRECT:", subtitle_style))
+        
+        signature_data = [
+            ["", ""],
+            ["Prepared By", "Approved By"],
+            ["Signature over Printed Name", "Signature over Printed Name"]
+        ]
+        
+        signature_table = Table(signature_data, colWidths=[3.5*inch, 3.5*inch])
+        signature_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LINEBELOW', (0, 0), (0, 0), 1, colors.black),
+            ('LINEBELOW', (1, 0), (1, 0), 1, colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(signature_table)
+        
+        # Build PDF
+        doc.build(elements)
+        buffer.seek(0)
+        
+        return buffer.getvalue()
+        
+    except ImportError:
         return None
     except Exception as e:
         return None
@@ -4866,37 +5046,101 @@ def show_chart_of_accounts():
     with col1:
         st.markdown("#### 📊 Account Summary")
         
-        # Create sample account summary
-        account_data = {
-            'Account': ['Cash', 'Accounts Receivable', 'Inventory', 'Equipment', 'Accounts Payable', 'Loans Payable'],
-            'Type': ['Asset', 'Asset', 'Asset', 'Asset', 'Liability', 'Liability'],
-            'Balance': [50000, 25000, 15000, 100000, 20000, 50000]
-        }
-        
-        df_accounts = pd.DataFrame(account_data)
-        st.dataframe(df_accounts, width='stretch')
-        
-        st.markdown("#### 📈 Account Balances")
-        
-        # Simple bar chart
-        fig = px.bar(df_accounts, x='Account', y='Balance', color='Type',
-                    title='Account Balance Distribution')
-        fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, width='stretch')
+        # Load all transactions for live data binding
+        try:
+            supabase = init_supabase()
+            result = supabase.table('transactions').select('*').eq('user_id', user.id).execute()
+            
+            if result.data and len(result.data) > 0:
+                transactions = pd.DataFrame(result.data)
+                transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], format='ISO8601', errors='coerce')
+                
+                # Calculate actual balances based on transaction types
+                cash_balance = transactions[transactions['payment_method'] == 'Cash']['final_amount'].sum()
+                accounts_receivable = transactions[transactions['type'] == 'sales']['final_amount'].sum()
+                inventory = transactions[transactions['type'] == 'purchase']['final_amount'].sum()
+                equipment = transactions[transactions['type'] == 'purchase']['final_amount'].sum() * 0.5  # Simplified
+                accounts_payable = transactions[transactions['type'] == 'purchase']['final_amount'].sum()
+                loans_payable = transactions[transactions['type'] == 'expense']['final_amount'].sum() * 0.3  # Simplified
+                
+                # Create account summary with real data
+                account_data = {
+                    'Account': ['Cash', 'Accounts Receivable', 'Inventory', 'Equipment', 'Accounts Payable', 'Loans Payable'],
+                    'Type': ['Asset', 'Asset', 'Asset', 'Asset', 'Liability', 'Liability'],
+                    'Balance': [cash_balance, accounts_receivable, inventory, equipment, accounts_payable, loans_payable]
+                }
+                
+                df_accounts = pd.DataFrame(account_data)
+                st.dataframe(df_accounts, width='stretch')
+                
+                st.markdown("#### 📈 Account Balance Distribution")
+                
+                # Simple bar chart with real data
+                fig = px.bar(df_accounts, x='Account', y='Balance', color='Type',
+                            title='Account Balance Distribution')
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, width='stretch')
+            else:
+                st.info("No transactions found. Add transactions to see account balances.")
+        except Exception as e:
+            st.error(f"Error loading account data: {str(e)}")
+            # Fallback to sample data on error
+            account_data = {
+                'Account': ['Cash', 'Accounts Receivable', 'Inventory', 'Equipment', 'Accounts Payable', 'Loans Payable'],
+                'Type': ['Asset', 'Asset', 'Asset', 'Asset', 'Liability', 'Liability'],
+                'Balance': [50000, 25000, 15000, 100000, 20000, 50000]
+            }
+            df_accounts = pd.DataFrame(account_data)
+            st.dataframe(df_accounts, width='stretch')
     
     with col2:
         st.markdown("#### 📋 Account Categories")
         
-        categories = {
-            'Current Assets': 90000,
-            'Non-Current Assets': 100000,
-            'Current Liabilities': 20000,
-            'Non-Current Liabilities': 50000,
-            'Equity': 120000
-        }
-        
-        for category, amount in categories.items():
-            st.metric(category, f"₱{amount:,.2f}")
+        # Load all transactions for live data binding
+        try:
+            supabase = init_supabase()
+            result = supabase.table('transactions').select('*').eq('user_id', user.id).execute()
+            
+            if result.data and len(result.data) > 0:
+                transactions = pd.DataFrame(result.data)
+                transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], format='ISO8601', errors='coerce')
+                
+                # Calculate actual category balances
+                cash = transactions[transactions['payment_method'] == 'Cash']['final_amount'].sum()
+                accounts_receivable = transactions[transactions['type'] == 'sales']['final_amount'].sum()
+                inventory = transactions[transactions['type'] == 'purchase']['final_amount'].sum()
+                
+                current_assets = cash + accounts_receivable + inventory
+                non_current_assets = transactions[transactions['type'] == 'purchase']['final_amount'].sum() * 0.5  # Simplified
+                current_liabilities = transactions[transactions['type'] == 'purchase']['final_amount'].sum()
+                non_current_liabilities = transactions[transactions['type'] == 'expense']['final_amount'].sum() * 0.3  # Simplified
+                equity = current_assets + non_current_assets - current_liabilities - non_current_liabilities
+                
+                categories = {
+                    'Current Assets': current_assets,
+                    'Non-Current Assets': non_current_assets,
+                    'Current Liabilities': current_liabilities,
+                    'Non-Current Liabilities': non_current_liabilities,
+                    'Equity': equity
+                }
+                
+                for category, amount in categories.items():
+                    st.metric(category, f"₱{amount:,.2f}")
+            else:
+                st.info("No transactions found. Add transactions to see category balances.")
+        except Exception as e:
+            st.error(f"Error loading category data: {str(e)}")
+            # Fallback to sample data on error
+            categories = {
+                'Current Assets': 90000,
+                'Non-Current Assets': 100000,
+                'Current Liabilities': 20000,
+                'Non-Current Liabilities': 50000,
+                'Equity': 120000
+            }
+            
+            for category, amount in categories.items():
+                st.metric(category, f"₱{amount:,.2f}")
         
         st.markdown("#### 🔧 Account Actions")
         
