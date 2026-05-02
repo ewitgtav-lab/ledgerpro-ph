@@ -2702,7 +2702,7 @@ Please consult with a qualified tax professional for accurate tax filing.
 
 # Financial Statement Export Functions
 def generate_pdf_financial_statements(period_title, income_data, balance_data, equity_data, cash_flow_data):
-    """Generate professional PDF financial statements"""
+    """Generate professional PDF financial statements - returns HTML content"""
     try:
         # Create professional PDF content
         pdf_content = f"""
@@ -2771,19 +2771,13 @@ def generate_pdf_financial_statements(period_title, income_data, balance_data, e
         </html>
         """
         
-        # Provide download button
-        st.download_button(
-            label="📥 Download Financial Statements (HTML)",
-            data=pdf_content,
-            file_name=f"financial_statements_{period_title.replace(' ', '_')}.html",
-            mime="text/html"
-        )
+        return pdf_content
         
     except Exception as e:
-        st.error(f"Error generating PDF: {str(e)}")
+        return f"Error generating PDF: {str(e)}"
 
 def generate_excel_financial_statements(period_title, income_data, balance_data, equity_data, cash_flow_data):
-    """Generate professional Excel financial statements"""
+    """Generate professional Excel financial statements - returns Excel bytes"""
     try:
         # Create Excel content
         import io
@@ -2868,32 +2862,14 @@ def generate_excel_financial_statements(period_title, income_data, balance_data,
         workbook.close()
         output.seek(0)
 
-        # Provide download button
-        st.download_button(
-            label="📥 Download Financial Statements (Excel)",
-            data=output.getvalue(),
-            file_name=f"financial_statements_{period_title.replace(' ', '_')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        return output.getvalue()
         
     except Exception as e:
-        st.error(f"Error generating Excel: {str(e)}")
+        return f"Error generating Excel: {str(e)}"
 
 def print_financial_statements(period_title, income_data, balance_data, equity_data, cash_flow_data):
-    """Generate print-friendly financial statements"""
+    """Generate print-friendly financial statements - returns HTML content"""
     try:
-        # Create print-friendly CSS and trigger print
-        st.markdown("""
-        <style>
-            @media print {
-                .print-header { page-break-after: always; }
-                .no-print { display: none; }
-                .print-only { display: block; }
-                body { font-family: 'Times New Roman', serif; }
-            }
-        </style>
-        """, unsafe_allow_html=True)
-
         # Generate HTML content for printing
         print_content = f"""
         <div class="print-header">
@@ -2904,20 +2880,44 @@ def print_financial_statements(period_title, income_data, balance_data, equity_d
         </div>
         """
 
-        st.markdown(print_content, unsafe_allow_html=True)
-
-        # Provide download button for print-ready HTML
-        st.download_button(
-            label="📥 Download Print-Ready HTML",
-            data=print_content,
-            file_name=f"financial_statements_print_{period_title.replace(' ', '_')}.html",
-            mime="text/html"
-        )
-
-        st.info("💡 Tip: Open the downloaded HTML file in your browser and use Ctrl+P to print. For best results, set printer orientation to Landscape and margins to Narrow.")
+        return print_content
 
     except Exception as e:
-        st.error(f"Error preparing print view: {str(e)}")
+        return f"Error preparing print view: {str(e)}"
+
+def generate_csv_financial_statements(period_title, income_data, balance_data, equity_data, cash_flow_data):
+    """Generate CSV financial statements using Pandas"""
+    try:
+        import io
+        
+        # Create Income Statement DataFrame
+        income_df = pd.DataFrame(income_data)
+        
+        # Create Balance Sheet DataFrame
+        balance_df = pd.DataFrame(balance_data)
+        
+        # Create CSV content with multiple sheets
+        output = io.StringIO()
+        
+        # Write Income Statement
+        output.write(f"STATEMENT OF COMPREHENSIVE INCOME\n")
+        output.write(f"For the period ended {period_title}\n")
+        output.write(f"Generated on {datetime.now().strftime('%B %d, %Y')}\n\n")
+        
+        income_df.to_csv(output, index=False)
+        output.write("\n\n")
+        
+        # Write Balance Sheet
+        output.write(f"BALANCE SHEET\n")
+        output.write(f"As of {period_title}\n\n")
+        
+        balance_df.to_csv(output, index=False)
+        
+        csv_content = output.getvalue()
+        return csv_content
+        
+    except Exception as e:
+        return f"Error generating CSV: {str(e)}"
 
 # Financial Statements
 def show_financial_statements():
@@ -2985,19 +2985,60 @@ def show_financial_statements():
         
         if result.data and len(result.data) > 0:
             transactions = pd.DataFrame(result.data)
-            transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], format='ISO8601', errors='coerce')
             
-            # Calculate financial metrics
-            revenue = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]['final_amount'].sum()
-            expenses = transactions[transactions['type'] == 'expense']['final_amount'].sum()
+            # Handle empty or malformed data
+            if transactions.empty:
+                st.warning(f"No transactions found for {period_title}")
+                return
+            
+            # Convert transaction_date safely
+            if 'transaction_date' in transactions.columns:
+                transactions['transaction_date'] = pd.to_datetime(transactions['transaction_date'], format='ISO8601', errors='coerce')
+            
+            # Ensure numeric columns exist and convert safely
+            numeric_cols = ['gross_amount', 'platform_fee', 'net_amount', 'vat_amount', 'ewt_amount', 'final_amount']
+            for col in numeric_cols:
+                if col in transactions.columns:
+                    transactions[col] = pd.to_numeric(transactions[col], errors='coerce').fillna(0)
+                else:
+                    transactions[col] = 0
+            
+            # Ensure categorical columns exist
+            if 'type' not in transactions.columns:
+                transactions['type'] = 'other'
+            if 'payment_method' not in transactions.columns:
+                transactions['payment_method'] = 'Cash'
+            
+            # Calculate financial metrics with error handling
+            try:
+                revenue = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]['final_amount'].sum()
+            except:
+                revenue = 0
+            
+            try:
+                expenses = transactions[transactions['type'] == 'expense']['final_amount'].sum()
+            except:
+                expenses = 0
+            
             gross_profit = revenue  # Simplified
             operating_income = gross_profit - expenses
             net_income = operating_income
             
-            # Calculate account balances
-            cash = transactions[transactions['payment_method'] == 'Cash']['final_amount'].sum()
-            accounts_receivable = transactions[transactions['type'] == 'sales']['final_amount'].sum()
-            accounts_payable = transactions[transactions['type'] == 'purchase']['final_amount'].sum()
+            # Calculate account balances with error handling
+            try:
+                cash = transactions[transactions['payment_method'] == 'Cash']['final_amount'].sum()
+            except:
+                cash = 0
+            
+            try:
+                accounts_receivable = transactions[transactions['type'] == 'sales']['final_amount'].sum()
+            except:
+                accounts_receivable = 0
+            
+            try:
+                accounts_payable = transactions[transactions['type'] == 'purchase']['final_amount'].sum()
+            except:
+                accounts_payable = 0
             
             # Statement tabs
             tab1, tab2, tab3, tab4 = st.tabs(["📊 Income Statement", "⚖️ Balance Sheet", "📈 Statement of Changes in Equity", "📋 Cash Flow Statement"])
@@ -3213,16 +3254,16 @@ def show_financial_statements():
             st.markdown("---")
             st.markdown("### 📥 Export Options")
 
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                # Generate PDF content
+                # Generate PDF content (HTML format)
                 pdf_content = generate_pdf_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
                 st.download_button(
                     label="📥 Export as PDF",
                     data=pdf_content,
-                    file_name=f"financial_statements_{period_title}.pdf",
-                    mime="application/pdf",
+                    file_name=f"financial_statements_{period_title}.html",
+                    mime="text/html",
                     type="secondary"
                 )
 
@@ -3238,6 +3279,17 @@ def show_financial_statements():
                 )
 
             with col3:
+                # Generate CSV content
+                csv_content = generate_csv_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+                st.download_button(
+                    label="📥 Export as CSV",
+                    data=csv_content,
+                    file_name=f"financial_statements_{period_title}.csv",
+                    mime="text/csv",
+                    type="secondary"
+                )
+
+            with col4:
                 # Generate print-ready HTML
                 html_content = print_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
                 st.download_button(
