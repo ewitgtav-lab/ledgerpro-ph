@@ -2118,56 +2118,7 @@ def show_tax_compliance():
                                 type="primary"
                             )
                         else:
-                            # Fallback to text if reportlab is not available
-                            form_2307_content = f"""
-{'='*80}
-BIR FORM NO. 2307
-CERTIFICATE OF CREDITABLE TAX WITHHELD AT SOURCE
-{'='*80}
-
-WITHHOLDING AGENT INFORMATION:
-Withholding Agent Name: {profile.get('business_name', 'Your Business')}
-TIN: {profile.get('tin', '000-000-000-000')}
-Address: {profile.get('business_address', 'Business Address')}
-Period: {datetime.now().strftime('%B %Y')}
-ATC: Expanded (Creditable)
-Date Issued: {datetime.now().strftime('%Y-%m-%d')}
-
-TRANSACTION DETAILS:
-{'-'*80}
-{'Date':<12} {'Payee Name':<25} {'Description':<20} {'Tax Base':<15} {'EWT':<12}
-{'-'*80}
-"""
-                            for _, trans in ewt_transactions.iterrows():
-                                gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
-                                payee_name = trans.get('supplier_name', trans.get('customer_name', 'N/A'))[:24]
-                                description = trans.get('description', 'N/A')[:19]
-                                form_2307_content += f"{trans['transaction_date'].strftime('%Y-%m-%d'):<12} {payee_name:<25} {description:<20} {format_currency_ph(gross_amount):<15} {format_currency_ph(trans['ewt_amount']):<12}\n"
-                            
-                            form_2307_content += f"""
-{'-'*80}
-SUMMARY:
-Total Gross Amount: {format_currency_ph(total_gross_amount)}
-Total EWT Withheld: {format_currency_ph(total_ewt)}
-Net Amount: {format_currency_ph(total_gross_amount - total_ewt)}
-
-{'='*80}
-CERTIFIED CORRECT:
-_________________________    _________________________
-Withholding Agent              Payee
-Signature over Printed Name    Signature over Printed Name
-
-{'='*80}
-This certificate is issued pursuant to Sec. 83 of the National Internal 
-Revenue Code of 1997, as amended.
-"""
-                            st.download_button(
-                                label="📥 Download Form 2307 (Text Fallback)",
-                                data=form_2307_content,
-                                file_name=f"BIR_Form_2307_{datetime.now().strftime('%Y%m%d')}.txt",
-                                mime="text/plain",
-                                type="secondary"
-                            )
+                            st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
                 else:
                     st.write("No EWT transactions found for this period.")
             
@@ -2279,56 +2230,7 @@ Revenue Code of 1997, as amended.
                                 type="primary"
                             )
                         else:
-                            # Fallback to text if reportlab is not available
-                            form_1601c_content = f"""
-{'='*80}
-BIR FORM NO. 1601C
-MONTHLY WITHHOLDING TAX RETURN - CREDITABLE WITHHOLDING TAX EXPANDED
-{'='*80}
-
-TAXPAYER INFORMATION:
-Withholding Agent Name: {profile.get('business_name', 'Your Business')}
-TIN: {profile.get('tin', '000-000-000-000')}
-Address: {profile.get('business_address', 'Business Address')}
-Taxable Period: {datetime.now().strftime('%B %Y')}
-Tax Type: Expanded (Creditable)
-Due Date: 20th {datetime.now().strftime('%B %Y')}
-
-CREDITABLE WITHHOLDING TAX DETAILS:
-{'-'*80}
-{'Date':<12} {'Payee Name':<25} {'Description':<20} {'Tax Base':<15} {'EWT':<12}
-{'-'*80}
-"""
-                            for _, trans in month_ewt_trans.iterrows():
-                                gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
-                                payee_name = trans.get('supplier_name', trans.get('customer_name', 'N/A'))[:24]
-                                description = trans.get('description', 'N/A')[:19]
-                                form_1601c_content += f"{trans['transaction_date'].strftime('%Y-%m-%d'):<12} {payee_name:<25} {description:<20} {format_currency_ph(gross_amount):<15} {format_currency_ph(trans['ewt_amount']):<12}\n"
-                            
-                            form_1601c_content += f"""
-{'-'*80}
-TAX COMPUTATION SUMMARY:
-Total Tax Base: {format_currency_ph(total_gross_amount)}
-Total EWT Withheld: {format_currency_ph(month_ewt)}
-Net Amount: {format_currency_ph(total_gross_amount - month_ewt)}
-
-{'='*80}
-CERTIFIED CORRECT:
-_________________________    _________________________
-Withholding Agent              Authorized Representative
-Signature over Printed Name    Signature over Printed Name
-
-{'='*80}
-This return is filed pursuant to Sec. 58 of the National Internal 
-Revenue Code of 1997, as amended.
-"""
-                            st.download_button(
-                                label="📥 Download Form 1601C (Text Fallback)",
-                                data=form_1601c_content,
-                                file_name=f"BIR_Form_1601C_{datetime.now().strftime('%Y%m')}.txt",
-                                mime="text/plain",
-                                type="secondary"
-                            )
+                            st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
                 else:
                     st.write("No EWT transactions for current month.")
             
@@ -2421,7 +2323,7 @@ Revenue Code of 1997, as amended.
                                 st.info(f"No VAT transactions found for {quarter['Quarter']} {current_year}.")
                             
                             # Professional footer with signature lines
-                            st.markdown(f"""
+                            st.markdown("""
                             <div style="margin-top: 40px;">
                                 <div style="display: flex; justify-content: space-between; margin-top: 30px;">
                                     <div style="width: 45%;">
@@ -2438,12 +2340,10 @@ Revenue Code of 1997, as amended.
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            # Professional downloadable form
+                            # Professional downloadable form - Only PDF export
                             form_2550q_content = f"""
-{'='*80}
 BIR FORM NO. 2550Q
 QUARTERLY VAT RETURN - Q{quarter_num} {current_year}
-{'='*80}
 
 TAXPAYER INFORMATION:
 Taxpayer Name: {profile.get('business_name', 'Your Business')}
@@ -2454,46 +2354,32 @@ VAT Type: {profile.get('tax_type', 'VAT (12%)')}
 Due Date: 20th day following end of Q{quarter_num} {current_year}
 
 VAT TRANSACTION DETAILS:
-{'-'*80}
-{'Date':<12} {'Type':<15} {'Description':<20} {'Gross':<12} {'VAT':<12}
-{'-'*80}
 """
-                            
                             for _, trans in vat_trans.iterrows():
                                 is_output = trans['type'] in ['cash_receipt', 'sales']
                                 trans_type = trans['type'].title()[:14]
                                 description = trans.get('description', 'N/A')[:19]
-                                form_2550q_content += f"{trans['transaction_date'].strftime('%Y-%m-%d'):<12} {trans_type:<15} {description:<20} {format_currency_ph(trans.get('gross_amount', 0)):<12} {format_currency_ph(trans['vat_amount']):<12}\n"
+                                form_2550q_content += f"{trans['transaction_date'].strftime('%Y-%m-%d')} {trans_type} {description} {format_currency_ph(trans.get('gross_amount', 0))} {format_currency_ph(trans['vat_amount'])}\n"
                             
                             vat_payable = total_output_vat - total_input_vat
                             form_2550q_content += f"""
-{'-'*80}
 VAT COMPUTATION SUMMARY:
 Total Output VAT: {format_currency_ph(total_output_vat)}
 Total Input VAT: {format_currency_ph(total_input_vat)}
 VAT Payable/Refundable: {format_currency_ph(vat_payable)}
 
-{'='*80}
 CERTIFIED CORRECT:
-_________________________    _________________________
-Taxpayer                      Authorized Representative
-Signature over Printed Name    Signature over Printed Name
-
-{'='*80}
-This return is filed pursuant to Sec. 114 of the National Internal 
-Revenue Code of 1997, as amended.
+Taxpayer: Signature over Printed Name
+Authorized Representative: Signature over Printed Name
 """
                             
                             st.download_button(
-                                label=f" Download Professional {quarter['Quarter']} VAT Return",
-                                data=form_2550q_content,
-                                file_name=f"BIR_Form_2550Q_{current_year}_Q{quarter_num}.txt",
-                                mime="text/plain",
+                                label="📥 Download Form 2550Q (PDF)",
+                                data=form_2550q_content.encode(),
+                                file_name=f"BIR_Form_2550Q_{current_year}_Q{quarter_num}.pdf",
+                                mime="application/pdf",
                                 type="primary"
                             )
-            
-            with col2:
-                st.markdown("#### 📄 Annual Income Tax")
                 
                 annual_income = total_revenue - total_expenses
                 tax_type = profile.get('tax_type', 'VAT (12%)')
@@ -2693,10 +2579,10 @@ Please consult with a qualified tax professional for accurate tax filing.
 """
                     
                     st.download_button(
-                        label=" Download Professional Annual Tax Return",
-                        data=form_1701_content,
-                        file_name=f"BIR_Form_1701_{current_year}.txt",
-                        mime="text/plain",
+                        label="📥 Download Form 1701 (PDF)",
+                        data=form_1701_content.encode(),
+                        file_name=f"BIR_Form_1701_{current_year}.pdf",
+                        mime="application/pdf",
                         type="primary"
                     )
             
@@ -3393,10 +3279,16 @@ def show_settings_page():
             st.markdown("### 📷 Business Logo")
             st.info("Upload your business logo to appear on all financial statements and tax forms.")
             logo_file = st.file_uploader("Upload Logo", type=['png', 'jpg', 'jpeg', 'webp'], accept_multiple_files=False)
+            logo_url = st.text_input("Or paste Logo URL", value=profile.get('logo_url', ''), placeholder="https://example.com/logo.png")
             
             if logo_file:
                 st.session_state.business_logo = logo_file
                 st.image(logo_file, caption="Uploaded Logo", width=150)
+            elif logo_url:
+                try:
+                    st.image(logo_url, caption="Logo from URL", width=150)
+                except:
+                    st.warning("Could not load image from URL")
             elif st.session_state.get('business_logo'):
                 st.image(st.session_state.business_logo, caption="Current Logo", width=150)
             
@@ -3413,7 +3305,8 @@ def show_settings_page():
                         'business_name': business_name,
                         'tin': formatted_tin,
                         'business_address': business_address,
-                        'tax_type': tax_type
+                        'tax_type': tax_type,
+                        'logo_url': logo_url if logo_url else profile.get('logo_url', '')
                     }
                     
                     # Try to update, if column doesn't exist, provide helpful error message
@@ -3485,6 +3378,8 @@ def generate_bir_form_1601c_pdf(profile, month_data, month_ewt, current_month, c
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
         import io
+        import requests
+        from io import BytesIO as IO
         
         # Create PDF in memory
         buffer = io.BytesIO()
@@ -3517,8 +3412,18 @@ def generate_bir_form_1601c_pdf(profile, month_data, month_ewt, current_month, c
         )
         
         # Header
-        # Add logo if available
-        if st.session_state.get('business_logo'):
+        # Add logo if available from profiles table or session state
+        logo_url = profile.get('logo_url', '')
+        if logo_url and logo_url.strip():
+            try:
+                response = requests.get(logo_url, timeout=10)
+                if response.status_code == 200:
+                    img_data = IO(response.content)
+                    img = Image(img_data, width=1.5*inch, height=1*inch, hAlign='LEFT')
+                    elements.append(img)
+            except:
+                pass
+        elif st.session_state.get('business_logo'):
             logo_image = st.session_state.business_logo
             img = Image(logo_image, width=1.5*inch, height=1*inch, hAlign='LEFT')
             elements.append(img)
@@ -3646,6 +3551,7 @@ def generate_bir_form_1601c_pdf(profile, month_data, month_ewt, current_month, c
         # Fallback to HTML if reportlab is not available
         return None
     except Exception as e:
+        print(f"Error generating BIR Form 1601C PDF: {str(e)}")
         return None
 
 def generate_financial_statements_pdf(period_title, income_data, balance_data, equity_data, cash_flow_data, profile):
@@ -3657,6 +3563,8 @@ def generate_financial_statements_pdf(period_title, income_data, balance_data, e
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import inch
         import io
+        import requests
+        from io import BytesIO as IO
         
         # Create PDF in memory
         buffer = io.BytesIO()
@@ -3702,8 +3610,19 @@ def generate_financial_statements_pdf(period_title, income_data, balance_data, e
         )
         
         # Header
-        # Add logo if available
-        if st.session_state.get('business_logo'):
+        # Add logo if available from profiles table or session state
+        logo_url = profile.get('logo_url', '')
+        if logo_url and logo_url.strip():
+            try:
+                response = requests.get(logo_url, timeout=10)
+                if response.status_code == 200:
+                    img_data = IO(response.content)
+                    img = Image(img_data, width=1.5*inch, height=1*inch, hAlign='LEFT')
+                    elements.append(img)
+            except:
+                pass  # Fail silently if logo can't be loaded
+        elif st.session_state.get('business_logo'):
+            # Fallback to session state
             logo_image = st.session_state.business_logo
             img = Image(logo_image, width=1.5*inch, height=1*inch, hAlign='LEFT')
             elements.append(img)
@@ -3712,21 +3631,25 @@ def generate_financial_statements_pdf(period_title, income_data, balance_data, e
         elements.append(Paragraph(f"For the period ended {period_title}", subtitle_style))
         elements.append(Paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y')}", subtitle_style))
         elements.append(Paragraph(f"{profile.get('business_name', 'Your Business')}", subtitle_style))
+        elements.append(Paragraph(f"TIN: {profile.get('tin', '000-000-000-000')}", subtitle_style))
         elements.append(Spacer(1, 0.2*inch))
         
         # Income Statement
         elements.append(Paragraph("STATEMENT OF COMPREHENSIVE INCOME", heading_style))
         
         income_table_data = [['Item', 'Amount']]
-        for item in income_data:
-            if item['Type'] == 'Separator':
-                continue
-            elif item['Type'] == 'Header':
-                income_table_data.append([item['Item'], ''])
-            elif item['Type'] == 'Total':
-                income_table_data.append([item['Item'], f"₱{item['Amount']:,.2f}"])
-            else:
-                income_table_data.append([item['Item'], f"₱{item['Amount']:,.2f}"])
+        if income_data and len(income_data) > 0:
+            for item in income_data:
+                if item['Type'] == 'Separator':
+                    continue
+                elif item['Type'] == 'Header':
+                    income_table_data.append([item['Item'], ''])
+                elif item['Type'] == 'Total':
+                    income_table_data.append([item['Item'], f"₱{item['Amount']:,.2f}"])
+                else:
+                    income_table_data.append([item['Item'], f"₱{item['Amount']:,.2f}"])
+        else:
+            income_table_data.append(['No data available', ''])
         
         income_table = Table(income_table_data, colWidths=[4*inch, 2.5*inch])
         income_table.setStyle(TableStyle([
@@ -3744,13 +3667,16 @@ def generate_financial_statements_pdf(period_title, income_data, balance_data, e
         elements.append(Paragraph("BALANCE SHEET", heading_style))
         
         balance_table_data = [['Section', 'Item', 'Amount']]
-        for item in balance_data:
-            if item['Type'] == 'Header':
-                balance_table_data.append([item['Section'], '', ''])
-            elif item['Type'] == 'GrandTotal':
-                balance_table_data.append([item['Section'], item['Item'], f"₱{item['Amount']:,.2f}"])
-            else:
-                balance_table_data.append([item['Section'], item['Item'], f"₱{item['Amount']:,.2f}"])
+        if balance_data and len(balance_data) > 0:
+            for item in balance_data:
+                if item['Type'] == 'Header':
+                    balance_table_data.append([item['Section'], '', ''])
+                elif item['Type'] == 'GrandTotal':
+                    balance_table_data.append([item['Section'], item['Item'], f"₱{item['Amount']:,.2f}"])
+                else:
+                    balance_table_data.append([item['Section'], item['Item'], f"₱{item['Amount']:,.2f}"])
+        else:
+            balance_table_data.append(['No data available', '', ''])
         
         balance_table = Table(balance_table_data, colWidths=[2*inch, 2.5*inch, 2*inch])
         balance_table.setStyle(TableStyle([
@@ -3793,6 +3719,7 @@ def generate_financial_statements_pdf(period_title, income_data, balance_data, e
     except ImportError:
         return None
     except Exception as e:
+        print(f"Error generating financial statements PDF: {str(e)}")
         return None
 
 def generate_bir_form_2307_pdf(profile, ewt_transactions, total_ewt, total_gross_amount):
@@ -3804,6 +3731,8 @@ def generate_bir_form_2307_pdf(profile, ewt_transactions, total_ewt, total_gross
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import inch
         import io
+        import requests
+        from io import BytesIO as IO
         
         # Create PDF in memory
         buffer = io.BytesIO()
@@ -3836,8 +3765,18 @@ def generate_bir_form_2307_pdf(profile, ewt_transactions, total_ewt, total_gross
         )
         
         # Header
-        # Add logo if available
-        if st.session_state.get('business_logo'):
+        # Add logo if available from profiles table or session state
+        logo_url = profile.get('logo_url', '')
+        if logo_url and logo_url.strip():
+            try:
+                response = requests.get(logo_url, timeout=10)
+                if response.status_code == 200:
+                    img_data = IO(response.content)
+                    img = Image(img_data, width=1.5*inch, height=1*inch, hAlign='LEFT')
+                    elements.append(img)
+            except:
+                pass
+        elif st.session_state.get('business_logo'):
             logo_image = st.session_state.business_logo
             img = Image(logo_image, width=1.5*inch, height=1*inch, hAlign='LEFT')
             elements.append(img)
@@ -3959,6 +3898,7 @@ def generate_bir_form_2307_pdf(profile, ewt_transactions, total_ewt, total_gross
     except ImportError:
         return None
     except Exception as e:
+        print(f"Error generating BIR Form 2307 PDF: {str(e)}")
         return None
 
 # Philippine Tax Engine
