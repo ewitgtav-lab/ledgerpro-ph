@@ -2340,46 +2340,19 @@ def show_tax_compliance():
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            # Professional downloadable form - Only PDF export
-                            form_2550q_content = f"""
-BIR FORM NO. 2550Q
-QUARTERLY VAT RETURN - Q{quarter_num} {current_year}
-
-TAXPAYER INFORMATION:
-Taxpayer Name: {profile.get('business_name', 'Your Business')}
-TIN: {profile.get('tin', '000-000-000-000')}
-Address: {profile.get('business_address', 'Business Address')}
-Taxable Period: Q{quarter_num} {current_year}
-VAT Type: {profile.get('tax_type', 'VAT (12%)')}
-Due Date: 20th day following end of Q{quarter_num} {current_year}
-
-VAT TRANSACTION DETAILS:
-"""
-                            for _, trans in vat_trans.iterrows():
-                                is_output = trans['type'] in ['cash_receipt', 'sales']
-                                trans_type = trans['type'].title()[:14]
-                                description = trans.get('description', 'N/A')[:19]
-                                form_2550q_content += f"{trans['transaction_date'].strftime('%Y-%m-%d')} {trans_type} {description} {format_currency_ph(trans.get('gross_amount', 0))} {format_currency_ph(trans['vat_amount'])}\n"
+                            # Professional downloadable form - Generate PDF
+                            pdf_content = generate_bir_form_2550q_pdf(profile, vat_trans, total_output_vat, total_input_vat, quarter_num, current_year)
                             
-                            vat_payable = total_output_vat - total_input_vat
-                            form_2550q_content += f"""
-VAT COMPUTATION SUMMARY:
-Total Output VAT: {format_currency_ph(total_output_vat)}
-Total Input VAT: {format_currency_ph(total_input_vat)}
-VAT Payable/Refundable: {format_currency_ph(vat_payable)}
-
-CERTIFIED CORRECT:
-Taxpayer: Signature over Printed Name
-Authorized Representative: Signature over Printed Name
-"""
-                            
-                            st.download_button(
-                                label="📥 Download Form 2550Q (PDF)",
-                                data=form_2550q_content.encode(),
-                                file_name=f"BIR_Form_2550Q_{current_year}_Q{quarter_num}.pdf",
-                                mime="application/pdf",
-                                type="primary"
-                            )
+                            if pdf_content:
+                                st.download_button(
+                                    label="📥 Download Form 2550Q (PDF)",
+                                    data=pdf_content,
+                                    file_name=f"BIR_Form_2550Q_{current_year}_Q{quarter_num}.pdf",
+                                    mime="application/pdf",
+                                    type="primary"
+                                )
+                            else:
+                                st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
                 
                 annual_income = total_revenue - total_expenses
                 tax_type = profile.get('tax_type', 'VAT (12%)')
@@ -2510,81 +2483,19 @@ Authorized Representative: Signature over Printed Name
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Professional downloadable form
-                    form_1701_content = f"""
-{'='*80}
-BIR FORM NO. 1701
-ANNUAL INCOME TAX RETURN - TAX YEAR {current_year}
-{'='*80}
-
-TAXPAYER INFORMATION:
-Taxpayer Name: {profile.get('business_name', 'Your Business')}
-TIN: {profile.get('tin', '000-000-000-000')}
-Address: {profile.get('business_address', 'Business Address')}
-Tax Year: {current_year}
-Tax Type: {tax_type}
-Due Date: April 15, {current_year + 1}
-
-INCOME TAX COMPUTATION:
-{'-'*80}
-{'Date':<12} {'Type':<15} {'Description':<20} {'Amount':<15} {'Category':<20}
-{'-'*80}
-"""
+                    # Professional downloadable form - Generate PDF
+                    pdf_content = generate_bir_form_1701_pdf(profile, income_data, total_revenue_amount, total_expenses_amount, annual_income, income_tax, tax_type, current_year)
                     
-                    for item in income_data:
-                        date = item['Date']
-                        trans_type = item['Transaction Type'][:14]
-                        description = item['Description'][:19]
-                        amount = item['Amount']
-                        category = item['Category'][:19]
-                        form_1701_content += f"{date:<12} {trans_type:<15} {description:<20} {amount:<15} {category:<20}\n"
-                    
-                    form_1701_content += f"""
-{'-'*80}
-TAX COMPUTATION SUMMARY:
-Total Gross Income: {format_currency_ph(total_revenue_amount)}
-Total Deductible Expenses: {format_currency_ph(total_expenses_amount)}
-Taxable Income: {format_currency_ph(annual_income)}
-Estimated Income Tax: {format_currency_ph(income_tax)}
-
-TAX RATE APPLIED:
-"""
-                    if 'NON-VAT' in tax_type:
-                        if '1%' in tax_type:
-                            form_1701_content += "Tax Rate: 1% (NON-VAT Registered - 1% Presumptive)\n"
-                        elif '3%' in tax_type:
-                            form_1701_content += "Tax Rate: 3% (NON-VAT Registered - 3% Presumptive)\n"
-                        else:
-                            form_1701_content += "Tax Rate: 8% (NON-VAT Registered - 8% Presumptive)\n"
+                    if pdf_content:
+                        st.download_button(
+                            label="📥 Download Form 1701 (PDF)",
+                            data=pdf_content,
+                            file_name=f"BIR_Form_1701_{current_year}.pdf",
+                            mime="application/pdf",
+                            type="primary"
+                        )
                     else:
-                        form_1701_content += "Tax Rate: 12% (VAT Registered - Corporate Income Tax)\n"
-                    
-                    form_1701_content += f"Computation: {format_currency_ph(annual_income)} × Tax Rate = {format_currency_ph(income_tax)}\n"
-                    
-                    form_1701_content += f"""
-{'='*80}
-CERTIFIED CORRECT:
-_________________________    _________________________
-Taxpayer                      Authorized Representative
-Signature over Printed Name    Signature over Printed Name
-
-{'='*80}
-This return is filed pursuant to Sec. 42 of the National Internal 
-Revenue Code of 1997, as amended.
-
-DISCLAIMER:
-This is a simplified calculation for informational purposes only. 
-Please consult with a qualified tax professional for accurate tax filing.
-{'='*80}
-"""
-                    
-                    st.download_button(
-                        label="📥 Download Form 1701 (PDF)",
-                        data=form_1701_content.encode(),
-                        file_name=f"BIR_Form_1701_{current_year}.pdf",
-                        mime="application/pdf",
-                        type="primary"
-                    )
+                        st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
             
             # Tax Calendar
             st.markdown("---")
@@ -3722,6 +3633,184 @@ def generate_financial_statements_pdf(period_title, income_data, balance_data, e
         print(f"Error generating financial statements PDF: {str(e)}")
         return None
 
+def generate_bir_form_2550q_pdf(profile, vat_trans, total_output_vat, total_input_vat, quarter_num, current_year):
+    """Generate professional PDF for BIR Form 2550Q using reportlab"""
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        import io
+        import requests
+        from io import BytesIO as IO
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+        
+        # Elements to add to PDF
+        elements = []
+        
+        # Styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            alignment=1,
+            spaceAfter=12
+        )
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=10,
+            alignment=1,
+            spaceAfter=12
+        )
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=9,
+            spaceAfter=6
+        )
+        
+        # Header
+        # Add logo if available from profiles table or session state
+        logo_url = profile.get('logo_url', '')
+        if logo_url and logo_url.strip():
+            try:
+                response = requests.get(logo_url, timeout=10)
+                if response.status_code == 200:
+                    img_data = IO(response.content)
+                    img = Image(img_data, width=1.5*inch, height=1*inch, hAlign='LEFT')
+                    elements.append(img)
+            except:
+                pass
+        elif st.session_state.get('business_logo'):
+            logo_image = st.session_state.business_logo
+            img = Image(logo_image, width=1.5*inch, height=1*inch, hAlign='LEFT')
+            elements.append(img)
+        
+        elements.append(Paragraph("BIR FORM NO. 2550Q", title_style))
+        elements.append(Paragraph("QUARTERLY VAT RETURN", subtitle_style))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Taxpayer Information
+        tin = profile.get('tin', '000-000-000-000')
+        business_name = profile.get('business_name', 'Your Business')
+        business_address = profile.get('business_address', 'Business Address')
+        
+        taxpayer_data = [
+            ["Taxpayer Name:", business_name],
+            ["TIN:", tin],
+            ["Address:", business_address],
+            ["Taxable Period:", f"Q{quarter_num} {current_year}"],
+            ["VAT Type:", profile.get('tax_type', 'VAT (12%)')],
+            ["Due Date:", f"20th day following end of Q{quarter_num} {current_year}"]
+        ]
+        
+        taxpayer_table = Table(taxpayer_data, colWidths=[2.5*inch, 4*inch])
+        taxpayer_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ]))
+        elements.append(taxpayer_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # VAT Transaction Details
+        elements.append(Paragraph("VAT TRANSACTION DETAILS", subtitle_style))
+        
+        table_data = [['Date', 'Type', 'Description', 'Gross Amount', 'VAT Amount', 'VAT Type']]
+        
+        for _, trans in vat_trans.iterrows():
+            is_output = trans['type'] in ['cash_receipt', 'sales']
+            trans_type = trans['type'].title()[:14]
+            description = trans.get('description', 'N/A')[:20]
+            table_data.append([
+                trans['transaction_date'].strftime('%Y-%m-%d'),
+                trans_type,
+                description,
+                f"₱{trans.get('gross_amount', 0):,.2f}",
+                f"₱{trans['vat_amount']:,.2f}",
+                'Output' if is_output else 'Input'
+            ])
+        
+        if table_data:
+            details_table = Table(table_data, colWidths=[1*inch, 1.5*inch, 2*inch, 1.2*inch, 1*inch, 1*inch])
+            details_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ]))
+            elements.append(details_table)
+        
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # VAT Computation Summary
+        vat_payable = total_output_vat - total_input_vat
+        summary_data = [
+            ["Total Output VAT:", f"₱{total_output_vat:,.2f}"],
+            ["Total Input VAT:", f"₱{total_input_vat:,.2f}"],
+            ["VAT Payable/Refundable:", f"₱{vat_payable:,.2f}"]
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[3*inch, 3.5*inch])
+        summary_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(summary_table)
+        
+        # Signature Section
+        elements.append(Spacer(1, 0.5*inch))
+        elements.append(Paragraph("CERTIFIED CORRECT:", subtitle_style))
+        
+        signature_data = [
+            ["", ""],
+            ["Taxpayer", "Authorized Representative"],
+            ["Signature over Printed Name", "Signature over Printed Name"]
+        ]
+        
+        signature_table = Table(signature_data, colWidths=[3.5*inch, 3.5*inch])
+        signature_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LINEBELOW', (0, 0), (0, 0), 1, colors.black),
+            ('LINEBELOW', (1, 0), (1, 0), 1, colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(signature_table)
+        
+        # Footer
+        elements.append(Spacer(1, 0.3*inch))
+        footer_text = "This return is filed pursuant to Sec. 114 of the National Internal Revenue Code of 1997, as amended."
+        elements.append(Paragraph(footer_text, normal_style))
+        
+        # Build PDF
+        doc.build(elements)
+        buffer.seek(0)
+        
+        return buffer.getvalue()
+        
+    except ImportError:
+        return None
+    except Exception as e:
+        print(f"Error generating BIR Form 2550Q PDF: {str(e)}")
+        return None
+
 def generate_bir_form_2307_pdf(profile, ewt_transactions, total_ewt, total_gross_amount):
     """Generate professional PDF for BIR Form 2307 using reportlab"""
     try:
@@ -3899,6 +3988,198 @@ def generate_bir_form_2307_pdf(profile, ewt_transactions, total_ewt, total_gross
         return None
     except Exception as e:
         print(f"Error generating BIR Form 2307 PDF: {str(e)}")
+        return None
+
+def generate_bir_form_1701_pdf(profile, income_data, total_revenue_amount, total_expenses_amount, annual_income, income_tax, tax_type, current_year):
+    """Generate professional PDF for BIR Form 1701 using reportlab"""
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        import io
+        import requests
+        from io import BytesIO as IO
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+        
+        # Elements to add to PDF
+        elements = []
+        
+        # Styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            alignment=1,
+            spaceAfter=12
+        )
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=10,
+            alignment=1,
+            spaceAfter=12
+        )
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=9,
+            spaceAfter=6
+        )
+        
+        # Header
+        # Add logo if available from profiles table or session state
+        logo_url = profile.get('logo_url', '')
+        if logo_url and logo_url.strip():
+            try:
+                response = requests.get(logo_url, timeout=10)
+                if response.status_code == 200:
+                    img_data = IO(response.content)
+                    img = Image(img_data, width=1.5*inch, height=1*inch, hAlign='LEFT')
+                    elements.append(img)
+            except:
+                pass
+        elif st.session_state.get('business_logo'):
+            logo_image = st.session_state.business_logo
+            img = Image(logo_image, width=1.5*inch, height=1*inch, hAlign='LEFT')
+            elements.append(img)
+        
+        elements.append(Paragraph("BIR FORM NO. 1701", title_style))
+        elements.append(Paragraph("ANNUAL INCOME TAX RETURN", subtitle_style))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Taxpayer Information
+        tin = profile.get('tin', '000-000-000-000')
+        business_name = profile.get('business_name', 'Your Business')
+        business_address = profile.get('business_address', 'Business Address')
+        
+        taxpayer_data = [
+            ["Taxpayer Name:", business_name],
+            ["TIN:", tin],
+            ["Address:", business_address],
+            ["Tax Year:", f"{current_year}"],
+            ["Tax Type:", tax_type],
+            ["Due Date:", f"April 15, {current_year + 1}"]
+        ]
+        
+        taxpayer_table = Table(taxpayer_data, colWidths=[2.5*inch, 4*inch])
+        taxpayer_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ]))
+        elements.append(taxpayer_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Income Tax Computation
+        elements.append(Paragraph("INCOME TAX COMPUTATION", subtitle_style))
+        
+        table_data = [['Date', 'Type', 'Description', 'Amount', 'Category']]
+        
+        for item in income_data:
+            date = item['Date']
+            trans_type = item['Transaction Type'][:14]
+            description = item['Description'][:20]
+            amount = item['Amount']
+            category = item['Category'][:18]
+            table_data.append([date, trans_type, description, amount, category])
+        
+        if table_data:
+            details_table = Table(table_data, colWidths=[1*inch, 1.5*inch, 2*inch, 1.2*inch, 1.5*inch])
+            details_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ]))
+            elements.append(details_table)
+        
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Tax Computation Summary
+        summary_data = [
+            ["Total Gross Income:", f"₱{total_revenue_amount:,.2f}"],
+            ["Total Deductible Expenses:", f"₱{total_expenses_amount:,.2f}"],
+            ["Taxable Income:", f"₱{annual_income:,.2f}"],
+            ["Estimated Income Tax:", f"₱{income_tax:,.2f}"]
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[3*inch, 3.5*inch])
+        summary_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(summary_table)
+        
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Tax Rate Information
+        if 'NON-VAT' in tax_type:
+            if '1%' in tax_type:
+                tax_rate_text = "Tax Rate: 1% (NON-VAT Registered - 1% Presumptive)"
+            elif '3%' in tax_type:
+                tax_rate_text = "Tax Rate: 3% (NON-VAT Registered - 3% Presumptive)"
+            else:
+                tax_rate_text = "Tax Rate: 8% (NON-VAT Registered - 8% Presumptive)"
+        else:
+            tax_rate_text = "Tax Rate: 12% (VAT Registered - Corporate Income Tax)"
+        
+        elements.append(Paragraph(tax_rate_text, normal_style))
+        elements.append(Paragraph(f"Computation: ₱{annual_income:,.2f} × Tax Rate = ₱{income_tax:,.2f}", normal_style))
+        
+        # Signature Section
+        elements.append(Spacer(1, 0.5*inch))
+        elements.append(Paragraph("CERTIFIED CORRECT:", subtitle_style))
+        
+        signature_data = [
+            ["", ""],
+            ["Taxpayer", "Authorized Representative"],
+            ["Signature over Printed Name", "Signature over Printed Name"]
+        ]
+        
+        signature_table = Table(signature_data, colWidths=[3.5*inch, 3.5*inch])
+        signature_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LINEBELOW', (0, 0), (0, 0), 1, colors.black),
+            ('LINEBELOW', (1, 0), (1, 0), 1, colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(signature_table)
+        
+        # Footer
+        elements.append(Spacer(1, 0.3*inch))
+        footer_text = "This return is filed pursuant to Sec. 42 of the National Internal Revenue Code of 1997, as amended."
+        elements.append(Paragraph(footer_text, normal_style))
+        elements.append(Spacer(1, 0.1*inch))
+        disclaimer_text = "DISCLAIMER: This is a simplified calculation for informational purposes only. Please consult with a qualified tax professional for accurate tax filing."
+        elements.append(Paragraph(disclaimer_text, normal_style))
+        
+        # Build PDF
+        doc.build(elements)
+        buffer.seek(0)
+        
+        return buffer.getvalue()
+        
+    except ImportError:
+        return None
+    except Exception as e:
+        print(f"Error generating BIR Form 1701 PDF: {str(e)}")
         return None
 
 # Philippine Tax Engine
