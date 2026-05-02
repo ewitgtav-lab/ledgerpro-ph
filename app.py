@@ -988,7 +988,7 @@ def show_subscription_page():
         <div style="background: var(--card-background); padding: 2rem; border-radius: 10px; text-align: center; border: 2px solid var(--primary-color);">
             <h3 style="color: var(--text-primary); margin: 0;">GCash Payment Details</h3>
             <p style="font-size: 24px; font-weight: bold; color: var(--primary-color); margin: 1rem 0;">
-                09754645722
+                09754845722
             </p>
             <p style="font-size: 18px; color: var(--text-secondary); margin: 0;">
                 Account Name: <strong>Gewish C.</strong>
