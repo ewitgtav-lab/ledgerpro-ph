@@ -972,8 +972,73 @@ def show_subscription_page():
         </div>
         """, unsafe_allow_html=True)
         
+        # GCash Payment Section
+        st.markdown("---")
+        st.markdown("### 💳 GCash Payment")
+        
+        st.info("""
+        **💡 Payment Instructions:**
+        1. Send payment to the GCash number below
+        2. **Screenshot your payment receipt** for verification
+        3. Click one of the verification buttons below to send your receipt
+        4. Your account will be upgraded within 24 hours after verification
+        """)
+        
+        st.markdown("""
+        <div style="background: var(--card-background); padding: 2rem; border-radius: 10px; text-align: center; border: 2px solid var(--primary-color);">
+            <h3 style="color: var(--text-primary); margin: 0;">GCash Payment Details</h3>
+            <p style="font-size: 24px; font-weight: bold; color: var(--primary-color); margin: 1rem 0;">
+                09754645722
+            </p>
+            <p style="font-size: 18px; color: var(--text-secondary); margin: 0;">
+                Account Name: <strong>Gewish C.</strong>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("### 📋 Verification Options")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("📧 Send Receipt via Email", type="primary", key="email_verification"):
+                st.session_state.payment_verification_sent = True
+                st.session_state.verification_method = "email"
+                st.success("✅ Opening email client...")
+                st.markdown(f"""
+                <script>
+                window.location.href = "mailto:devflowsolutionsph@gmail.com?subject=LedgerPro-PH Payment Verification - {user.email}&body=Please find attached my payment receipt screenshot for Pro subscription upgrade.%0A%0AEmail: {user.email}%0A%0AThank you!";
+                </script>
+                """, unsafe_allow_html=True)
+        
+        with col2:
+            if st.button("💬 Message on Facebook", type="secondary", key="facebook_verification"):
+                st.session_state.payment_verification_sent = True
+                st.session_state.verification_method = "facebook"
+                st.success("✅ Opening Facebook Messenger...")
+                st.markdown("""
+                <script>
+                window.open("https://www.facebook.com/DevFlowSolutionsPH", "_blank");
+                </script>
+                """, unsafe_allow_html=True)
+        
+        # Show verification status
+        if st.session_state.get('payment_verification_sent', False):
+            st.markdown("---")
+            verification_method = st.session_state.get('verification_method', '')
+            st.info(f"""
+            ✅ **Verification Status: Pending**
+            
+            You've initiated verification via {verification_method.capitalize()}.
+            Your account will be upgraded to Pro within 24 hours after we verify your payment receipt.
+            
+            💡 **Tip:** Make sure to include your email ({user.email}) in your message so we can identify your account.
+            """)
+        
+        st.markdown("---")
+        st.markdown("### 🔑 Or Activate with License Key")
+        
         with st.form("activate_license"):
-            license_key = st.text_input("Enter License Key", placeholder="XXXX-XXXX-XXXX-XXXX", help="Purchase a license key from our Ko-fi store", key="license_key")
+            license_key = st.text_input("Enter License Key", placeholder="XXXX-XXXX-XXXX-XXXX", help="Purchase a license key from our store", key="license_key")
             submitted = st.form_submit_button("🔓 Activate License", type="primary")
             
             if submitted and license_key:
@@ -3330,17 +3395,45 @@ def show_dashboard():
         if not profile:
             st.error("Unable to load user profile")
             return
-    
+        
+        # Date filter selector
+        st.markdown("### 📅 Date Filter")
+        filter_option = st.selectbox(
+            "Select time period:",
+            ['Last 7 Days', 'Last 30 Days', 'This Month', 'All Time', 'Custom Range'],
+            index=1,  # Default to 'Last 30 Days'
+            key="dashboard_filter"
+        )
+        
+        # Calculate date range based on filter
+        if filter_option == 'Last 7 Days':
+            start_date = datetime.now() - timedelta(days=7)
+            end_date = datetime.now()
+        elif filter_option == 'Last 30 Days':
+            start_date = datetime.now() - timedelta(days=30)
+            end_date = datetime.now()
+        elif filter_option == 'This Month':
+            start_date = datetime.now().replace(day=1)
+            end_date = datetime.now()
+        elif filter_option == 'All Time':
+            start_date = datetime(2020, 1, 1)  # Far past date
+            end_date = datetime.now()
+        elif filter_option == 'Custom Range':
+            col1, col2 = st.columns(2)
+            with col1:
+                start_date = st.date_input("Start Date", datetime.now() - timedelta(days=30))
+            with col2:
+                end_date = st.date_input("End Date", datetime.now())
+            start_date = datetime.combine(start_date, datetime.min.time())
+            end_date = datetime.combine(end_date, datetime.max.time())
+        
         # Initialize default values
         total_revenue = total_expenses = net_income = total_tax = 0
         transactions = pd.DataFrame()
         
-        # Load user transactions with date filtering (Last 30 Days by default)
+        # Load user transactions with date filtering
         try:
             supabase = init_supabase()
-            # Use Last 30 Days instead of current month
-            start_date = datetime.now() - timedelta(days=30)
-            end_date = datetime.now()
             
             result = supabase.table('transactions').select('*').eq('user_id', user.id).gte('transaction_date', start_date.strftime('%Y-%m-%d')).lte('transaction_date', end_date.strftime('%Y-%m-%d')).execute()
             
