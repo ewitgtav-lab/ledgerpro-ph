@@ -3148,20 +3148,40 @@ def show_financial_statements():
             st.markdown("---")
             st.markdown("### 📥 Export Options")
 
-            with st.form("export_form"):
-                col1, col2, col3 = st.columns(3)
+            col1, col2, col3 = st.columns(3)
 
-                with col1:
-                    if st.form_submit_button("Export as PDF", type="secondary"):
-                        generate_pdf_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+            with col1:
+                # Generate PDF content
+                pdf_content = generate_pdf_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+                st.download_button(
+                    label="📥 Export as PDF",
+                    data=pdf_content,
+                    file_name=f"financial_statements_{period_title}.pdf",
+                    mime="application/pdf",
+                    type="secondary"
+                )
 
-                with col2:
-                    if st.form_submit_button("Export as Excel", type="secondary"):
-                        generate_excel_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+            with col2:
+                # Generate Excel content
+                excel_content = generate_excel_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+                st.download_button(
+                    label="📥 Export as Excel",
+                    data=excel_content,
+                    file_name=f"financial_statements_{period_title}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="secondary"
+                )
 
-                with col3:
-                    if st.form_submit_button("Print Statement", type="secondary"):
-                        print_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+            with col3:
+                # Generate print-ready HTML
+                html_content = print_financial_statements(period_title, income_statement_data, balance_sheet_data, equity_changes, cash_flow_data)
+                st.download_button(
+                    label="📥 Print Statement",
+                    data=html_content,
+                    file_name=f"financial_statements_{period_title}.html",
+                    mime="text/html",
+                    type="secondary"
+                )
         
         else:
             st.info(f"No transactions found for {period_title}. Add transactions to generate financial statements.")
@@ -3315,14 +3335,14 @@ def show_dashboard():
         total_revenue = total_expenses = net_income = total_tax = 0
         transactions = pd.DataFrame()
         
-        # Load user transactions with date filtering
+        # Load user transactions with date filtering (Last 30 Days by default)
         try:
             supabase = init_supabase()
-            from dateutil.relativedelta import relativedelta
-            start_date = datetime.now().replace(day=1)
-            end_date = start_date + relativedelta(months=1)
+            # Use Last 30 Days instead of current month
+            start_date = datetime.now() - timedelta(days=30)
+            end_date = datetime.now()
             
-            result = supabase.table('transactions').select('*').eq('user_id', user.id).gte('transaction_date', start_date.strftime('%Y-%m-%d')).lt('transaction_date', end_date.strftime('%Y-%m-%d')).execute()
+            result = supabase.table('transactions').select('*').eq('user_id', user.id).gte('transaction_date', start_date.strftime('%Y-%m-%d')).lte('transaction_date', end_date.strftime('%Y-%m-%d')).execute()
             
             if result.data and len(result.data) > 0:
                 transactions = pd.DataFrame(result.data)
@@ -4449,6 +4469,17 @@ Account Code,Account Name,Account Type,Parent Account
 def main():
     # Load CSS
     load_css()
+    
+    # Check Supabase session at script start for RLS
+    try:
+        supabase = init_supabase()
+        session = supabase.auth.get_session()
+        if session and session.user:
+            # Ensure session is active for RLS
+            st.session_state.user = session.user
+            st.session_state.authenticated = True
+    except:
+        pass
 
     # Handle email confirmation callback
     query_params = st.query_params
