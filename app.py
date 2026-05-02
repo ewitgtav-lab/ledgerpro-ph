@@ -1000,26 +1000,28 @@ def show_subscription_page():
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("📧 Send Receipt via Email", type="primary", key="email_verification"):
+            st.link_button(
+                "📧 Send Receipt via Email",
+                f"mailto:devflowsolutionsph@gmail.com?subject=LedgerPro-PH Payment Verification - {user.email}&body=Please find attached my payment receipt screenshot for Pro subscription upgrade.%0A%0AEmail: {user.email}%0A%0AThank you!",
+                type="primary",
+                use_container_width=True
+            )
+            if st.button("Mark Email Sent", key="email_mark"):
                 st.session_state.payment_verification_sent = True
                 st.session_state.verification_method = "email"
-                st.success("✅ Opening email client...")
-                st.markdown(f"""
-                <script>
-                window.location.href = "mailto:devflowsolutionsph@gmail.com?subject=LedgerPro-PH Payment Verification - {user.email}&body=Please find attached my payment receipt screenshot for Pro subscription upgrade.%0A%0AEmail: {user.email}%0A%0AThank you!";
-                </script>
-                """, unsafe_allow_html=True)
+                st.success("✅ Verification initiated via email")
         
         with col2:
-            if st.button("💬 Message on Facebook", type="secondary", key="facebook_verification"):
+            st.link_button(
+                "💬 Message on Facebook",
+                "https://www.facebook.com/DevFlowSolutionsPH",
+                type="secondary",
+                use_container_width=True
+            )
+            if st.button("Mark Facebook Sent", key="facebook_mark"):
                 st.session_state.payment_verification_sent = True
                 st.session_state.verification_method = "facebook"
-                st.success("✅ Opening Facebook Messenger...")
-                st.markdown("""
-                <script>
-                window.open("https://www.facebook.com/DevFlowSolutionsPH", "_blank");
-                </script>
-                """, unsafe_allow_html=True)
+                st.success("✅ Verification initiated via Facebook")
         
         # Show verification status
         if st.session_state.get('payment_verification_sent', False):
@@ -2044,8 +2046,8 @@ def show_tax_compliance():
                         col1, col2 = st.columns(2)
                         with col1:
                             st.write(f"**Withholding Agent Name:** {profile.get('business_name', 'Your Business')}")
-                            st.write(f"**TIN:** 000-000-000-000")
-                            st.write(f"**Address:** Business Address")
+                            st.write(f"**TIN:** {profile.get('tin', '000-000-000-000')}")
+                            st.write(f"**Address:** {profile.get('business_address', 'Business Address')}")
                         with col2:
                             st.write(f"**Period:** {datetime.now().strftime('%B %Y')}")
                             st.write(f"**ATC:** Expanded (Creditable)")
@@ -2104,8 +2106,20 @@ def show_tax_compliance():
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # Professional downloadable form
-                        form_2307_content = f"""
+                        # Professional downloadable form - Generate PDF
+                        pdf_content = generate_bir_form_2307_pdf(profile, ewt_transactions, total_ewt, total_gross_amount)
+                        
+                        if pdf_content:
+                            st.download_button(
+                                label="📥 Download Form 2307 (PDF)",
+                                data=pdf_content,
+                                file_name=f"BIR_Form_2307_{datetime.now().strftime('%Y%m%d')}.pdf",
+                                mime="application/pdf",
+                                type="primary"
+                            )
+                        else:
+                            # Fallback to text if reportlab is not available
+                            form_2307_content = f"""
 {'='*80}
 BIR FORM NO. 2307
 CERTIFICATE OF CREDITABLE TAX WITHHELD AT SOURCE
@@ -2113,8 +2127,8 @@ CERTIFICATE OF CREDITABLE TAX WITHHELD AT SOURCE
 
 WITHHOLDING AGENT INFORMATION:
 Withholding Agent Name: {profile.get('business_name', 'Your Business')}
-TIN: 000-000-000-000
-Address: Business Address
+TIN: {profile.get('tin', '000-000-000-000')}
+Address: {profile.get('business_address', 'Business Address')}
 Period: {datetime.now().strftime('%B %Y')}
 ATC: Expanded (Creditable)
 Date Issued: {datetime.now().strftime('%Y-%m-%d')}
@@ -2124,14 +2138,13 @@ TRANSACTION DETAILS:
 {'Date':<12} {'Payee Name':<25} {'Description':<20} {'Tax Base':<15} {'EWT':<12}
 {'-'*80}
 """
-                        
-                        for _, trans in ewt_transactions.iterrows():
-                            gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
-                            payee_name = trans.get('supplier_name', trans.get('customer_name', 'N/A'))[:24]
-                            description = trans.get('description', 'N/A')[:19]
-                            form_2307_content += f"{trans['transaction_date'].strftime('%Y-%m-%d'):<12} {payee_name:<25} {description:<20} {format_currency_ph(gross_amount):<15} {format_currency_ph(trans['ewt_amount']):<12}\n"
-                        
-                        form_2307_content += f"""
+                            for _, trans in ewt_transactions.iterrows():
+                                gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
+                                payee_name = trans.get('supplier_name', trans.get('customer_name', 'N/A'))[:24]
+                                description = trans.get('description', 'N/A')[:19]
+                                form_2307_content += f"{trans['transaction_date'].strftime('%Y-%m-%d'):<12} {payee_name:<25} {description:<20} {format_currency_ph(gross_amount):<15} {format_currency_ph(trans['ewt_amount']):<12}\n"
+                            
+                            form_2307_content += f"""
 {'-'*80}
 SUMMARY:
 Total Gross Amount: {format_currency_ph(total_gross_amount)}
@@ -2148,14 +2161,13 @@ Signature over Printed Name    Signature over Printed Name
 This certificate is issued pursuant to Sec. 83 of the National Internal 
 Revenue Code of 1997, as amended.
 """
-                        
-                        st.download_button(
-                            label=" Download Professional Form 2307",
-                            data=form_2307_content,
-                            file_name=f"BIR_Form_2307_{datetime.now().strftime('%Y%m')}.txt",
-                            mime="text/plain",
-                            type="primary"
-                        )
+                            st.download_button(
+                                label="📥 Download Form 2307 (Text Fallback)",
+                                data=form_2307_content,
+                                file_name=f"BIR_Form_2307_{datetime.now().strftime('%Y%m%d')}.txt",
+                                mime="text/plain",
+                                type="secondary"
+                            )
                 else:
                     st.write("No EWT transactions found for this period.")
             
@@ -2194,8 +2206,8 @@ Revenue Code of 1997, as amended.
                         col1, col2 = st.columns(2)
                         with col1:
                             st.write(f"**Withholding Agent Name:** {profile.get('business_name', 'Your Business')}")
-                            st.write(f"**TIN:** 000-000-000-000")
-                            st.write(f"**Address:** Business Address")
+                            st.write(f"**TIN:** {profile.get('tin', '000-000-000-000')}")
+                            st.write(f"**Address:** {profile.get('business_address', 'Business Address')}")
                         with col2:
                             st.write(f"**Taxable Period:** {datetime.now().strftime('%B %Y')}")
                             st.write(f"**Tax Type:** Expanded (Creditable)")
@@ -2255,8 +2267,20 @@ Revenue Code of 1997, as amended.
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # Professional downloadable form
-                        form_1601c_content = f"""
+                        # Professional downloadable form - Generate PDF
+                        pdf_content = generate_bir_form_1601c_pdf(profile, month_data, month_ewt, current_month, current_year)
+                        
+                        if pdf_content:
+                            st.download_button(
+                                label="📥 Download Form 1601C (PDF)",
+                                data=pdf_content,
+                                file_name=f"BIR_Form_1601C_{datetime.now().strftime('%Y%m')}.pdf",
+                                mime="application/pdf",
+                                type="primary"
+                            )
+                        else:
+                            # Fallback to text if reportlab is not available
+                            form_1601c_content = f"""
 {'='*80}
 BIR FORM NO. 1601C
 MONTHLY WITHHOLDING TAX RETURN - CREDITABLE WITHHOLDING TAX EXPANDED
@@ -2264,8 +2288,8 @@ MONTHLY WITHHOLDING TAX RETURN - CREDITABLE WITHHOLDING TAX EXPANDED
 
 TAXPAYER INFORMATION:
 Withholding Agent Name: {profile.get('business_name', 'Your Business')}
-TIN: 000-000-000-000
-Address: Business Address
+TIN: {profile.get('tin', '000-000-000-000')}
+Address: {profile.get('business_address', 'Business Address')}
 Taxable Period: {datetime.now().strftime('%B %Y')}
 Tax Type: Expanded (Creditable)
 Due Date: 20th {datetime.now().strftime('%B %Y')}
@@ -2275,14 +2299,13 @@ CREDITABLE WITHHOLDING TAX DETAILS:
 {'Date':<12} {'Payee Name':<25} {'Description':<20} {'Tax Base':<15} {'EWT':<12}
 {'-'*80}
 """
-                        
-                        for _, trans in month_ewt_trans.iterrows():
-                            gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
-                            payee_name = trans.get('supplier_name', trans.get('customer_name', 'N/A'))[:24]
-                            description = trans.get('description', 'N/A')[:19]
-                            form_1601c_content += f"{trans['transaction_date'].strftime('%Y-%m-%d'):<12} {payee_name:<25} {description:<20} {format_currency_ph(gross_amount):<15} {format_currency_ph(trans['ewt_amount']):<12}\n"
-                        
-                        form_1601c_content += f"""
+                            for _, trans in month_ewt_trans.iterrows():
+                                gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
+                                payee_name = trans.get('supplier_name', trans.get('customer_name', 'N/A'))[:24]
+                                description = trans.get('description', 'N/A')[:19]
+                                form_1601c_content += f"{trans['transaction_date'].strftime('%Y-%m-%d'):<12} {payee_name:<25} {description:<20} {format_currency_ph(gross_amount):<15} {format_currency_ph(trans['ewt_amount']):<12}\n"
+                            
+                            form_1601c_content += f"""
 {'-'*80}
 TAX COMPUTATION SUMMARY:
 Total Tax Base: {format_currency_ph(total_gross_amount)}
@@ -2299,14 +2322,13 @@ Signature over Printed Name    Signature over Printed Name
 This return is filed pursuant to Sec. 58 of the National Internal 
 Revenue Code of 1997, as amended.
 """
-                        
-                        st.download_button(
-                            label=" Download Professional Form 1601C",
-                            data=form_1601c_content,
-                            file_name=f"BIR_Form_1601C_{datetime.now().strftime('%Y%m')}.txt",
-                            mime="text/plain",
-                            type="primary"
-                        )
+                            st.download_button(
+                                label="📥 Download Form 1601C (Text Fallback)",
+                                data=form_1601c_content,
+                                file_name=f"BIR_Form_1601C_{datetime.now().strftime('%Y%m')}.txt",
+                                mime="text/plain",
+                                type="secondary"
+                            )
                 else:
                     st.write("No EWT transactions for current month.")
             
@@ -3312,7 +3334,7 @@ def show_settings_page():
     st.markdown("""
     <div class="main-header">
         <h1>⚙️ Settings</h1>
-        <p>Manage your account settings</p>
+        <p>Manage your account and business settings</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -3323,50 +3345,441 @@ def show_settings_page():
         st.error("Unable to load user profile")
         return
     
-    # Profile settings
-    st.markdown("### 👤 Profile Settings")
+    # Business Settings Tab
+    tab1, tab2 = st.tabs(["🏢 Business Settings", "👤 Account Settings"])
     
-    with st.form("profile_settings"):
-        business_name = st.text_input("Business Name", value=profile.get('business_name', ''))
-        tax_type = st.selectbox("Tax Type", 
-                               ["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"],
-                               index=["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"].index(profile.get('tax_type', 'VAT (12%)')))
+    with tab1:
+        st.markdown("### 🏢 Business Information")
+        st.info("These details will appear on all financial statements and tax forms.")
         
-        submitted = st.form_submit_button("💾 Save Changes", type="primary")
+        with st.form("business_settings"):
+            business_name = st.text_input("Business Name", value=profile.get('business_name', ''), placeholder="Your Business Name")
+            
+            # TIN with formatting
+            tin_value = profile.get('tin', '')
+            tin_input = st.text_input("Tax Identification Number (TIN)", value=tin_value, placeholder="000-000-000-000", max_chars=15)
+            
+            # Format TIN as user types
+            formatted_tin = tin_input
+            if tin_input and '-' not in tin_input:
+                if len(tin_input) >= 3:
+                    formatted_tin = tin_input[:3]
+                    if len(tin_input) >= 6:
+                        formatted_tin += '-' + tin_input[3:6]
+                        if len(tin_input) >= 9:
+                            formatted_tin += '-' + tin_input[6:9]
+                            if len(tin_input) >= 12:
+                                formatted_tin += '-' + tin_input[9:12]
+                        else:
+                            formatted_tin += '-' + tin_input[6:]
+                    else:
+                        formatted_tin += '-' + tin_input[3:]
+            
+            business_address = st.text_area("Business Address", value=profile.get('business_address', ''), placeholder="Complete business address", height=100)
+            
+            # Business Logo Upload
+            st.markdown("### 📷 Business Logo")
+            st.info("Upload your business logo to appear on all financial statements and tax forms.")
+            logo_file = st.file_uploader("Upload Logo", type=['png', 'jpg', 'jpeg', 'webp'], accept_multiple_files=False)
+            
+            if logo_file:
+                st.session_state.business_logo = logo_file
+                st.image(logo_file, caption="Uploaded Logo", width=150)
+            elif st.session_state.get('business_logo'):
+                st.image(st.session_state.business_logo, caption="Current Logo", width=150)
+            
+            tax_type = st.selectbox("Tax Type", 
+                                   ["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"],
+                                   index=["NON-VAT (1%)", "NON-VAT (3%)", "VAT (8% Flat)", "VAT (12%)"].index(profile.get('tax_type', 'VAT (12%)')))
+            
+            submitted = st.form_submit_button("💾 Save Business Settings", type="primary")
+            
+            if submitted:
+                try:
+                    supabase = init_supabase()
+                    update_data = {
+                        'business_name': business_name,
+                        'tin': formatted_tin,
+                        'business_address': business_address,
+                        'tax_type': tax_type
+                    }
+                    supabase.table('profiles').update(update_data).eq('id', user.id).execute()
+                    
+                    st.success("✅ Business settings updated successfully!")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Failed to update business settings: {str(e)}")
+    
+    with tab2:
+        st.markdown("### 👤 Account Settings")
         
-        if submitted:
-            try:
-                supabase = init_supabase()
-                supabase.table('profiles').update({
-                    'business_name': business_name,
-                    'tax_type': tax_type
-                }).eq('id', user.id).execute()
-                
-                st.success("✅ Profile updated successfully!")
-                st.cache_data.clear()  # Clear cache to refresh profile
-                st.rerun()
-            except Exception as e:
-                st.error("❌ Failed to update profile")
+        st.markdown(f"""
+        <div style="background: var(--card-background); padding: 1.5rem; border-radius: 10px;">
+            <h4 style="margin-top: 0;">Email</h4>
+            <p>{user.email}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("### 📊 Usage Statistics")
+        
+        transaction_count = get_user_transaction_count(user.id)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total Transactions", transaction_count)
+        with col2:
+            st.metric("Account Type", "Pro" if profile.get('is_pro_status') else "Free")
+        with col3:
+            st.metric("Member Since", datetime.fromisoformat(profile.get('created_at', datetime.now().isoformat())).strftime('%b %Y'))
     
     st.markdown("---")
     
-    # Sign Out button outside of form
+    # Sign Out button
     if st.button("🚪 Sign Out", width='stretch'):
         handle_signout()
-    
-    st.markdown("---")
-    st.markdown("### 📊 Usage Statistics")
-    
-    transaction_count = get_user_transaction_count(user.id)
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("Total Transactions", transaction_count)
-    with col2:
-        st.metric("Account Type", "Pro" if profile.get('is_pro_status') else "Free")
-    with col3:
-        st.metric("Member Since", datetime.fromisoformat(profile.get('created_at', datetime.now().isoformat())).strftime('%b %Y'))
+
+# Professional PDF Generation Functions
+def generate_bir_form_1601c_pdf(profile, month_data, month_ewt, current_month, current_year):
+    """Generate professional PDF for BIR Form 1601C using reportlab"""
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        import io
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+        
+        # Elements to add to PDF
+        elements = []
+        
+        # Styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            alignment=1,  # Center
+            spaceAfter=12
+        )
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=10,
+            alignment=1,
+            spaceAfter=12
+        )
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=9,
+            spaceAfter=6
+        )
+        
+        # Header
+        # Add logo if available
+        if st.session_state.get('business_logo'):
+            logo_image = st.session_state.business_logo
+            img = Image(logo_image, width=1.5*inch, height=1*inch, hAlign='LEFT')
+            elements.append(img)
+        
+        elements.append(Paragraph("BIR FORM NO. 1601C", title_style))
+        elements.append(Paragraph("MONTHLY WITHHOLDING TAX RETURN - CREDITABLE WITHHOLDING TAX EXPANDED", subtitle_style))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Taxpayer Information
+        tin = profile.get('tin', '000-000-000-000')
+        business_name = profile.get('business_name', 'Your Business')
+        business_address = profile.get('business_address', 'Business Address')
+        
+        taxpayer_data = [
+            ["Withholding Agent Name:", business_name],
+            ["TIN:", tin],
+            ["Address:", business_address],
+            ["Taxable Period:", f"{current_month} {current_year}"],
+            ["Tax Type:", "Expanded (Creditable)"],
+            ["Due Date:", f"20th {current_month} {current_year}"]
+        ]
+        
+        taxpayer_table = Table(taxpayer_data, colWidths=[2.5*inch, 4*inch])
+        taxpayer_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ]))
+        elements.append(taxpayer_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Creditable Withholding Tax Details
+        elements.append(Paragraph("CREDITABLE WITHHOLDING TAX DETAILS", subtitle_style))
+        
+        table_data = [['Date', 'Payee Name', 'Description', 'Tax Base', 'EWT Rate', 'EWT Withheld']]
+        month_ewt_trans = month_data[month_data['ewt_amount'] > 0]
+        total_gross_amount = 0
+        
+        for _, trans in month_ewt_trans.iterrows():
+            gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
+            payee_name = trans.get('supplier_name', trans.get('customer_name', 'N/A'))[:25]
+            description = trans.get('description', 'N/A')[:20]
+            table_data.append([
+                trans['transaction_date'].strftime('%Y-%m-%d'),
+                payee_name,
+                description,
+                f"₱{gross_amount:,.2f}",
+                '1%',
+                f"₱{trans['ewt_amount']:,.2f}"
+            ])
+            total_gross_amount += gross_amount
+        
+        if table_data:
+            details_table = Table(table_data, colWidths=[1*inch, 2*inch, 1.5*inch, 1.2*inch, 0.8*inch, 1*inch])
+            details_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ]))
+            elements.append(details_table)
+        else:
+            elements.append(Paragraph("No EWT transactions found for current month.", normal_style))
+        
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Tax Computation Summary
+        elements.append(Paragraph("TAX COMPUTATION SUMMARY", subtitle_style))
+        
+        summary_data = [
+            ["Total Tax Base:", f"₱{total_gross_amount:,.2f}"],
+            ["Total EWT Withheld:", f"₱{month_ewt:,.2f}"],
+            ["Net Amount:", f"₱{total_gross_amount - month_ewt:,.2f}"]
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[3*inch, 3.5*inch])
+        summary_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(summary_table)
+        
+        # Signature Section
+        elements.append(Spacer(1, 0.5*inch))
+        elements.append(Paragraph("CERTIFIED CORRECT:", subtitle_style))
+        
+        signature_data = [
+            ["", ""],
+            ["Withholding Agent", "Authorized Representative"],
+            ["Signature over Printed Name", "Signature over Printed Name"]
+        ]
+        
+        signature_table = Table(signature_data, colWidths=[3.5*inch, 3.5*inch])
+        signature_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LINEBELOW', (0, 0), (0, 0), 1, colors.black),
+            ('LINEBELOW', (1, 0), (1, 0), 1, colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(signature_table)
+        
+        # Footer
+        elements.append(Spacer(1, 0.3*inch))
+        footer_text = "This return is filed pursuant to Sec. 58 of the National Internal Revenue Code of 1997, as amended."
+        elements.append(Paragraph(footer_text, normal_style))
+        
+        # Build PDF
+        doc.build(elements)
+        buffer.seek(0)
+        
+        return buffer.getvalue()
+        
+    except ImportError:
+        # Fallback to HTML if reportlab is not available
+        return None
+    except Exception as e:
+        return None
+
+def generate_bir_form_2307_pdf(profile, ewt_transactions, total_ewt, total_gross_amount):
+    """Generate professional PDF for BIR Form 2307 using reportlab"""
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        import io
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+        
+        # Elements to add to PDF
+        elements = []
+        
+        # Styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            alignment=1,
+            spaceAfter=12
+        )
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=10,
+            alignment=1,
+            spaceAfter=12
+        )
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=9,
+            spaceAfter=6
+        )
+        
+        # Header
+        # Add logo if available
+        if st.session_state.get('business_logo'):
+            logo_image = st.session_state.business_logo
+            img = Image(logo_image, width=1.5*inch, height=1*inch, hAlign='LEFT')
+            elements.append(img)
+        
+        elements.append(Paragraph("BIR FORM NO. 2307", title_style))
+        elements.append(Paragraph("CERTIFICATE OF CREDITABLE TAX WITHHELD AT SOURCE", subtitle_style))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Withholding Agent Information
+        tin = profile.get('tin', '000-000-000-000')
+        business_name = profile.get('business_name', 'Your Business')
+        business_address = profile.get('business_address', 'Business Address')
+        
+        agent_data = [
+            ["Withholding Agent Name:", business_name],
+            ["TIN:", tin],
+            ["Address:", business_address],
+            ["Period:", datetime.now().strftime('%B %Y')],
+            ["ATC:", "Expanded (Creditable)"],
+            ["Date Issued:", datetime.now().strftime('%Y-%m-%d')]
+        ]
+        
+        agent_table = Table(agent_data, colWidths=[2.5*inch, 4*inch])
+        agent_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ]))
+        elements.append(agent_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Transaction Details
+        elements.append(Paragraph("TRANSACTION DETAILS", subtitle_style))
+        
+        table_data = [['Date', 'Payee Name', 'Description', 'Tax Base', 'EWT Rate', 'EWT Amount']]
+        
+        for _, trans in ewt_transactions.iterrows():
+            gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
+            payee_name = trans.get('supplier_name', trans.get('customer_name', 'N/A'))[:25]
+            description = trans.get('description', 'N/A')[:20]
+            table_data.append([
+                trans['transaction_date'].strftime('%Y-%m-%d'),
+                payee_name,
+                description,
+                f"₱{gross_amount:,.2f}",
+                '1%',
+                f"₱{trans['ewt_amount']:,.2f}"
+            ])
+        
+        if table_data:
+            details_table = Table(table_data, colWidths=[1*inch, 2*inch, 1.5*inch, 1.2*inch, 0.8*inch, 1*inch])
+            details_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ]))
+            elements.append(details_table)
+        
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Summary
+        elements.append(Paragraph("SUMMARY", subtitle_style))
+        
+        summary_data = [
+            ["Total Gross Amount:", f"₱{total_gross_amount:,.2f}"],
+            ["Total EWT:", f"₱{total_ewt:,.2f}"],
+            ["Net Amount:", f"₱{total_gross_amount - total_ewt:,.2f}"]
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[3*inch, 3.5*inch])
+        summary_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(summary_table)
+        
+        # Signature Section
+        elements.append(Spacer(1, 0.5*inch))
+        elements.append(Paragraph("CERTIFIED CORRECT:", subtitle_style))
+        
+        signature_data = [
+            ["", ""],
+            ["Withholding Agent", "Payee"],
+            ["Signature over Printed Name", "Signature over Printed Name"]
+        ]
+        
+        signature_table = Table(signature_data, colWidths=[3.5*inch, 3.5*inch])
+        signature_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LINEBELOW', (0, 0), (0, 0), 1, colors.black),
+            ('LINEBELOW', (1, 0), (1, 0), 1, colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        elements.append(signature_table)
+        
+        # Footer
+        elements.append(Spacer(1, 0.3*inch))
+        footer_text = "This certificate is issued pursuant to Sec. 58 of the National Internal Revenue Code of 1997, as amended."
+        elements.append(Paragraph(footer_text, normal_style))
+        
+        # Build PDF
+        doc.build(elements)
+        buffer.seek(0)
+        
+        return buffer.getvalue()
+        
+    except ImportError:
+        return None
+    except Exception as e:
+        return None
 
 # Philippine Tax Engine
 def calculate_tax_amounts(gross_amount, tax_type, platform_name=None, platform_fee=0):
