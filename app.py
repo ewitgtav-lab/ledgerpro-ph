@@ -14,6 +14,18 @@ import time
 # Get dynamic base URL for redirects
 def get_base_url():
     """Get the current base URL dynamically for email redirects"""
+    # Production URL for LedgerPro-PH
+    production_url = "https://ledgerpro-ph-bqzwv69ybtjex7kvtat5w3.streamlit.app"
+    
+    # First, check SITE_URL from secrets (highest priority for production)
+    site_url = st.secrets.get("SITE_URL")
+    if site_url:
+        return site_url
+    
+    # Fall back to hardcoded production URL
+    if site_url is None:
+        return production_url
+    
     try:
         # Try to get URL from request headers (works in production)
         if hasattr(st, 'context') and hasattr(st.context, 'headers'):
@@ -26,11 +38,6 @@ def get_base_url():
                 return f"{proto}://{host}"
     except:
         pass
-    
-    # Fall back to SITE_URL from secrets (for Streamlit Cloud)
-    site_url = st.secrets.get("SITE_URL")
-    if site_url:
-        return site_url
     
     # Final fallback to localhost for local development
     return "http://localhost:8501"
