@@ -2140,20 +2140,29 @@ def show_tax_compliance():
                     st.write(f"- Tax Type: Expanded")
                     st.write(f"- Period: {datetime.now().strftime('%B %Y')}")
                     
-                    if st.button(" Generate Form 1601C", type="primary"):
+                    # Generate PDF for Form 1601C
+                    month_ewt_trans = month_data[month_data['ewt_amount'] > 0]
+                    total_gross_amount = 0
+                    for _, trans in month_ewt_trans.iterrows():
+                        gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
+                        total_gross_amount += gross_amount
+                    
+                    pdf_content = generate_bir_form_1601c_pdf(profile, month_data, month_ewt, current_month, current_year)
+                    
+                    if pdf_content:
+                        st.download_button(
+                            label="📥 Download Form 1601C (PDF)",
+                            data=pdf_content,
+                            file_name=f"BIR_Form_1601C_{datetime.now().strftime('%Y%m')}.pdf",
+                            mime="application/pdf",
+                            type="primary"
+                        )
+                    else:
+                        st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
+                    
+                    if st.button(" Generate Form 1601C Preview", type="secondary"):
                         st.markdown("#####  BIR Form No. 1601C")
                         st.markdown("**Monthly Withholding Tax Return - Creditable Withholding Tax Expanded**")
-                        
-                        # Professional header with logo placeholder
-                        st.markdown("""
-                        <div style="text-align: center; margin-bottom: 20px;">
-                            <div style="border: 2px dashed #ccc; padding: 20px; margin-bottom: 10px;">
-                                <p style="color: #666; margin: 0;">[BUSINESS LOGO]</p>
-                            </div>
-                            <h3 style="margin: 5px 0;">BIR Form No. 1601C</h3>
-                            <p style="margin: 5px 0;">Monthly Withholding Tax Return - Creditable Withholding Tax Expanded</p>
-                        </div>
-                        """, unsafe_allow_html=True)
                         
                         # Standard BIR Form 1601C fields
                         st.markdown("####  Taxpayer Information")
@@ -2202,38 +2211,6 @@ def show_tax_compliance():
                                 st.metric("Net Amount", format_currency_ph(total_gross_amount - month_ewt))
                         else:
                             st.info("No EWT transactions found for current month.")
-                        
-                        # Professional footer with signature lines
-                        st.markdown("""
-                        <div style="margin-top: 40px;">
-                            <div style="display: flex; justify-content: space-between; margin-top: 30px;">
-                                <div style="width: 45%;">
-                                    <div style="border-bottom: 1px solid #000; height: 40px;"></div>
-                                    <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
-                                    <p style="text-align: center; margin: 5px 0;">Withholding Agent</p>
-                                </div>
-                                <div style="width: 45%;">
-                                    <div style="border-bottom: 1px solid #000; height: 40px;"></div>
-                                    <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
-                                    <p style="text-align: center; margin: 5px 0;">Authorized Representative</p>
-                                </div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # Professional downloadable form - Generate PDF
-                        pdf_content = generate_bir_form_1601c_pdf(profile, month_data, month_ewt, current_month, current_year)
-                        
-                        if pdf_content:
-                            st.download_button(
-                                label="📥 Download Form 1601C (PDF)",
-                                data=pdf_content,
-                                file_name=f"BIR_Form_1601C_{datetime.now().strftime('%Y%m')}.pdf",
-                                mime="application/pdf",
-                                type="primary"
-                            )
-                        else:
-                            st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
                 else:
                     st.write("No EWT transactions for current month.")
             
@@ -2254,20 +2231,35 @@ def show_tax_compliance():
                         st.write(f"**Input VAT:** {quarter['VAT']:,.2f}")  # Simplified
                         st.write(f"**VAT Payable:** {quarter['VAT']:,.2f}")  # Simplified
                         
-                        if st.button(f" Generate {quarter['Quarter']} VAT Return", key=f"vat_{quarter_num}"):
+                        # Generate PDF for Form 2550Q
+                        quarter_trans = transactions[transactions['quarter'] == int(quarter_num)]
+                        vat_trans = quarter_trans[quarter_trans['vat_amount'] > 0]
+                        
+                        total_output_vat = 0
+                        total_input_vat = 0
+                        for _, trans in vat_trans.iterrows():
+                            is_output = trans['type'] in ['cash_receipt', 'sales']
+                            if is_output:
+                                total_output_vat += trans['vat_amount']
+                            else:
+                                total_input_vat += trans['vat_amount']
+                        
+                        pdf_content = generate_bir_form_2550q_pdf(profile, vat_trans, total_output_vat, total_input_vat, quarter_num, current_year)
+                        
+                        if pdf_content:
+                            st.download_button(
+                                label=f"📥 Download Form 2550Q - {quarter['Quarter']} (PDF)",
+                                data=pdf_content,
+                                file_name=f"BIR_Form_2550Q_{current_year}_Q{quarter_num}.pdf",
+                                mime="application/pdf",
+                                type="primary"
+                            )
+                        else:
+                            st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
+                        
+                        if st.button(f" Generate {quarter['Quarter']} VAT Return Preview", key=f"vat_preview_{quarter_num}", type="secondary"):
                             st.markdown(f"#####  BIR Form No. 2550Q")
                             st.markdown(f"**Quarterly VAT Return - {quarter['Quarter']} {current_year}**")
-                            
-                            # Professional header with logo placeholder
-                            st.markdown(f"""
-                            <div style="text-align: center; margin-bottom: 20px;">
-                                <div style="border: 2px dashed #ccc; padding: 20px; margin-bottom: 10px;">
-                                    <p style="color: #666; margin: 0;">[BUSINESS LOGO]</p>
-                                </div>
-                                <h3 style="margin: 5px 0;">BIR Form No. 2550Q</h3>
-                                <p style="margin: 5px 0;">Quarterly VAT Return - {quarter['Quarter']} {current_year}</p>
-                            </div>
-                            """, unsafe_allow_html=True)
                             
                             # Standard BIR Form 2550Q fields
                             st.markdown("####  Taxpayer Information")
@@ -2325,24 +2317,6 @@ def show_tax_compliance():
                             else:
                                 st.info(f"No VAT transactions found for {quarter['Quarter']} {current_year}.")
                             
-                            # Professional footer with signature lines
-                            st.markdown("""
-                            <div style="margin-top: 40px;">
-                                <div style="display: flex; justify-content: space-between; margin-top: 30px;">
-                                    <div style="width: 45%;">
-                                        <div style="border-bottom: 1px solid #000; height: 40px;"></div>
-                                        <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
-                                        <p style="text-align: center; margin: 5px 0;">Taxpayer</p>
-                                    </div>
-                                    <div style="width: 45%;">
-                                        <div style="border-bottom: 1px solid #000; height: 40px;"></div>
-                                        <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
-                                        <p style="text-align: center; margin: 5px 0;">Authorized Representative</p>
-                                    </div>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
                             # Professional downloadable form - Generate PDF
                             pdf_content = generate_bir_form_2550q_pdf(profile, vat_trans, total_output_vat, total_input_vat, quarter_num, current_year)
                             
@@ -2377,34 +2351,21 @@ def show_tax_compliance():
                 
                 st.write(f"**Estimated Income Tax:** {income_tax:,.2f}")
                 
-                if st.button(" Generate Annual Tax Return", type="primary"):
-                    st.markdown("#####  BIR Form No. 1701")
-                    st.markdown("**Annual Income Tax Return**")
-                    
-                    # Professional header with logo placeholder
-                    st.markdown(f"""
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <div style="border: 2px dashed #ccc; padding: 20px; margin-bottom: 10px;">
-                            <p style="color: #666; margin: 0;">[BUSINESS LOGO]</p>
-                        </div>
-                        <h3 style="margin: 5px 0;">BIR Form No. 1701</h3>
-                        <p style="margin: 5px 0;">Annual Income Tax Return - Tax Year {current_year}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Standard BIR Form 1701 fields
-                    st.markdown("####  Taxpayer Information")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.write(f"**Taxpayer Name:** {profile.get('business_name', 'Your Business')}")
-                        st.write(f"**TIN:** {profile.get('tin', '000-000-000-000')}")
-                        st.write(f"**Address:** {profile.get('business_address', 'Business Address')}")
-                    with col2:
-                        st.write(f"**Tax Year:** {current_year}")
-                        st.write(f"**Tax Type:** {tax_type}")
-                        st.write(f"**Due Date:** April 15, {current_year + 1}")
-                    
-                    # Professional income computation table
+                # Generate PDF for Form 1701
+                pdf_content = generate_bir_form_1701_pdf(profile, income_data, total_revenue_amount, total_expenses_amount, annual_income, income_tax, tax_type, current_year)
+                
+                if pdf_content:
+                    st.download_button(
+                        label="📥 Download Form 1701 (PDF)",
+                        data=pdf_content,
+                        file_name=f"BIR_Form_1701_{current_year}.pdf",
+                        mime="application/pdf",
+                        type="primary"
+                    )
+                else:
+                    st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
+                
+                if st.button(" Generate Annual Tax Return Preview", type="secondary"):
                     st.markdown("####  Income Tax Computation")
                     
                     # Create structured income data
@@ -2468,20 +2429,10 @@ def show_tax_compliance():
                     
                     st.write(f"**Computation:** {format_currency_ph(annual_income)} × Tax Rate = {format_currency_ph(income_tax)}")
                     
-                    # Professional footer with signature lines
+                    # Professional footer
                     st.markdown(f"""
                     <div style="margin-top: 40px;">
                         <div style="display: flex; justify-content: space-between; margin-top: 30px;">
-                            <div style="width: 45%;">
-                                <div style="border-bottom: 1px solid #000; height: 40px;"></div>
-                                <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
-                                <p style="text-align: center; margin: 5px 0;">Taxpayer</p>
-                            </div>
-                            <div style="width: 45%;">
-                                <div style="border-bottom: 1px solid #000; height: 40px;"></div>
-                                <p style="text-align: center; margin: 5px 0;">Signature over Printed Name</p>
-                                <p style="text-align: center; margin: 5px 0;">Authorized Representative</p>
-                            </div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
