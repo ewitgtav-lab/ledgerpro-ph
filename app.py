@@ -113,7 +113,21 @@ def show_auth_page():
             st.markdown("---")
             st.markdown("### Need to verify your email?")
             resend_email = st.text_input("Enter your email to resend confirmation", key="resend_email")
-            if st.form_submit_button("📧 Resend Confirmation Email", type="secondary"):
+            
+            # Check cooldown timer
+            cooldown_seconds = 60
+            current_time = time.time()
+            last_resend_time = st.session_state.get('last_resend_time', 0)
+            time_since_resend = current_time - last_resend_time
+            
+            if time_since_resend < cooldown_seconds:
+                remaining_time = int(cooldown_seconds - time_since_resend)
+                st.warning(f"⏱️ Please wait {remaining_time} seconds before requesting another email.")
+                resend_button_disabled = True
+            else:
+                resend_button_disabled = False
+            
+            if st.form_submit_button("📧 Resend Confirmation Email", type="secondary", disabled=resend_button_disabled):
                 if resend_email:
                     try:
                         supabase = init_supabase()
@@ -127,6 +141,10 @@ def show_auth_page():
                         })
                         st.success("✅ A new verification link has been sent to your inbox!")
                         st.info("Please check your email and click the verification link to activate your account.")
+                        st.info("📧 **Check your spam/junk folder!** If you don't see the email within 2-3 minutes, it may have been filtered as spam.")
+                        
+                        # Update last resend time
+                        st.session_state.last_resend_time = time.time()
                     except Exception as e:
                         error_msg = str(e).lower()
                         if "user not found" in error_msg:
@@ -193,11 +211,24 @@ def show_auth_page():
                                 </p>
                             </div>
                             """.format(new_email), unsafe_allow_html=True)
+                            
+                            # Add prominent spam folder notice
+                            st.info("📧 **Check your spam/junk folder!** If you don't see the verification email within 2-3 minutes, it may have been filtered as spam.")
                         else:
                             st.error("❌ Account creation failed")
                     except Exception as e:
+                        # Print full error object for debugging
+                        st.write(f"DEBUG: Full error object: {e}")
+                        st.write(f"DEBUG: Error type: {type(e).__name__}")
+                        
                         error_msg = str(e).lower()
-                        if "already registered" in error_msg or "user_already_exists" in error_msg:
+                        error_str = str(e)
+                        
+                        # Check for 429 Too Many Requests error specifically
+                        if "429" in error_str or "too many requests" in error_msg:
+                            st.error("❌ Too many signup attempts. Please wait a few minutes before trying again.")
+                            st.info("💡 Supabase rate limit reached. Try again in 5-10 minutes.")
+                        elif "already registered" in error_msg or "user_already_exists" in error_msg:
                             st.error("❌ This email is already registered. Try signing in instead.")
                         elif "weak_password" in error_msg:
                             st.error("❌ Password is too weak. Use at least 6 characters.")
