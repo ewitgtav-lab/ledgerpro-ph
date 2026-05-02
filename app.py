@@ -2351,6 +2351,35 @@ def show_tax_compliance():
                 
                 st.write(f"**Estimated Income Tax:** {income_tax:,.2f}")
                 
+                # Create structured income data for Form 1701
+                income_data = []
+                total_revenue_amount = 0
+                total_expenses_amount = 0
+                
+                # Revenue transactions
+                revenue_trans = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
+                for _, trans in revenue_trans.iterrows():
+                    total_revenue_amount += trans['final_amount']
+                    income_data.append({
+                        'Date': trans['transaction_date'].strftime('%Y-%m-%d'),
+                        'Transaction Type': 'Revenue',
+                        'Description': trans.get('description', 'Sales'),
+                        'Amount': format_currency_ph(trans['final_amount']),
+                        'Category': 'Gross Income'
+                    })
+                
+                # Expense transactions
+                expense_trans = transactions[transactions['type'].isin(['purchase', 'expense'])]
+                for _, trans in expense_trans.iterrows():
+                    total_expenses_amount += trans['final_amount']
+                    income_data.append({
+                        'Date': trans['transaction_date'].strftime('%Y-%m-%d'),
+                        'Transaction Type': 'Expense',
+                        'Description': trans.get('description', 'Purchase'),
+                        'Amount': format_currency_ph(trans['final_amount']),
+                        'Category': 'Deductible Expense'
+                    })
+                
                 # Generate PDF for Form 1701
                 pdf_content = generate_bir_form_1701_pdf(profile, income_data, total_revenue_amount, total_expenses_amount, annual_income, income_tax, tax_type, current_year)
                 
@@ -2367,35 +2396,6 @@ def show_tax_compliance():
                 
                 if st.button(" Generate Annual Tax Return Preview", type="secondary"):
                     st.markdown("####  Income Tax Computation")
-                    
-                    # Create structured income data
-                    income_data = []
-                    total_revenue_amount = 0
-                    total_expenses_amount = 0
-                    
-                    # Revenue transactions
-                    revenue_trans = transactions[transactions['type'].isin(['cash_receipt', 'sales'])]
-                    for _, trans in revenue_trans.iterrows():
-                        total_revenue_amount += trans['final_amount']
-                        income_data.append({
-                            'Date': trans['transaction_date'].strftime('%Y-%m-%d'),
-                            'Transaction Type': 'Revenue',
-                            'Description': trans.get('description', 'Sales'),
-                            'Amount': format_currency_ph(trans['final_amount']),
-                            'Category': 'Gross Income'
-                        })
-                    
-                    # Expense transactions
-                    expense_trans = transactions[transactions['type'].isin(['purchase', 'expense'])]
-                    for _, trans in expense_trans.iterrows():
-                        total_expenses_amount += trans['final_amount']
-                        income_data.append({
-                            'Date': trans['transaction_date'].strftime('%Y-%m-%d'),
-                            'Transaction Type': 'Expense',
-                            'Description': trans.get('description', 'Purchase'),
-                            'Amount': format_currency_ph(trans['final_amount']),
-                            'Category': 'Deductible Expense'
-                        })
                     
                     if income_data:
                         df_income = pd.DataFrame(income_data)
@@ -2428,28 +2428,6 @@ def show_tax_compliance():
                         st.write(f"**Tax Rate:** 12% (VAT Registered - Corporate Income Tax)")
                     
                     st.write(f"**Computation:** {format_currency_ph(annual_income)} × Tax Rate = {format_currency_ph(income_tax)}")
-                    
-                    # Professional footer
-                    st.markdown(f"""
-                    <div style="margin-top: 40px;">
-                        <div style="display: flex; justify-content: space-between; margin-top: 30px;">
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Professional downloadable form - Generate PDF
-                    pdf_content = generate_bir_form_1701_pdf(profile, income_data, total_revenue_amount, total_expenses_amount, annual_income, income_tax, tax_type, current_year)
-                    
-                    if pdf_content:
-                        st.download_button(
-                            label="📥 Download Form 1701 (PDF)",
-                            data=pdf_content,
-                            file_name=f"BIR_Form_1701_{current_year}.pdf",
-                            mime="application/pdf",
-                            type="primary"
-                        )
-                    else:
-                        st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
             
             # Tax Calendar
             st.markdown("---")
