@@ -2026,7 +2026,26 @@ def show_tax_compliance():
                     
                     st.success(f"Total Creditable EWT: ₱{total_ewt:,.2f}")
                     
-                    if st.button(" Generate Form 2307", type="primary"):
+                    # Generate PDF for Form 2307
+                    total_gross_amount = 0
+                    for _, trans in ewt_transactions.iterrows():
+                        gross_amount = trans.get('gross_amount', trans.get('final_amount', 0))
+                        total_gross_amount += gross_amount
+                    
+                    pdf_content = generate_bir_form_2307_pdf(profile, ewt_transactions, total_ewt, total_gross_amount)
+                    
+                    if pdf_content:
+                        st.download_button(
+                            label="📥 Download Form 2307 (PDF)",
+                            data=pdf_content,
+                            file_name=f"BIR_Form_2307_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            mime="application/pdf",
+                            type="primary"
+                        )
+                    else:
+                        st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
+                    
+                    if st.button(" Generate Form 2307 Preview", type="secondary"):
                         st.markdown("#####  BIR Form No. 2307")
                         st.markdown("**Certificate of Creditable Tax Withheld at Source**")
                         
@@ -2105,22 +2124,6 @@ def show_tax_compliance():
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
-                        
-                        # Professional downloadable form - Generate PDF
-                        pdf_content = generate_bir_form_2307_pdf(profile, ewt_transactions, total_ewt, total_gross_amount)
-                        
-                        if pdf_content:
-                            st.download_button(
-                                label="📥 Download Form 2307 (PDF)",
-                                data=pdf_content,
-                                file_name=f"BIR_Form_2307_{datetime.now().strftime('%Y%m%d')}.pdf",
-                                mime="application/pdf",
-                                type="primary"
-                            )
-                        else:
-                            st.error("❌ Unable to generate PDF. Please ensure reportlab is installed and try again.")
-                else:
-                    st.write("No EWT transactions found for this period.")
             
             with col2:
                 st.markdown("#### 📄 Form 1601C - Monthly Withholding Tax Return")
