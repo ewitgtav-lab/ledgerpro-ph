@@ -76,6 +76,19 @@ def check_system_health():
 
 # Authentication functions
 def show_auth_page():
+    # Check if user is returning from email verification
+    try:
+        supabase = init_supabase()
+        session = supabase.auth.get_session()
+        if session and session.user:
+            st.success("✅ Email confirmed! Welcome back.")
+            # Set session state
+            st.session_state.user = session.user
+            st.session_state.authenticated = True
+            st.rerun()
+    except:
+        pass
+    
     st.markdown("""
     <div class="main-header">
         <h1>LedgerPro-PH</h1>
@@ -111,57 +124,11 @@ def show_auth_page():
                         error_msg = str(e).lower()
                         if "email not confirmed" in error_msg:
                             st.error("❌ Please verify your email before signing in.")
-                            st.info("💡 Use the 'Resend Confirmation' button below to get a new verification link.")
+                            st.info("💡 Go to the Sign Up tab to request a new verification link.")
                         else:
                             st.error("❌ Sign in failed. Please try again.")
                 else:
                     st.error("Please fill in all fields")
-
-            st.markdown("---")
-            st.markdown("### Need to verify your email?")
-            resend_email = st.text_input("Enter your email to resend confirmation", key="resend_email")
-            
-            # Check cooldown timer
-            cooldown_seconds = 60
-            current_time = time.time()
-            last_resend_time = st.session_state.get('last_resend_time', 0)
-            time_since_resend = current_time - last_resend_time
-            
-            if time_since_resend < cooldown_seconds:
-                remaining_time = int(cooldown_seconds - time_since_resend)
-                st.warning(f"⏱️ Please wait {remaining_time} seconds before requesting another email.")
-                resend_button_disabled = True
-            else:
-                resend_button_disabled = False
-            
-            if st.form_submit_button("📧 Resend Confirmation Email", type="secondary", disabled=resend_button_disabled):
-                if resend_email:
-                    try:
-                        supabase = init_supabase()
-                        redirect_url = get_base_url()
-                        response = supabase.auth.resend({
-                            "type": "signup",
-                            "email": resend_email,
-                            "options": {
-                                "email_redirect_to": redirect_url
-                            }
-                        })
-                        st.success("✅ A new verification link has been sent to your inbox!")
-                        st.info("Please check your email and click the verification link to activate your account.")
-                        st.info("📧 **Check your spam/junk folder!** If you don't see the email within 2-3 minutes, it may have been filtered as spam.")
-                        
-                        # Update last resend time
-                        st.session_state.last_resend_time = time.time()
-                    except Exception as e:
-                        error_msg = str(e).lower()
-                        if "user not found" in error_msg:
-                            st.error("❌ No account found with this email. Please sign up first.")
-                        elif "rate limit" in error_msg:
-                            st.error("❌ Too many resend attempts. Please wait a few minutes before trying again.")
-                        else:
-                            st.error(f"❌ Failed to resend confirmation: {str(e)}")
-                else:
-                    st.error("Please enter your email address")
     
         with tab2:
             new_email = st.text_input("Email", placeholder="your@email.com", key="signup_email")
@@ -172,6 +139,8 @@ def show_auth_page():
 
             if submitted:
                 if new_email and new_password and business_name:
+                    # Set signup attempted flag
+                    st.session_state.signup_attempted = True
                     try:
                         supabase = init_supabase()
                         # Create user account with email confirmation
@@ -271,6 +240,56 @@ def show_auth_page():
                             st.info("💡 Try checking if the email is already registered or use a different email.")
                 else:
                     st.error("Please fill in all fields")
+            
+            # Show resend confirmation section if user has attempted signup but not verified
+            if st.session_state.get('signup_attempted', False) and not st.session_state.get('authenticated', False):
+                st.markdown("---")
+                st.markdown("### 📧 Resend Verification Email")
+                st.info("💡 If you didn't receive the verification email, you can request a new one below.")
+                
+                resend_email = st.text_input("Enter your email to resend confirmation", key="resend_email_signup")
+                
+                # Check cooldown timer
+                cooldown_seconds = 60
+                current_time = time.time()
+                last_resend_time = st.session_state.get('last_resend_time', 0)
+                time_since_resend = current_time - last_resend_time
+                
+                if time_since_resend < cooldown_seconds:
+                    remaining_time = int(cooldown_seconds - time_since_resend)
+                    st.warning(f"⏱️ Please wait {remaining_time} seconds before requesting another email.")
+                    resend_button_disabled = True
+                else:
+                    resend_button_disabled = False
+                
+                if st.form_submit_button("📧 Resend Confirmation Email", type="secondary", disabled=resend_button_disabled):
+                    if resend_email:
+                        try:
+                            supabase = init_supabase()
+                            redirect_url = get_base_url()
+                            response = supabase.auth.resend({
+                                "type": "signup",
+                                "email": resend_email,
+                                "options": {
+                                    "email_redirect_to": redirect_url
+                                }
+                            })
+                            st.success("✅ A new verification link has been sent to your inbox!")
+                            st.info("Please check your email and click the verification link to activate your account.")
+                            st.info("📧 **Check your spam/junk folder!** If you don't see the email within 2-3 minutes, it may have been filtered as spam.")
+                            
+                            # Update last resend time
+                            st.session_state.last_resend_time = time.time()
+                        except Exception as e:
+                            error_msg = str(e).lower()
+                            if "user not found" in error_msg:
+                                st.error("❌ No account found with this email. Please sign up first.")
+                            elif "rate limit" in error_msg:
+                                st.error("❌ Too many resend attempts. Please wait a few minutes before trying again.")
+                            else:
+                                st.error(f"❌ Failed to resend confirmation: {str(e)}")
+                    else:
+                        st.error("Please enter your email address")
 
 def check_authentication():
     """Check if user is authenticated"""
