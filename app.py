@@ -11,6 +11,30 @@ import hashlib
 import hmac
 import time
 
+# Get dynamic base URL for redirects
+def get_base_url():
+    """Get the current base URL dynamically for email redirects"""
+    try:
+        # Try to get URL from request headers (works in production)
+        if hasattr(st, 'context') and hasattr(st.context, 'headers'):
+            headers = st.context.headers
+            # Check for X-Forwarded-Host or Host header
+            host = headers.get('X-Forwarded-Host') or headers.get('Host')
+            if host:
+                # Determine protocol from X-Forwarded-Proto or default to https
+                proto = headers.get('X-Forwarded-Proto', 'https')
+                return f"{proto}://{host}"
+    except:
+        pass
+    
+    # Fall back to SITE_URL from secrets (for Streamlit Cloud)
+    site_url = st.secrets.get("SITE_URL")
+    if site_url:
+        return site_url
+    
+    # Final fallback to localhost for local development
+    return "http://localhost:8501"
+
 # Initialize Supabase client with proper error handling
 @st.cache_resource
 def init_supabase():
@@ -93,7 +117,7 @@ def show_auth_page():
                 if resend_email:
                     try:
                         supabase = init_supabase()
-                        redirect_url = st.secrets.get("SITE_URL", "http://localhost:8501")
+                        redirect_url = get_base_url()
                         response = supabase.auth.resend({
                             "type": "signup",
                             "email": resend_email,
@@ -126,8 +150,8 @@ def show_auth_page():
                     try:
                         supabase = init_supabase()
                         # Create user account with email confirmation
-                        # Get redirect URL from secrets or use default
-                        redirect_url = st.secrets.get("SITE_URL", "http://localhost:8501")
+                        # Get redirect URL dynamically
+                        redirect_url = get_base_url()
                         auth_response = supabase.auth.sign_up({
                             "email": new_email,
                             "password": new_password,
