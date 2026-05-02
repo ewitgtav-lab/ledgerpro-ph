@@ -5324,38 +5324,154 @@ Account Code,Account Name,Account Type,Parent Account
         if st.button(" Export Chart of Accounts", type="secondary"):
             st.markdown("#####  Export Chart of Accounts")
             
-            # Create sample chart of accounts data
-            chart_data = {
-                'Account Code': ['1010', '1020', '1030', '2010', '2020', '3010', '3110', '4010', '5010', '5110'],
-                'Account Name': [
-                    'Cash and Cash Equivalents',
-                    'Accounts Receivable', 
-                    'Inventory',
-                    'Accounts Payable',
-                    'Short-term Loans',
-                    'Common Stock',
-                    'Retained Earnings',
-                    'Sales of Goods',
-                    'Cost of Goods Sold',
-                    'Salaries and Wages'
-                ],
-                'Account Type': ['Asset', 'Asset', 'Asset', 'Liability', 'Liability', 'Equity', 'Equity', 'Revenue', 'Expense', 'Expense'],
-                'Parent Account': ['', '', '', '', '', '', '', '', '', '']
-            }
-            
-            df_export = pd.DataFrame(chart_data)
-            
-            # Convert to CSV
-            csv = df_export.to_csv(index=False)
-            st.download_button(
-                label=" Download CSV",
-                data=csv,
-                file_name='chart_of_accounts.csv',
-                mime='text/csv',
-                type="primary"
-            )
-            
-            st.dataframe(df_export)
+            # Create professional Excel export with openpyxl
+            try:
+                import openpyxl
+                from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+                from openpyxl.utils import get_column_letter
+                from io import BytesIO
+                
+                # Create sample chart of accounts data with balances
+                chart_data = {
+                    'Account Code': ['1010', '1020', '1030', '2010', '2020', '3010', '3110', '4010', '5010', '5110'],
+                    'Account Name': [
+                        'Cash and Cash Equivalents',
+                        'Accounts Receivable', 
+                        'Inventory',
+                        'Accounts Payable',
+                        'Short-term Loans',
+                        'Common Stock',
+                        'Retained Earnings',
+                        'Sales of Goods',
+                        'Cost of Goods Sold',
+                        'Salaries and Wages'
+                    ],
+                    'Account Type': ['Asset', 'Asset', 'Asset', 'Liability', 'Liability', 'Equity', 'Equity', 'Revenue', 'Expense', 'Expense'],
+                    'Parent Account': ['', '', '', '', '', '', '', '', '', ''],
+                    'Balance': [50000.00, 25000.00, 75000.00, -15000.00, -10000.00, 100000.00, 25000.00, 125000.00, -75000.00, -35000.00]
+                }
+                
+                df_export = pd.DataFrame(chart_data)
+                
+                # Create Excel workbook
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Chart of Accounts"
+                
+                # Add branding rows at the top
+                current_date = datetime.now().strftime('%B %d, %Y')
+                
+                # Row 1: Company name
+                ws['A1'] = "DEVFLOW SOLUTIONS PH - LedgerPro PH"
+                ws.merge_cells('A1:E1')
+                ws['A1'].font = Font(name='Calibri', size=14, bold=True, color="FFFFFF")
+                ws['A1'].fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+                ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+                
+                # Row 2: Title with date
+                ws['A2'] = f"Chart of Accounts - {current_date}"
+                ws.merge_cells('A2:E2')
+                ws['A2'].font = Font(name='Calibri', size=12, bold=True, color="FFFFFF")
+                ws['A2'].fill = PatternFill(start_color="5B9BD5", end_color="5B9BD5", fill_type="solid")
+                ws['A2'].alignment = Alignment(horizontal='center', vertical='center')
+                
+                # Row 3: Empty spacing
+                ws['A3'] = ""
+                ws.merge_cells('A3:E3')
+                
+                # Headers starting from row 4
+                headers = ['Account Code', 'Account Name', 'Account Type', 'Parent Account', 'Balance']
+                for col, header in enumerate(headers, 1):
+                    cell = ws.cell(row=4, column=col, value=header)
+                    cell.font = Font(name='Calibri', size=11, bold=True, color="FFFFFF")
+                    cell.fill = PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid")
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                    cell.border = Border(
+                        left=Side(style='thin'), right=Side(style='thin'),
+                        top=Side(style='thin'), bottom=Side(style='thin')
+                    )
+                
+                # Data rows
+                for row_idx, row_data in enumerate(df_export.itertuples(index=False), 5):
+                    for col_idx, value in enumerate(row_data, 1):
+                        cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                        cell.font = Font(name='Calibri', size=10)
+                        cell.alignment = Alignment(horizontal='left', vertical='center')
+                        cell.border = Border(
+                            left=Side(style='thin'), right=Side(style='thin'),
+                            top=Side(style='thin'), bottom=Side(style='thin')
+                        )
+                        
+                        # Format balance column as currency
+                        if col_idx == 5:  # Balance column
+                            cell.number_format = '₱#,##0.00'
+                            cell.alignment = Alignment(horizontal='right', vertical='center')
+                
+                # Auto-adjust column widths
+                for column in ws.columns:
+                    max_length = 0
+                    column_letter = get_column_letter(column[0].column)
+                    
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    
+                    # Add some padding
+                    adjusted_width = min(max_length + 2, 50)
+                    ws.column_dimensions[column_letter].width = adjusted_width
+                
+                # Save to BytesIO
+                excel_buffer = BytesIO()
+                wb.save(excel_buffer)
+                excel_buffer.seek(0)
+                
+                # Download button
+                st.download_button(
+                    label="📥 Download Excel File",
+                    data=excel_buffer.getvalue(),
+                    file_name=f'chart_of_accounts_{datetime.now().strftime("%Y%m%d")}.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    type="primary"
+                )
+                
+                # Display preview
+                st.dataframe(df_export)
+                
+            except ImportError:
+                st.error("❌ openpyxl library is required for Excel export. Please install it with: pip install openpyxl")
+                # Fallback to CSV
+                chart_data = {
+                    'Account Code': ['1010', '1020', '1030', '2010', '2020', '3010', '3110', '4010', '5010', '5110'],
+                    'Account Name': [
+                        'Cash and Cash Equivalents',
+                        'Accounts Receivable', 
+                        'Inventory',
+                        'Accounts Payable',
+                        'Short-term Loans',
+                        'Common Stock',
+                        'Retained Earnings',
+                        'Sales of Goods',
+                        'Cost of Goods Sold',
+                        'Salaries and Wages'
+                    ],
+                    'Account Type': ['Asset', 'Asset', 'Asset', 'Liability', 'Liability', 'Equity', 'Equity', 'Revenue', 'Expense', 'Expense'],
+                    'Parent Account': ['', '', '', '', '', '', '', '', '', ''],
+                    'Balance': [50000.00, 25000.00, 75000.00, -15000.00, -10000.00, 100000.00, 25000.00, 125000.00, -75000.00, -35000.00]
+                }
+                
+                df_export = pd.DataFrame(chart_data)
+                csv = df_export.to_csv(index=False)
+                st.download_button(
+                    label=" Download CSV (Fallback)",
+                    data=csv,
+                    file_name='chart_of_accounts.csv',
+                    mime='text/csv',
+                    type="secondary"
+                )
+                st.dataframe(df_export)
         
         # Add New Account
         if st.button(" Add New Account", type="primary"):
