@@ -229,7 +229,27 @@ def show_auth_page():
                             st.error("❌ Too many signup attempts. Please wait a few minutes before trying again.")
                             st.info("💡 Supabase rate limit reached. Try again in 5-10 minutes.")
                         elif "already registered" in error_msg or "user_already_exists" in error_msg:
-                            st.error("❌ This email is already registered. Try signing in instead.")
+                            st.warning("⚠️ This email is already registered.")
+                            st.info("💡 If you didn't receive the verification link, you can request a new one below.")
+                            
+                            # Show resend button for existing users
+                            if st.button("📧 Didn't get the link? Click here to Resend", key="resend_from_signup"):
+                                try:
+                                    supabase = init_supabase()
+                                    redirect_url = get_base_url()
+                                    response = supabase.auth.resend({
+                                        "type": "signup",
+                                        "email": new_email,
+                                        "options": {
+                                            "email_redirect_to": redirect_url
+                                        }
+                                    })
+                                    st.success("✅ A new verification link has been sent to your inbox!")
+                                    st.info("📧 **Check your spam/junk folder!** If you don't see the email within 2-3 minutes, it may have been filtered as spam.")
+                                except Exception as resend_error:
+                                    st.error(f"❌ Failed to resend: {str(resend_error)}")
+                                    if "rate limit" in str(resend_error).lower():
+                                        st.info("💡 Too many resend attempts. Please wait a few minutes.")
                         elif "weak_password" in error_msg:
                             st.error("❌ Password is too weak. Use at least 6 characters.")
                         elif "invalid_email" in error_msg:
